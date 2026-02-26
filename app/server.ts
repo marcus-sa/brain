@@ -189,7 +189,7 @@ const extractionResultSchema = z.object({
       toText: z.string().min(1),
     }),
   ),
-  tools: z.array(z.string().min(1)).default([]),
+  tools: z.array(z.string().min(1)),
 });
 
 const encoder = new TextEncoder();
@@ -997,6 +997,7 @@ async function extractStructuredGraph(input: {
       "Each relationship must include fromText and toText snippets from the source text.",
       "Relationship kind is uppercase snake_case when possible (for example DEPENDS_ON, BLOCKS, RELATES_TO).",
       "Capture tools/providers explicitly mentioned in the tools array.",
+      "Always include the tools key; use an empty array when no tools are mentioned.",
       "Confidence values must be between 0 and 1.",
       input.onboarding
         ? "Prioritize foundational onboarding entities: projects, people, first decisions, open questions, and constraints."
