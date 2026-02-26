@@ -34,6 +34,7 @@ type OpenRouterReasoningOptions = {
 };
 
 type ExtractableEntityKind = Exclude<EntityKind, "workspace">;
+type PersistableExtractableEntityKind = Exclude<ExtractableEntityKind, "person">;
 type GraphEntityTable = "workspace" | "project" | "person" | "feature" | "task" | "decision" | "question";
 type GraphEntityRecord = RecordId<GraphEntityTable, string>;
 type SourceRecord = RecordId<"message" | "document_chunk", string>;
@@ -43,6 +44,7 @@ type ExtractionPromptEntity = {
   kind: ExtractableEntityKind;
   text: string;
   confidence: number;
+  evidence: string;
 };
 
 type ExtractionPromptRelationship = {
@@ -108,10 +110,6 @@ type HasFeatureRow = {
   id: RecordId<"has_feature", string>;
 };
 
-type MemberOfRow = {
-  id: RecordId<"member_of", string>;
-};
-
 type ProjectScopeRow = {
   id: RecordId<"project", string>;
   name: string;
@@ -154,6 +152,19 @@ type PersistExtractionResult = {
   tools: string[];
 };
 
+type TempEntityReference = {
+  record: GraphEntityRecord;
+  text: string;
+  id: string;
+  kind: EntityKind;
+};
+
+type PersonMentionReference = {
+  tempId: string;
+  name: string;
+  record?: RecordId<"person", string>;
+};
+
 type OnboardingCounts = {
   projectCount: number;
   personCount: number;
@@ -186,6 +197,7 @@ const extractionResultSchema = z.object({
       kind: z.enum(["project", "person", "feature", "task", "decision", "question"]),
       text: z.string().min(1),
       confidence: z.number().min(0).max(1),
+      evidence: z.string().min(1),
     }),
   ),
   relationships: z.array(
@@ -254,6 +266,32 @@ const extractionModel = openrouter(extractionModelId, {
   ...(openRouterReasoning ? { extraBody: { reasoning: openRouterReasoning } } : {}),
 });
 const embeddingModel = openrouter.textEmbeddingModel(embeddingModelId);
+
+const placeholderEntityNames = new Set([
+  "my project",
+  "the project",
+  "our project",
+  "my app",
+  "the app",
+  "our app",
+  "this feature",
+  "the feature",
+  "that feature",
+  "my idea",
+  "the idea",
+  "this idea",
+  "the thing",
+  "this thing",
+  "that thing",
+  "my business",
+  "the business",
+  "my team",
+  "the team",
+]);
+
+const ownerRelationKinds = new Set(["OWNER", "OWNED_BY", "HAS_OWNER"]);
+const decisionByRelationKinds = new Set(["DECIDED_BY", "MADE_BY", "DECISION_BY"]);
+const assignedRelationKinds = new Set(["ASSIGNED_TO", "ASKED_TO", "RESPONSIBLE_FOR"]);
 
 const port = Number(Bun.env.PORT ?? "3000");
 
@@ -867,8 +905,9 @@ async function processChatMessage(input: {
     embeddingTargets.push(...textPersistence.embeddingTargets);
     extractedTools.push(...textPersistence.tools);
 
+    const dedupedTools = [...new Set(extractedTools.map((tool) => tool.trim()).filter((tool) => tool.length > 0))];
+
     if (extractedTools.length > 0) {
-      const dedupedTools = [...new Set(extractedTools.map((tool) => tool.trim()).filter((tool) => tool.length > 0))];
       if (dedupedTools.length > 0) {
         await appendWorkspaceTools(input.workspaceRecord, dedupedTools, now);
       }
@@ -888,6 +927,12 @@ async function processChatMessage(input: {
       contextRows,
       latestUserText: input.userText,
       workspaceRecord: input.workspaceRecord,
+      latestEntities: persistedEntities.map((entity) => ({
+        kind: entity.kind,
+        text: entity.text,
+        confidence: entity.confidence,
+      })),
+      latestTools: dedupedTools,
     });
     const summaryBlock = buildExtractionSummaryComponentBlock(persistedEntities, persistedRelationships);
     const assistantText = summaryBlock
@@ -1046,6 +1091,8 @@ async function generateAssistantReply(input: {
   contextRows: MessageContextRow[];
   latestUserText: string;
   workspaceRecord: RecordId<"workspace", string>;
+  latestEntities: Array<{ kind: EntityKind; text: string; confidence: number }>;
+  latestTools: string[];
 }): Promise<{ message: string; suggestions: string[] }> {
   let systemPrompt =
     "You are helping a product team capture actionable project state. Respond concisely with clear next actions.";
@@ -1056,6 +1103,10 @@ async function generateAssistantReply(input: {
       "You are onboarding a newly created workspace.",
       "Ask one natural question at a time like a smart colleague, never as a form.",
       "Cover these topics over 5-7 turns: business/venture, current projects, people involved, most important decision, tools used, biggest bottleneck.",
+      "Keep acknowledgment to one sentence max.",
+      "Reference at least one specific extracted entity or tool from the latest extraction context by name.",
+      "Ask exactly one concrete follow-up question in every response.",
+      "Do not produce generic praise or encouragement without a grounded follow-up question.",
       "Confirm captured entities inline in plain language.",
       "Return exactly 3 short clickable follow-up suggestions that move onboarding forward.",
       "Do not dump all questions at once.",
@@ -1087,6 +1138,9 @@ async function generateAssistantReply(input: {
       "Conversation context:",
       formatContextRows(input.contextRows),
       "",
+      "Latest extraction context:",
+      formatLatestExtractionContext(input.latestEntities, input.latestTools),
+      "",
       "Latest user message:",
       input.latestUserText,
     ].join("\n"),
@@ -1095,6 +1149,10 @@ async function generateAssistantReply(input: {
   const assistantText = assistantResponse.object.message.trim();
   if (assistantText.length === 0) {
     throw new Error("assistant response was empty");
+  }
+
+  if (input.onboardingState === "active") {
+    validateActiveOnboardingReply(assistantText, input.latestEntities, input.latestTools);
   }
 
   const suggestions = [...new Set(assistantResponse.object.suggestions.map((value) => value.trim()))]
@@ -1108,6 +1166,48 @@ async function generateAssistantReply(input: {
     message: assistantText,
     suggestions,
   };
+}
+
+function formatLatestExtractionContext(
+  entities: Array<{ kind: EntityKind; text: string; confidence: number }>,
+  tools: string[],
+): string {
+  const entityLines = entities
+    .slice()
+    .sort((a, b) => b.confidence - a.confidence)
+    .slice(0, 10)
+    .map((entity) => `${entity.kind}: ${entity.text} (${entity.confidence.toFixed(2)})`);
+  const toolLines = tools.slice(0, 10).map((tool) => `tool: ${tool}`);
+  const lines = [...entityLines, ...toolLines];
+  return lines.length > 0 ? lines.join("\n") : "(no extracted entities or tools)";
+}
+
+function validateActiveOnboardingReply(
+  message: string,
+  entities: Array<{ kind: EntityKind; text: string; confidence: number }>,
+  tools: string[],
+): void {
+  const questionCount = [...message].filter((char) => char === "?").length;
+  if (questionCount !== 1) {
+    throw new Error("active onboarding reply must contain exactly one follow-up question");
+  }
+
+  const groundingTerms = [
+    ...entities.map((entity) => entity.text),
+    ...tools,
+  ]
+    .map((term) => normalizeName(term))
+    .filter((term) => term.length >= 3);
+
+  if (groundingTerms.length === 0) {
+    return;
+  }
+
+  const normalizedMessage = normalizeName(message);
+  const hasGroundingReference = groundingTerms.some((term) => normalizedMessage.includes(term));
+  if (!hasGroundingReference) {
+    throw new Error("active onboarding reply must reference a specific extracted entity or tool");
+  }
 }
 
 async function ingestAttachment(input: {
@@ -1235,6 +1335,11 @@ async function extractStructuredGraph(input: {
         "Return only high-confidence extractions with explicit entity references.",
         "Entity kinds: project, person, feature, task, decision, question.",
         "Each entity must include a tempId.",
+        "Each entity must include evidence as a direct snippet from Source text supporting the extraction.",
+        "Use conversation context only for disambiguation; only extract entities evidenced in Source text.",
+        "Do not extract placeholders or generic references as entities: my project, the thing, this idea, that feature, our app, my business.",
+        "Person mentions must map to existing workspace identities when possible; never assume a new identity should be created.",
+        "Prefer canonical feature names over long paraphrases when multiple phrases describe the same capability.",
         "Each relationship must reference entities via fromTempId and toTempId.",
         "Each relationship must include fromText and toText snippets from the source text.",
         "Relationship kind is uppercase snake_case when possible (for example DEPENDS_ON, BLOCKS, RELATES_TO).",
@@ -1297,12 +1402,12 @@ async function persistExtractionOutput(input: {
   });
 
   try {
-    const entities = dedupeExtractedEntities(input.output.entities);
+    const entities = dedupeExtractedEntities(input.output.entities, input.promptText);
     const relationships = input.output.relationships
       .filter((relationship) => relationship.confidence >= extractionStoreThreshold)
       .map((relationship) => ({
         ...relationship,
-        kind: relationship.kind.trim(),
+        kind: normalizeRelationshipKind(relationship.kind),
         fromTempId: relationship.fromTempId.trim(),
         toTempId: relationship.toTempId.trim(),
         fromText: relationship.fromText.trim(),
@@ -1321,21 +1426,73 @@ async function persistExtractionOutput(input: {
     const persistedRelationships: ExtractedRelationship[] = [];
     const seeds: OnboardingSeedItem[] = [];
     const embeddingTargets: Array<{ record: GraphEntityRecord; text: string }> = [];
-    const entityByTempId = new Map<
-      string,
-      { record: GraphEntityRecord; text: string; id: string; kind: EntityKind }
-    >();
+    const entityByTempId = new Map<string, TempEntityReference>();
+    const personMentionsByTempId = new Map<string, PersonMentionReference>();
 
     const workspaceProjects = await loadWorkspaceProjects(input.workspaceRecord);
+    const personCandidates = entities.some((entity) => entity.kind === "person")
+      ? await loadWorkspaceKindCandidates(input.workspaceRecord, "person")
+      : [];
 
     for (const extracted of entities) {
+      if (extracted.kind === "person") {
+        const personMatch = await resolveWorkspacePersonMention(extracted.text, personCandidates);
+        personMentionsByTempId.set(extracted.tempId, {
+          tempId: extracted.tempId,
+          name: extracted.text,
+          ...(personMatch ? { record: personMatch.id as RecordId<"person", string> } : {}),
+        });
+
+        if (!personMatch) {
+          continue;
+        }
+
+        await createProvenanceEdge({
+          sourceRecord: input.sourceRecord,
+          targetRecord: personMatch.id,
+          confidence: extracted.confidence,
+          model: extractionModelId,
+          now: input.now,
+          fromText: extracted.text,
+        });
+
+        entityByTempId.set(extracted.tempId, {
+          record: personMatch.id,
+          text: personMatch.text,
+          id: personMatch.id.id as string,
+          kind: "person",
+        });
+
+        persistedEntities.push({
+          id: personMatch.id.id as string,
+          kind: "person",
+          text: personMatch.text,
+          confidence: extracted.confidence,
+          sourceKind: input.sourceKind,
+          sourceId: input.sourceRecord.id as string,
+        });
+
+        seeds.push({
+          id: personMatch.id.id as string,
+          kind: "person",
+          text: personMatch.text,
+          confidence: extracted.confidence,
+          sourceKind: input.sourceKind,
+          sourceId: input.sourceRecord.id as string,
+          ...(input.sourceLabel ? { sourceLabel: input.sourceLabel } : {}),
+        });
+
+        continue;
+      }
+
+      const extractedNonPerson = extracted as ExtractionPromptEntity & { kind: PersistableExtractableEntityKind };
       const persisted = await upsertGraphEntity({
         workspaceRecord: input.workspaceRecord,
         workspaceProjects,
         sourceRecord: input.sourceRecord,
         sourceKind: input.sourceKind,
         promptText: input.promptText,
-        extracted,
+        extracted: extractedNonPerson,
         sourceMessageRecord: input.sourceMessageRecord,
         sourceChunkRecord: input.sourceChunkRecord,
         now: input.now,
@@ -1376,6 +1533,13 @@ async function persistExtractionOutput(input: {
     }
 
     for (const relationship of relationships) {
+      await applyPersonReferenceFromRelationship({
+        relationship,
+        personMentionsByTempId,
+        entityByTempId,
+        now: input.now,
+      });
+
       const from = entityByTempId.get(relationship.fromTempId);
       const to = entityByTempId.get(relationship.toTempId);
       if (!from || !to) {
@@ -1437,8 +1601,9 @@ async function persistExtractionOutput(input: {
   }
 }
 
-function dedupeExtractedEntities(entities: ExtractionPromptEntity[]): ExtractionPromptEntity[] {
+function dedupeExtractedEntities(entities: ExtractionPromptEntity[], sourceText: string): ExtractionPromptEntity[] {
   const byTempId = new Map<string, ExtractionPromptEntity>();
+  const normalizedSourceText = normalizeName(sourceText);
 
   for (const entity of entities) {
     const tempId = entity.tempId.trim();
@@ -1451,7 +1616,21 @@ function dedupeExtractedEntities(entities: ExtractionPromptEntity[]): Extraction
       continue;
     }
 
+    const evidence = entity.evidence.trim();
+    if (evidence.length === 0) {
+      continue;
+    }
+
     if (entity.confidence < extractionStoreThreshold) {
+      continue;
+    }
+
+    if (placeholderEntityNames.has(normalizeName(text))) {
+      continue;
+    }
+
+    const normalizedEvidence = normalizeName(evidence);
+    if (normalizedEvidence.length === 0 || !normalizedSourceText.includes(normalizedEvidence)) {
       continue;
     }
 
@@ -1461,6 +1640,7 @@ function dedupeExtractedEntities(entities: ExtractionPromptEntity[]): Extraction
         ...entity,
         tempId,
         text,
+        evidence,
       });
     }
   }
@@ -1524,13 +1704,40 @@ async function upsertGraphEntity(input: {
   sourceRecord: SourceRecord;
   sourceKind: SourceKind;
   promptText: string;
-  extracted: ExtractionPromptEntity;
+  extracted: ExtractionPromptEntity & { kind: PersistableExtractableEntityKind };
   sourceMessageRecord?: RecordId<"message", string>;
   sourceChunkRecord?: RecordId<"document_chunk", string>;
   now: Date;
 }): Promise<{ record: GraphEntityRecord; text: string; kind: EntityKind; created: boolean }> {
   const candidateEmbedding = await createEmbedding(input.extracted.text);
   const candidates = await loadWorkspaceKindCandidates(input.workspaceRecord, input.extracted.kind);
+  const normalizedExtractedText = normalizeName(input.extracted.text);
+
+  const exactNameCandidate = candidates.find((candidate) => normalizeName(candidate.text) === normalizedExtractedText);
+  if (exactNameCandidate) {
+    const mergedText = await maybeUpgradeMergedFeatureName(
+      input.extracted.kind,
+      input.extracted.text,
+      exactNameCandidate,
+      input.now,
+    );
+
+    await createProvenanceEdge({
+      sourceRecord: input.sourceRecord,
+      targetRecord: exactNameCandidate.id,
+      confidence: input.extracted.confidence,
+      model: extractionModelId,
+      now: input.now,
+      fromText: input.extracted.text,
+    });
+
+    return {
+      record: exactNameCandidate.id,
+      text: mergedText,
+      kind: input.extracted.kind,
+      created: false,
+    };
+  }
 
   let bestCandidate: CandidateEntityRow | undefined;
   let bestSimilarity = -1;
@@ -1552,6 +1759,13 @@ async function upsertGraphEntity(input: {
     : false;
 
   if (bestCandidate && bestSimilarity > 0.95 && fuzzyMatch) {
+    const mergedText = await maybeUpgradeMergedFeatureName(
+      input.extracted.kind,
+      input.extracted.text,
+      bestCandidate,
+      input.now,
+    );
+
     await createProvenanceEdge({
       sourceRecord: input.sourceRecord,
       targetRecord: bestCandidate.id,
@@ -1563,7 +1777,7 @@ async function upsertGraphEntity(input: {
 
     return {
       record: bestCandidate.id,
-      text: bestCandidate.text,
+      text: mergedText,
       kind: input.extracted.kind,
       created: false,
     };
@@ -1589,14 +1803,6 @@ async function upsertGraphEntity(input: {
       id: entityRecord as RecordId<"project", string>,
       name: input.extracted.text,
     });
-  }
-
-  if (input.extracted.kind === "person") {
-    await ensureWorkspaceMemberEdge(
-      entityRecord as RecordId<"person", string>,
-      input.workspaceRecord,
-      input.now,
-    );
   }
 
   if (input.extracted.kind === "feature") {
@@ -1636,6 +1842,178 @@ async function upsertGraphEntity(input: {
   };
 }
 
+async function maybeUpgradeMergedFeatureName(
+  kind: PersistableExtractableEntityKind,
+  incomingText: string,
+  candidate: CandidateEntityRow,
+  now: Date,
+): Promise<string> {
+  if (kind !== "feature") {
+    return candidate.text;
+  }
+
+  if (!isRicherFeatureName(incomingText, candidate.text)) {
+    return candidate.text;
+  }
+
+  await surreal.update(candidate.id as RecordId<"feature", string>).merge({
+    name: incomingText,
+    updated_at: now,
+  });
+
+  return incomingText;
+}
+
+async function resolveWorkspacePersonMention(
+  mentionText: string,
+  candidates: CandidateEntityRow[],
+): Promise<CandidateEntityRow | undefined> {
+  const normalizedMention = normalizeName(mentionText);
+  if (normalizedMention.length === 0) {
+    return undefined;
+  }
+
+  const exactMatch = candidates.find((candidate) => normalizeName(candidate.text) === normalizedMention);
+  if (exactMatch) {
+    return exactMatch;
+  }
+
+  const mentionParts = normalizedMention.split(" ").filter((part) => part.length > 0);
+  if (mentionParts.length === 1) {
+    const shortNameMatches = candidates.filter((candidate) => {
+      const normalizedCandidate = normalizeName(candidate.text);
+      const candidateParts = normalizedCandidate.split(" ").filter((part) => part.length > 0);
+      return candidateParts.includes(mentionParts[0]);
+    });
+
+    if (shortNameMatches.length === 1) {
+      return shortNameMatches[0];
+    }
+  }
+
+  const mentionEmbedding = await createEmbedding(mentionText);
+  if (!mentionEmbedding) {
+    return undefined;
+  }
+
+  let bestCandidate: CandidateEntityRow | undefined;
+  let bestSimilarity = -1;
+
+  for (const candidate of candidates) {
+    if (!candidate.embedding) {
+      continue;
+    }
+
+    const similarity = cosineSimilarity(mentionEmbedding, candidate.embedding);
+    if (similarity > bestSimilarity) {
+      bestSimilarity = similarity;
+      bestCandidate = candidate;
+    }
+  }
+
+  if (!bestCandidate) {
+    return undefined;
+  }
+
+  const normalizedCandidate = normalizeName(bestCandidate.text);
+  const fuzzyMatch = isFuzzyNameMatch(normalizedMention, normalizedCandidate);
+  if (bestSimilarity > 0.95 && fuzzyMatch) {
+    return bestCandidate;
+  }
+
+  return undefined;
+}
+
+async function applyPersonReferenceFromRelationship(input: {
+  relationship: ExtractionPromptRelationship;
+  personMentionsByTempId: Map<string, PersonMentionReference>;
+  entityByTempId: Map<string, TempEntityReference>;
+  now: Date;
+}): Promise<void> {
+  const fromPerson = input.personMentionsByTempId.get(input.relationship.fromTempId);
+  const toPerson = input.personMentionsByTempId.get(input.relationship.toTempId);
+  if ((fromPerson && toPerson) || (!fromPerson && !toPerson)) {
+    return;
+  }
+
+  const person = fromPerson ?? toPerson;
+  if (!person) {
+    return;
+  }
+
+  const targetTempId = fromPerson ? input.relationship.toTempId : input.relationship.fromTempId;
+  const targetEntity = input.entityByTempId.get(targetTempId);
+  if (!targetEntity) {
+    return;
+  }
+
+  const relationKind = input.relationship.kind;
+  if (targetEntity.kind === "feature" && ownerRelationKinds.has(relationKind)) {
+    if (person.record) {
+      await surreal.update(targetEntity.record as RecordId<"feature", string>).merge({
+        owner: person.record,
+        updated_at: input.now,
+      });
+      return;
+    }
+
+    await surreal.update(targetEntity.record as RecordId<"feature", string>).merge({
+      owner_name: person.name,
+      updated_at: input.now,
+    });
+    return;
+  }
+
+  if (targetEntity.kind === "task" && (ownerRelationKinds.has(relationKind) || assignedRelationKinds.has(relationKind))) {
+    if (person.record) {
+      await surreal.update(targetEntity.record as RecordId<"task", string>).merge({
+        owner: person.record,
+        updated_at: input.now,
+      });
+      return;
+    }
+
+    await surreal.update(targetEntity.record as RecordId<"task", string>).merge({
+      owner_name: person.name,
+      updated_at: input.now,
+    });
+    return;
+  }
+
+  if (targetEntity.kind === "decision" && decisionByRelationKinds.has(relationKind)) {
+    if (person.record) {
+      await surreal.update(targetEntity.record as RecordId<"decision", string>).merge({
+        decided_by: person.record,
+        updated_at: input.now,
+      });
+      return;
+    }
+
+    await surreal.update(targetEntity.record as RecordId<"decision", string>).merge({
+      decided_by_name: person.name,
+      updated_at: input.now,
+    });
+    return;
+  }
+
+  if (targetEntity.kind !== "question" || !assignedRelationKinds.has(relationKind)) {
+    return;
+  }
+
+  if (person.record) {
+    await surreal.update(targetEntity.record as RecordId<"question", string>).merge({
+      assigned_to: person.record,
+      updated_at: input.now,
+    });
+    return;
+  }
+
+  await surreal.update(targetEntity.record as RecordId<"question", string>).merge({
+    assigned_to_name: person.name,
+    updated_at: input.now,
+  });
+}
+
 async function createProvenanceEdge(input: {
   sourceRecord: SourceRecord;
   targetRecord: GraphEntityRecord;
@@ -1654,7 +2032,7 @@ async function createProvenanceEdge(input: {
 }
 
 function buildEntityRecordContent(
-  kind: ExtractableEntityKind,
+  kind: PersistableExtractableEntityKind,
   text: string,
   confidence: number,
   now: Date,
@@ -1664,15 +2042,6 @@ function buildEntityRecordContent(
     return {
       name: text,
       status: "active",
-      ...(embedding ? { embedding } : {}),
-      created_at: now,
-      updated_at: now,
-    };
-  }
-
-  if (kind === "person") {
-    return {
-      name: text,
       ...(embedding ? { embedding } : {}),
       created_at: now,
       updated_at: now,
@@ -2311,28 +2680,6 @@ async function ensureProjectFeatureEdge(
   }
 }
 
-async function ensureWorkspaceMemberEdge(
-  personRecord: RecordId<"person", string>,
-  workspaceRecord: RecordId<"workspace", string>,
-  now: Date,
-): Promise<void> {
-  const [edgeRows] = await surreal
-    .query<[MemberOfRow[]]>(
-      "SELECT id FROM member_of WHERE `in` = $person AND out = $workspace LIMIT 1;",
-      {
-        person: personRecord,
-        workspace: workspaceRecord,
-      },
-    )
-    .collect<[MemberOfRow[]]>();
-
-  if (edgeRows.length === 0) {
-    await surreal.relate(personRecord, new RecordId("member_of", randomUUID()), workspaceRecord, {
-      added_at: now,
-    }).output("after");
-  }
-}
-
 async function resolveWorkspaceRecord(workspaceId: string): Promise<RecordId<"workspace", string>> {
   const workspaceRecord = new RecordId("workspace", workspaceId);
   const workspace = await surreal.select<{ id: RecordId<"workspace", string> }>(workspaceRecord);
@@ -2676,6 +3023,32 @@ function normalizeName(value: string): string {
     .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function normalizeRelationshipKind(value: string): string {
+  return value
+    .trim()
+    .replace(/[^a-zA-Z0-9]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_/, "")
+    .replace(/_$/, "")
+    .toUpperCase();
+}
+
+function isRicherFeatureName(incomingName: string, existingName: string): boolean {
+  const normalizedIncoming = normalizeName(incomingName);
+  const normalizedExisting = normalizeName(existingName);
+  if (normalizedIncoming.length === 0 || normalizedExisting.length === 0) {
+    return false;
+  }
+
+  const incomingWords = normalizedIncoming.split(" ").filter((word) => word.length > 0);
+  const existingWords = normalizedExisting.split(" ").filter((word) => word.length > 0);
+  if (incomingWords.length <= existingWords.length) {
+    return false;
+  }
+
+  return normalizedIncoming.length > normalizedExisting.length;
 }
 
 function isFuzzyNameMatch(a: string, b: string): boolean {

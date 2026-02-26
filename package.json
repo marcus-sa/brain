@@ -10,7 +10,8 @@
     "smoke:phase1": "bun run app/scripts/smoke-phase1.ts",
     "smoke:logging": "bun run app/scripts/smoke-logging.ts",
     "smoke:onboarding": "bun run app/scripts/smoke-onboarding.ts",
-    "smoke:readme-import": "bun run app/scripts/smoke-readme-import.ts"
+    "smoke:readme-import": "bun run app/scripts/smoke-readme-import.ts",
+    "smoke:extraction-quality": "bun run app/scripts/smoke-extraction-quality.ts"
   },
   "dependencies": {
     "@openrouter/ai-sdk-provider": "^2.2.3",
