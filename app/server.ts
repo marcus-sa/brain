@@ -1410,7 +1410,15 @@ async function loadWorkspaceKindCandidates(
   if (kind === "feature") {
     const [rows] = await surreal
       .query<[CandidateEntityRow[]]>(
-        "LET $projects = SELECT VALUE out FROM has_project WHERE `in` = $workspace; SELECT id, name AS text, embedding FROM feature WHERE id IN (SELECT VALUE out FROM has_feature WHERE `in` IN $projects);",
+        [
+          "SELECT id, name AS text, embedding",
+          "FROM feature",
+          "WHERE id IN (",
+          "  SELECT VALUE out",
+          "  FROM has_feature",
+          "  WHERE `in` IN (SELECT VALUE out FROM has_project WHERE `in` = $workspace)",
+          ");",
+        ].join(" "),
         { workspace: workspaceRecord },
       )
       .collect<[CandidateEntityRow[]]>();
@@ -1421,10 +1429,18 @@ async function loadWorkspaceKindCandidates(
     const [rows] = await surreal
       .query<[CandidateEntityRow[]]>(
         [
-          "LET $projects = SELECT VALUE out FROM has_project WHERE `in` = $workspace;",
-          "LET $workspace_conversations = SELECT VALUE id FROM conversation WHERE workspace = $workspace;",
-          "LET $workspace_messages = SELECT VALUE id FROM message WHERE conversation IN $workspace_conversations;",
-          "SELECT id, title AS text, embedding FROM task WHERE id IN (SELECT VALUE `in` FROM belongs_to WHERE out IN $projects) OR source_message IN $workspace_messages;",
+          "SELECT id, title AS text, embedding",
+          "FROM task",
+          "WHERE id IN (",
+          "  SELECT VALUE `in`",
+          "  FROM belongs_to",
+          "  WHERE out IN (SELECT VALUE out FROM has_project WHERE `in` = $workspace)",
+          ")",
+          "OR source_message IN (",
+          "  SELECT VALUE id",
+          "  FROM message",
+          "  WHERE conversation IN (SELECT VALUE id FROM conversation WHERE workspace = $workspace)",
+          ");",
         ].join(" "),
         { workspace: workspaceRecord },
       )
@@ -1436,10 +1452,18 @@ async function loadWorkspaceKindCandidates(
     const [rows] = await surreal
       .query<[CandidateEntityRow[]]>(
         [
-          "LET $projects = SELECT VALUE out FROM has_project WHERE `in` = $workspace;",
-          "LET $workspace_conversations = SELECT VALUE id FROM conversation WHERE workspace = $workspace;",
-          "LET $workspace_messages = SELECT VALUE id FROM message WHERE conversation IN $workspace_conversations;",
-          "SELECT id, summary AS text, embedding FROM decision WHERE id IN (SELECT VALUE `in` FROM belongs_to WHERE out IN $projects) OR source_message IN $workspace_messages;",
+          "SELECT id, summary AS text, embedding",
+          "FROM decision",
+          "WHERE id IN (",
+          "  SELECT VALUE `in`",
+          "  FROM belongs_to",
+          "  WHERE out IN (SELECT VALUE out FROM has_project WHERE `in` = $workspace)",
+          ")",
+          "OR source_message IN (",
+          "  SELECT VALUE id",
+          "  FROM message",
+          "  WHERE conversation IN (SELECT VALUE id FROM conversation WHERE workspace = $workspace)",
+          ");",
         ].join(" "),
         { workspace: workspaceRecord },
       )
@@ -1450,10 +1474,18 @@ async function loadWorkspaceKindCandidates(
   const [rows] = await surreal
     .query<[CandidateEntityRow[]]>(
       [
-        "LET $projects = SELECT VALUE out FROM has_project WHERE `in` = $workspace;",
-        "LET $workspace_conversations = SELECT VALUE id FROM conversation WHERE workspace = $workspace;",
-        "LET $workspace_messages = SELECT VALUE id FROM message WHERE conversation IN $workspace_conversations;",
-        "SELECT id, text AS text, embedding FROM question WHERE id IN (SELECT VALUE `in` FROM belongs_to WHERE out IN $projects) OR source_message IN $workspace_messages;",
+        "SELECT id, text AS text, embedding",
+        "FROM question",
+        "WHERE id IN (",
+        "  SELECT VALUE `in`",
+        "  FROM belongs_to",
+        "  WHERE out IN (SELECT VALUE out FROM has_project WHERE `in` = $workspace)",
+        ")",
+        "OR source_message IN (",
+        "  SELECT VALUE id",
+        "  FROM message",
+        "  WHERE conversation IN (SELECT VALUE id FROM conversation WHERE workspace = $workspace)",
+        ");",
       ].join(" "),
       { workspace: workspaceRecord },
     )
@@ -1510,8 +1542,13 @@ async function loadOnboardingCounts(workspaceRecord: RecordId<"workspace", strin
   const [decisionRows] = await surreal
     .query<[Array<{ id: RecordId<"decision", string> }>]>(
       [
-        "LET $projects = SELECT VALUE out FROM has_project WHERE `in` = $workspace;",
-        "SELECT id FROM decision WHERE id IN (SELECT VALUE `in` FROM belongs_to WHERE out IN $projects);",
+        "SELECT id",
+        "FROM decision",
+        "WHERE id IN (",
+        "  SELECT VALUE `in`",
+        "  FROM belongs_to",
+        "  WHERE out IN (SELECT VALUE out FROM has_project WHERE `in` = $workspace)",
+        ");",
       ].join(" "),
       { workspace: workspaceRecord },
     )
@@ -1520,8 +1557,13 @@ async function loadOnboardingCounts(workspaceRecord: RecordId<"workspace", strin
   const [questionRows] = await surreal
     .query<[Array<{ id: RecordId<"question", string> }>]>(
       [
-        "LET $projects = SELECT VALUE out FROM has_project WHERE `in` = $workspace;",
-        "SELECT id FROM question WHERE id IN (SELECT VALUE `in` FROM belongs_to WHERE out IN $projects);",
+        "SELECT id",
+        "FROM question",
+        "WHERE id IN (",
+        "  SELECT VALUE `in`",
+        "  FROM belongs_to",
+        "  WHERE out IN (SELECT VALUE out FROM has_project WHERE `in` = $workspace)",
+        ");",
       ].join(" "),
       { workspace: workspaceRecord },
     )
@@ -1553,8 +1595,15 @@ async function loadOnboardingSummary(workspaceRecord: RecordId<"workspace", stri
   const [decisionRows] = await surreal
     .query<[Array<{ summary: string }>]>(
       [
-        "LET $projects = SELECT VALUE out FROM has_project WHERE `in` = $workspace;",
-        "SELECT summary FROM decision WHERE id IN (SELECT VALUE `in` FROM belongs_to WHERE out IN $projects) ORDER BY created_at DESC LIMIT 8;",
+        "SELECT summary",
+        "FROM decision",
+        "WHERE id IN (",
+        "  SELECT VALUE `in`",
+        "  FROM belongs_to",
+        "  WHERE out IN (SELECT VALUE out FROM has_project WHERE `in` = $workspace)",
+        ")",
+        "ORDER BY created_at DESC",
+        "LIMIT 8;",
       ].join(" "),
       { workspace: workspaceRecord },
     )
@@ -1563,8 +1612,15 @@ async function loadOnboardingSummary(workspaceRecord: RecordId<"workspace", stri
   const [questionRows] = await surreal
     .query<[Array<{ text: string }>]>(
       [
-        "LET $projects = SELECT VALUE out FROM has_project WHERE `in` = $workspace;",
-        "SELECT text FROM question WHERE id IN (SELECT VALUE `in` FROM belongs_to WHERE out IN $projects) ORDER BY created_at DESC LIMIT 8;",
+        "SELECT text",
+        "FROM question",
+        "WHERE id IN (",
+        "  SELECT VALUE `in`",
+        "  FROM belongs_to",
+        "  WHERE out IN (SELECT VALUE out FROM has_project WHERE `in` = $workspace)",
+        ")",
+        "ORDER BY created_at DESC",
+        "LIMIT 8;",
       ].join(" "),
       { workspace: workspaceRecord },
     )
