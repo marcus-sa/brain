@@ -1,0 +1,8 @@
+{
+  "audit_log_enabled": true,
+  "audit_log_path": ".nwave/audit.log",
+  "validation_enabled": true,
+  "tool_monitoring_enabled": true,
+  "max_execution_time": 3600,
+  "subagent_timeout": 300
+}

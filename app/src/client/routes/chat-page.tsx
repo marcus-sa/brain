@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   Chat,
   ChatInput,
@@ -11,17 +11,28 @@ import {
   type SlashCommandItem,
 } from "reachat";
 import type {
-  ChatMessageRequest,
   ChatMessageResponse,
+  CreateWorkspaceRequest,
+  CreateWorkspaceResponse,
   ExtractedEntity,
   ExtractedRelationship,
+  OnboardingSeedItem,
   SearchEntityResponse,
   StreamEvent as ChatStreamEvent,
+  WorkspaceBootstrapResponse,
 } from "../../shared/contracts";
 
 type ConversationExtraction = {
   entities: ExtractedEntity[];
   relationships: ExtractedRelationship[];
+};
+
+type WorkspaceState = {
+  id: string;
+  name: string;
+  onboardingComplete: boolean;
+  onboardingState: "active" | "summary_pending" | "complete";
+  conversationId: string;
 };
 
 const COMMAND_ITEMS: SlashCommandItem[] = [
@@ -47,25 +58,35 @@ const COMMAND_ITEMS: SlashCommandItem[] = [
     value: "question: ",
   },
 ];
-const WORKSPACE_ID = "default";
+
+const ACTIVE_WORKSPACE_STORAGE_KEY = "brain.activeWorkspaceId";
 
 export function ChatPage() {
+  const [workspace, setWorkspace] = useState<WorkspaceState | undefined>();
+  const [createWorkspaceName, setCreateWorkspaceName] = useState("");
+  const [createOwnerName, setCreateOwnerName] = useState("");
+  const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false);
+  const [isBootstrapping, setIsBootstrapping] = useState(false);
   const [sessions, setSessions] = useState<Session[]>([
     {
-      id: "phase-1",
-      title: "Phase 1",
+      id: "main",
+      title: "Workspace Chat",
       createdAt: new Date(),
       updatedAt: new Date(),
       conversations: [],
     },
   ]);
-  const [activeSessionId] = useState("phase-1");
+  const [activeSessionId] = useState("main");
   const [backendConversationId, setBackendConversationId] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [extractionsByConversationId, setExtractionsByConversationId] = useState<
     Record<string, ConversationExtraction>
   >({});
+  const [seedItems, setSeedItems] = useState<OnboardingSeedItem[]>([]);
+  const [pendingFile, setPendingFile] = useState<File | undefined>();
+  const [highlightedSourceId, setHighlightedSourceId] = useState<string | undefined>();
+  const [conversationSourceMessageById, setConversationSourceMessageById] = useState<Record<string, string>>({});
   const streamRef = useRef<EventSource | undefined>(undefined);
 
   const activeSession = useMemo(
@@ -73,13 +94,108 @@ export function ChatPage() {
     [sessions, activeSessionId],
   );
 
+  useEffect(() => {
+    const existingWorkspaceId = window.localStorage.getItem(ACTIVE_WORKSPACE_STORAGE_KEY);
+    if (!existingWorkspaceId) {
+      return;
+    }
+
+    void bootstrapWorkspace(existingWorkspaceId);
+  }, []);
+
   if (!activeSession) {
     throw new Error("active session missing");
   }
 
+  async function bootstrapWorkspace(workspaceId: string) {
+    setIsBootstrapping(true);
+    setErrorMessage(undefined);
+
+    let response: Response;
+    try {
+      response = await fetch(`/api/workspaces/${encodeURIComponent(workspaceId)}/bootstrap`);
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : "Network error";
+      setErrorMessage(messageText);
+      setIsBootstrapping(false);
+      return;
+    }
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        window.localStorage.removeItem(ACTIVE_WORKSPACE_STORAGE_KEY);
+        setWorkspace(undefined);
+      }
+      const body = await response.text();
+      setErrorMessage(body);
+      setIsBootstrapping(false);
+      return;
+    }
+
+    const payload = (await response.json()) as WorkspaceBootstrapResponse;
+    applyBootstrapPayload(payload);
+    setIsBootstrapping(false);
+  }
+
+  function applyBootstrapPayload(payload: WorkspaceBootstrapResponse) {
+    const conversations: Session["conversations"] = [];
+    const messageSourceMap: Record<string, string> = {};
+
+    for (const message of payload.messages) {
+      if (message.role === "user") {
+        conversations.push({
+          id: message.id,
+          question: message.text,
+          createdAt: new Date(message.createdAt),
+        });
+        messageSourceMap[message.id] = message.id;
+        continue;
+      }
+
+      const last = conversations[conversations.length - 1];
+      if (last && !last.response) {
+        last.response = message.text;
+        last.updatedAt = new Date(message.createdAt);
+        continue;
+      }
+
+      conversations.push({
+        id: `assistant-${message.id}`,
+        question: "System kickoff",
+        response: message.text,
+        createdAt: new Date(message.createdAt),
+      });
+    }
+
+    setSessions([
+      {
+        id: "main",
+        title: payload.workspaceName,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        conversations,
+      },
+    ]);
+
+    setConversationSourceMessageById(messageSourceMap);
+    setSeedItems(payload.seeds);
+    setBackendConversationId(payload.conversationId);
+    setWorkspace({
+      id: payload.workspaceId,
+      name: payload.workspaceName,
+      onboardingComplete: payload.onboardingComplete,
+      onboardingState: payload.onboardingState,
+      conversationId: payload.conversationId,
+    });
+  }
+
   async function searchMentions(query: string): Promise<MentionItem[]> {
+    if (!workspace) {
+      return [];
+    }
+
     const response = await fetch(
-      `/api/entities/search?q=${encodeURIComponent(query)}&workspaceId=${encodeURIComponent(WORKSPACE_ID)}&limit=8`,
+      `/api/entities/search?q=${encodeURIComponent(query)}&workspaceId=${encodeURIComponent(workspace.id)}&limit=8`,
     );
     if (!response.ok) {
       throw new Error(`entity search failed: ${response.status}`);
@@ -94,13 +210,65 @@ export function ChatPage() {
     }));
   }
 
+  async function onCreateWorkspace(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const name = createWorkspaceName.trim();
+    const ownerDisplayName = createOwnerName.trim();
+    if (!name || !ownerDisplayName || isCreatingWorkspace) {
+      return;
+    }
+
+    setErrorMessage(undefined);
+    setIsCreatingWorkspace(true);
+
+    const requestBody: CreateWorkspaceRequest = {
+      name,
+      ownerDisplayName,
+    };
+
+    let response: Response;
+    try {
+      response = await fetch("/api/workspaces", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : "Network error";
+      setErrorMessage(messageText);
+      setIsCreatingWorkspace(false);
+      return;
+    }
+
+    if (!response.ok) {
+      const body = await response.text();
+      setErrorMessage(body);
+      setIsCreatingWorkspace(false);
+      return;
+    }
+
+    const payload = (await response.json()) as CreateWorkspaceResponse;
+    window.localStorage.setItem(ACTIVE_WORKSPACE_STORAGE_KEY, payload.workspaceId);
+    await bootstrapWorkspace(payload.workspaceId);
+    setCreateWorkspaceName("");
+    setCreateOwnerName("");
+    setIsCreatingWorkspace(false);
+  }
+
+  function onUploadFile(file: File) {
+    setPendingFile(file);
+  }
+
   async function onSendMessage(message: string) {
-    if (isLoading) {
+    if (isLoading || !workspace) {
       return;
     }
 
     const text = message.trim();
-    if (!text) {
+    if (!text && !pendingFile) {
       return;
     }
 
@@ -108,15 +276,7 @@ export function ChatPage() {
     setIsLoading(true);
 
     const clientMessageId = crypto.randomUUID();
-    const requestBody: ChatMessageRequest = {
-      clientMessageId,
-      workspaceId: WORKSPACE_ID,
-      text,
-    };
-
-    if (backendConversationId) {
-      requestBody.conversationId = backendConversationId;
-    }
+    const currentAttachment = pendingFile;
 
     setSessions((existing) =>
       existing.map((session) =>
@@ -128,8 +288,19 @@ export function ChatPage() {
                 ...session.conversations,
                 {
                   id: clientMessageId,
-                  question: text,
+                  question: text.length > 0 ? text : `Uploaded ${currentAttachment?.name ?? "file"}`,
                   createdAt: new Date(),
+                  ...(currentAttachment
+                    ? {
+                        files: [
+                          {
+                            name: currentAttachment.name,
+                            type: currentAttachment.type,
+                            size: currentAttachment.size,
+                          },
+                        ],
+                      }
+                    : {}),
                 },
               ],
             }
@@ -139,18 +310,41 @@ export function ChatPage() {
 
     let response: Response;
     try {
-      response = await fetch("/api/chat/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestBody),
-      });
+      if (currentAttachment) {
+        const formData = new FormData();
+        formData.set("clientMessageId", clientMessageId);
+        formData.set("workspaceId", workspace.id);
+        formData.set("text", text);
+        if (backendConversationId) {
+          formData.set("conversationId", backendConversationId);
+        }
+        formData.set("file", currentAttachment);
+
+        response = await fetch("/api/chat/messages", {
+          method: "POST",
+          body: formData,
+        });
+      } else {
+        response = await fetch("/api/chat/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            clientMessageId,
+            workspaceId: workspace.id,
+            text,
+            ...(backendConversationId ? { conversationId: backendConversationId } : {}),
+          }),
+        });
+      }
     } catch (error) {
       const messageText = error instanceof Error ? error.message : "Network error";
       setErrorMessage(messageText);
       setIsLoading(false);
       return;
+    } finally {
+      setPendingFile(undefined);
     }
 
     if (!response.ok) {
@@ -162,6 +356,10 @@ export function ChatPage() {
 
     const payload = (await response.json()) as ChatMessageResponse;
     setBackendConversationId(payload.conversationId);
+    setConversationSourceMessageById((existing) => ({
+      ...existing,
+      [clientMessageId]: payload.userMessageId,
+    }));
 
     if (streamRef.current) {
       streamRef.current.close();
@@ -233,6 +431,30 @@ export function ChatPage() {
         return;
       }
 
+      if (parsed.type === "onboarding_seed") {
+        setSeedItems((existing) => {
+          const deduped = new Map(existing.map((item) => [`${item.id}:${item.sourceKind}:${item.sourceId}`, item]));
+          for (const seed of parsed.seeds) {
+            deduped.set(`${seed.id}:${seed.sourceKind}:${seed.sourceId}`, seed);
+          }
+          return [...deduped.values()];
+        });
+        return;
+      }
+
+      if (parsed.type === "onboarding_state") {
+        setWorkspace((existing) =>
+          existing
+            ? {
+                ...existing,
+                onboardingState: parsed.onboardingState,
+                onboardingComplete: parsed.onboardingState === "complete",
+              }
+            : existing,
+        );
+        return;
+      }
+
       if (parsed.type === "error") {
         setErrorMessage(parsed.error);
         setIsLoading(false);
@@ -286,78 +508,164 @@ export function ChatPage() {
     setIsLoading(false);
   }
 
+  if (!workspace) {
+    return (
+      <section className="workspace-setup">
+        <h2>Create Workspace</h2>
+        <p>Start with workspace name and owner identity. Onboarding continues in chat.</p>
+        <form onSubmit={onCreateWorkspace} className="workspace-form">
+          <label>
+            Workspace name
+            <input
+              value={createWorkspaceName}
+              onChange={(event) => setCreateWorkspaceName(event.target.value)}
+              placeholder="Acme Labs"
+            />
+          </label>
+          <label>
+            Owner display name
+            <input
+              value={createOwnerName}
+              onChange={(event) => setCreateOwnerName(event.target.value)}
+              placeholder="Marcus"
+            />
+          </label>
+          <button type="submit" disabled={isCreatingWorkspace || isBootstrapping}>
+            {isCreatingWorkspace ? "Creating..." : "Create Workspace"}
+          </button>
+        </form>
+        {errorMessage ? <p className="error-message">{errorMessage}</p> : undefined}
+      </section>
+    );
+  }
+
   return (
     <section className="reachat-page">
-      <Chat
-        viewType="chat"
-        sessions={sessions}
-        activeSessionId={activeSession.id}
-        isLoading={isLoading}
-        onSendMessage={onSendMessage}
-        onStopMessage={onStopMessage}
-      >
-        <SessionMessagePanel>
-          <SessionMessagesHeader>
-            <div className="reachat-header">Phase 1 Chat + Extraction</div>
-          </SessionMessagesHeader>
-          <SessionMessages>
-            {(conversations) =>
-              conversations.map((conversation, index) => {
-                const extraction = extractionsByConversationId[conversation.id];
-                return (
-                  <SessionMessage
-                    key={conversation.id}
-                    conversation={conversation}
-                    isLast={index === conversations.length - 1}
-                  >
-                    {extraction ? (
-                      <div className="extraction-block">
-                        {extraction.entities.length > 0 ? (
-                          <div className="extraction-row">
-                            {extraction.entities.map((entity) => (
-                              <span
-                                key={entity.id}
-                                className="entity-badge"
-                                title={`source message: ${entity.sourceMessageId}`}
-                              >
-                                {entity.kind} • {entity.text} • {entity.confidence.toFixed(2)}
-                              </span>
-                            ))}
-                          </div>
-                        ) : undefined}
+      <div className="workspace-toolbar">
+        <div>
+          <strong>{workspace.name}</strong>
+          <span className="workspace-state">
+            {workspace.onboardingComplete
+              ? "Onboarding complete"
+              : workspace.onboardingState === "summary_pending"
+                ? "Onboarding summary"
+                : "Onboarding in progress"}
+          </span>
+        </div>
+        {pendingFile ? (
+          <div className="pending-file">
+            Attached: {pendingFile.name}
+            <button type="button" onClick={() => setPendingFile(undefined)}>
+              Clear
+            </button>
+          </div>
+        ) : undefined}
+      </div>
 
-                        {extraction.relationships.length > 0 ? (
-                          <div className="extraction-row">
-                            {extraction.relationships.map((relationship) => (
-                              <span
-                                key={relationship.id}
-                                className="relationship-badge"
-                                title={`source message: ${relationship.sourceMessageId}`}
-                              >
-                                {relationship.kind} • {relationship.fromId} -&gt; {relationship.toId} •{" "}
-                                {relationship.confidence.toFixed(2)}
-                              </span>
-                            ))}
-                          </div>
-                        ) : undefined}
-                      </div>
-                    ) : undefined}
-                  </SessionMessage>
-                );
-              })
-            }
-          </SessionMessages>
-          <ChatInput
-            placeholder="Discuss tasks, decisions, and questions..."
-            mentions={{
-              onSearch: searchMentions,
-            }}
-            commands={{
-              items: COMMAND_ITEMS,
-            }}
-          />
-        </SessionMessagePanel>
-      </Chat>
+      <div className="onboarding-layout">
+        <Chat
+          viewType="chat"
+          sessions={sessions}
+          activeSessionId={activeSession.id}
+          isLoading={isLoading || isBootstrapping}
+          onSendMessage={onSendMessage}
+          onStopMessage={onStopMessage}
+          onFileUpload={onUploadFile}
+        >
+          <SessionMessagePanel>
+            <SessionMessagesHeader>
+              <div className="reachat-header">Workspace Chat + Extraction</div>
+            </SessionMessagesHeader>
+            <SessionMessages>
+              {(conversations) =>
+                conversations.map((conversation, index) => {
+                  const extraction = extractionsByConversationId[conversation.id];
+                  const sourceMessageId = conversationSourceMessageById[conversation.id];
+                  const isHighlighted = Boolean(highlightedSourceId && sourceMessageId === highlightedSourceId);
+                  return (
+                    <SessionMessage
+                      key={conversation.id}
+                      conversation={conversation}
+                      isLast={index === conversations.length - 1}
+                    >
+                      {isHighlighted ? <div className="source-match-tag">Source match</div> : undefined}
+
+                      {extraction ? (
+                        <div className="extraction-block">
+                          {extraction.entities.length > 0 ? (
+                            <div className="extraction-row">
+                              {extraction.entities.map((entity) => (
+                                <span
+                                  key={`${entity.id}:${entity.sourceKind}:${entity.sourceId}`}
+                                  className="entity-badge"
+                                  title={`source ${entity.sourceKind}: ${entity.sourceId}`}
+                                >
+                                  {entity.kind} • {entity.text} • {entity.confidence.toFixed(2)}
+                                </span>
+                              ))}
+                            </div>
+                          ) : undefined}
+
+                          {extraction.relationships.length > 0 ? (
+                            <div className="extraction-row">
+                              {extraction.relationships.map((relationship) => (
+                                <span
+                                  key={relationship.id}
+                                  className="relationship-badge"
+                                  title={
+                                    relationship.sourceId
+                                      ? `source ${relationship.sourceKind}: ${relationship.sourceId}`
+                                      : "relationship"
+                                  }
+                                >
+                                  {relationship.kind} • {relationship.fromId} -&gt; {relationship.toId} •{" "}
+                                  {relationship.confidence.toFixed(2)}
+                                </span>
+                              ))}
+                            </div>
+                          ) : undefined}
+                        </div>
+                      ) : undefined}
+                    </SessionMessage>
+                  );
+                })
+              }
+            </SessionMessages>
+            <ChatInput
+              placeholder="Discuss tasks, decisions, and questions..."
+              allowedFiles={[".md", ".txt"]}
+              mentions={{
+                onSearch: searchMentions,
+              }}
+              commands={{
+                items: COMMAND_ITEMS,
+              }}
+            />
+          </SessionMessagePanel>
+        </Chat>
+
+        <aside className="seed-panel">
+          <h3>Live Graph Seed</h3>
+          <p>Entities extracted during onboarding and document ingestion.</p>
+          <ul>
+            {seedItems.map((seed) => (
+              <li key={`${seed.id}:${seed.sourceKind}:${seed.sourceId}`}>
+                <button
+                  type="button"
+                  onClick={() => setHighlightedSourceId(seed.sourceKind === "message" ? seed.sourceId : undefined)}
+                >
+                  <span className="seed-kind">{seed.kind}</span>
+                  <span className="seed-text">{seed.text}</span>
+                  <span className="seed-meta">
+                    {seed.confidence.toFixed(2)} · {seed.sourceKind}
+                  </span>
+                  {seed.sourceLabel ? <span className="seed-label">{seed.sourceLabel}</span> : undefined}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </aside>
+      </div>
 
       {errorMessage ? <p className="error-message">{errorMessage}</p> : undefined}
     </section>

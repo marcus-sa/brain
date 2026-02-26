@@ -39,6 +39,12 @@ DEFINE TABLE workspace SCHEMAFULL;
 DEFINE FIELD name ON workspace TYPE string;
 DEFINE FIELD status ON workspace TYPE string;
 DEFINE FIELD description ON workspace TYPE option<string>;
+DEFINE FIELD tools ON workspace TYPE option<array<string>>;
+DEFINE FIELD onboarding_complete ON workspace TYPE bool;
+DEFINE FIELD onboarding_turn_count ON workspace TYPE int;
+DEFINE FIELD onboarding_summary_pending ON workspace TYPE bool;
+DEFINE FIELD onboarding_started_at ON workspace TYPE datetime;
+DEFINE FIELD onboarding_completed_at ON workspace TYPE option<datetime>;
 DEFINE FIELD created_at ON workspace TYPE datetime;
 DEFINE FIELD updated_at ON workspace TYPE option<datetime>;
 DEFINE INDEX workspace_name ON workspace FIELDS name;
@@ -47,9 +53,11 @@ DEFINE TABLE project SCHEMAFULL;
 DEFINE FIELD name ON project TYPE string;
 DEFINE FIELD status ON project TYPE string;
 DEFINE FIELD description ON project TYPE option<string>;
+DEFINE FIELD embedding ON project TYPE option<array<float>>;
 DEFINE FIELD created_at ON project TYPE datetime;
 DEFINE FIELD updated_at ON project TYPE option<datetime>;
 DEFINE INDEX project_name ON project FIELDS name;
+DEFINE INDEX idx_project_embedding ON project FIELDS embedding HNSW DIMENSION 1536 DIST COSINE;
 
 DEFINE TABLE feature SCHEMAFULL;
 DEFINE FIELD name ON feature TYPE string;
@@ -57,9 +65,11 @@ DEFINE FIELD status ON feature TYPE string;
 DEFINE FIELD description ON feature TYPE option<string>;
 DEFINE FIELD prd ON feature TYPE option<string>;
 DEFINE FIELD owner ON feature TYPE option<record<person>>;
+DEFINE FIELD embedding ON feature TYPE option<array<float>>;
 DEFINE FIELD created_at ON feature TYPE datetime;
 DEFINE FIELD updated_at ON feature TYPE option<datetime>;
 DEFINE INDEX feature_name ON feature FIELDS name;
+DEFINE INDEX idx_feature_embedding ON feature FIELDS embedding HNSW DIMENSION 1536 DIST COSINE;
 
 DEFINE TABLE task SCHEMAFULL;
 DEFINE FIELD title ON task TYPE string;
@@ -116,9 +126,11 @@ DEFINE FIELD contact_phone ON person TYPE option<string>;
 DEFINE FIELD identities ON person TYPE option<array<object>>;
 DEFINE FIELD identities[*].provider ON person TYPE string;
 DEFINE FIELD identities[*].id ON person TYPE string;
+DEFINE FIELD embedding ON person TYPE option<array<float>>;
 DEFINE FIELD created_at ON person TYPE datetime;
 DEFINE FIELD updated_at ON person TYPE option<datetime>;
 DEFINE INDEX person_name ON person FIELDS name;
+DEFINE INDEX idx_person_embedding ON person FIELDS embedding HNSW DIMENSION 1536 DIST COSINE;
 
 DEFINE TABLE meeting SCHEMAFULL;
 DEFINE FIELD title ON meeting TYPE string;
@@ -130,6 +142,26 @@ DEFINE FIELD recorded_at ON meeting TYPE datetime;
 DEFINE FIELD created_at ON meeting TYPE datetime;
 DEFINE FIELD updated_at ON meeting TYPE option<datetime>;
 DEFINE INDEX meeting_recorded_at ON meeting FIELDS recorded_at;
+
+DEFINE TABLE document SCHEMAFULL;
+DEFINE FIELD workspace ON document TYPE record<workspace>;
+DEFINE FIELD name ON document TYPE string;
+DEFINE FIELD mime_type ON document TYPE string;
+DEFINE FIELD size_bytes ON document TYPE int;
+DEFINE FIELD uploaded_at ON document TYPE datetime;
+DEFINE INDEX document_workspace_uploaded_at ON document FIELDS workspace, uploaded_at;
+
+DEFINE TABLE document_chunk SCHEMAFULL;
+DEFINE FIELD document ON document_chunk TYPE record<document>;
+DEFINE FIELD workspace ON document_chunk TYPE record<workspace>;
+DEFINE FIELD content ON document_chunk TYPE string;
+DEFINE FIELD section_heading ON document_chunk TYPE option<string>;
+DEFINE FIELD position ON document_chunk TYPE int;
+DEFINE FIELD embedding ON document_chunk TYPE option<array<float>>;
+DEFINE FIELD created_at ON document_chunk TYPE datetime;
+DEFINE INDEX document_chunk_document_position ON document_chunk FIELDS document, position;
+DEFINE INDEX document_chunk_workspace_created_at ON document_chunk FIELDS workspace, created_at;
+DEFINE INDEX idx_document_chunk_embedding ON document_chunk FIELDS embedding HNSW DIMENSION 1536 DIST COSINE;
 
 DEFINE TABLE git_commit SCHEMAFULL;
 DEFINE FIELD sha ON git_commit TYPE string;
@@ -173,18 +205,30 @@ DEFINE TABLE depends_on TYPE RELATION IN task | feature OUT task | feature SCHEM
 DEFINE FIELD type ON depends_on TYPE string ASSERT $value IN ["blocks", "needs", "soft"];
 DEFINE FIELD added_at ON depends_on TYPE option<datetime>;
 
-DEFINE TABLE extraction_relation TYPE RELATION IN task | decision | question OUT task | decision | question SCHEMAFULL;
-DEFINE FIELD kind ON extraction_relation TYPE string ASSERT string::len(string::trim($value)) > 0;
+DEFINE TABLE extraction_relation TYPE RELATION IN message | document_chunk OUT workspace | project | person | feature | task | decision | question SCHEMAFULL;
 DEFINE FIELD confidence ON extraction_relation TYPE float ASSERT $value >= 0 AND $value <= 1;
-DEFINE FIELD source_message ON extraction_relation TYPE record<message>;
 DEFINE FIELD extracted_at ON extraction_relation TYPE datetime;
 DEFINE FIELD created_at ON extraction_relation TYPE datetime;
+DEFINE FIELD model ON extraction_relation TYPE option<string>;
 DEFINE FIELD from_text ON extraction_relation TYPE option<string>;
 DEFINE FIELD to_text ON extraction_relation TYPE option<string>;
-DEFINE INDEX extraction_relation_kind ON extraction_relation FIELDS kind;
 DEFINE INDEX extraction_relation_confidence ON extraction_relation FIELDS confidence;
-DEFINE INDEX extraction_relation_source_message ON extraction_relation FIELDS source_message;
 DEFINE INDEX extraction_relation_extracted_at ON extraction_relation FIELDS extracted_at;
+
+DEFINE TABLE entity_relation TYPE RELATION IN workspace | project | person | feature | task | decision | question OUT workspace | project | person | feature | task | decision | question SCHEMAFULL;
+DEFINE FIELD kind ON entity_relation TYPE string ASSERT string::len(string::trim($value)) > 0;
+DEFINE FIELD confidence ON entity_relation TYPE float ASSERT $value >= 0 AND $value <= 1;
+DEFINE FIELD source_message ON entity_relation TYPE option<record<message>>;
+DEFINE FIELD source_chunk ON entity_relation TYPE option<record<document_chunk>>;
+DEFINE FIELD extracted_at ON entity_relation TYPE datetime;
+DEFINE FIELD created_at ON entity_relation TYPE datetime;
+DEFINE FIELD from_text ON entity_relation TYPE option<string>;
+DEFINE FIELD to_text ON entity_relation TYPE option<string>;
+DEFINE INDEX entity_relation_kind ON entity_relation FIELDS kind;
+DEFINE INDEX entity_relation_confidence ON entity_relation FIELDS confidence;
+DEFINE INDEX entity_relation_source_message ON entity_relation FIELDS source_message;
+DEFINE INDEX entity_relation_source_chunk ON entity_relation FIELDS source_chunk;
+DEFINE INDEX entity_relation_extracted_at ON entity_relation FIELDS extracted_at;
 
 DEFINE TABLE decided_in TYPE RELATION IN decision OUT conversation | meeting SCHEMAFULL;
 DEFINE FIELD message_ref ON decided_in TYPE option<record<message>>;
@@ -334,7 +378,7 @@ DEFINE FUNCTION fn::conversation_recent($conversation: record<conversation>, $li
 
 DEFINE FUNCTION fn::entity_neighbors($entity: record) {
   RETURN SELECT
-    ->extraction_relation->(task, decision, question) AS outgoing,
-    <-extraction_relation<-(task, decision, question) AS incoming
+    ->entity_relation->(workspace, project, person, feature, task, decision, question) AS outgoing,
+    <-entity_relation<-(workspace, project, person, feature, task, decision, question) AS incoming
   FROM $entity;
 };

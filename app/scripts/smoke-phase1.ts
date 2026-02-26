@@ -18,6 +18,7 @@ async function run(): Promise<void> {
 
   const chatResponse = await fetchJson<{
     messageId: string;
+    userMessageId: string;
     conversationId: string;
     workspaceId: string;
     streamUrl: string;
@@ -32,6 +33,10 @@ async function run(): Promise<void> {
   });
 
   assert(typeof chatResponse.messageId === "string" && chatResponse.messageId.length > 0, "messageId missing");
+  assert(
+    typeof chatResponse.userMessageId === "string" && chatResponse.userMessageId.length > 0,
+    "userMessageId missing",
+  );
   assert(
     typeof chatResponse.conversationId === "string" && chatResponse.conversationId.length > 0,
     "conversationId missing",
@@ -60,9 +65,7 @@ async function run(): Promise<void> {
   const searchTerm = firstEntity.text.split(/\s+/).slice(0, 3).join(" ").trim();
   const query = searchTerm.length > 0 ? searchTerm : "task";
 
-  const rows = await fetchJson<
-    Array<{ id: string; kind: string; text: string; confidence: number; sourceMessageId: string }>
-  >(
+  const rows = await fetchJson<Array<{ id: string; kind: string; text: string; confidence: number; sourceId: string }>>(
     `${baseUrl}/api/entities/search?q=${encodeURIComponent(query)}&workspaceId=${encodeURIComponent(workspaceId)}&limit=10`,
   );
 
@@ -72,10 +75,7 @@ async function run(): Promise<void> {
     assert(typeof row.kind === "string" && row.kind.length > 0, "search row kind missing");
     assert(typeof row.text === "string" && row.text.length > 0, "search row text missing");
     assert(typeof row.confidence === "number", "search row confidence missing");
-    assert(
-      typeof row.sourceMessageId === "string" && row.sourceMessageId.length > 0,
-      "search row sourceMessageId missing",
-    );
+    assert(typeof row.sourceId === "string" && row.sourceId.length > 0, "search row sourceId missing");
   }
 
   console.log("search check passed");
@@ -110,7 +110,8 @@ type SmokeStreamEvent =
         kind: string;
         text: string;
         confidence: number;
-        sourceMessageId: string;
+        sourceKind: string;
+        sourceId: string;
       }>;
       relationships: Array<{
         id: string;

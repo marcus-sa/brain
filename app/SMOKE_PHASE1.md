@@ -16,3 +16,5 @@
 8. Optionally run script check:
    - `bun run smoke:phase1`
    - optional scope override: `SMOKE_WORKSPACE_ID=default bun run smoke:phase1`
+9. Onboarding flow smoke:
+   - `bun run smoke:onboarding`

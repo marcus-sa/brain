@@ -7,7 +7,9 @@
     "dev": "bun --watch app/server.ts",
     "start": "bun run app/server.ts",
     "typecheck": "tsc --noEmit",
-    "smoke:phase1": "bun run app/scripts/smoke-phase1.ts"
+    "smoke:phase1": "bun run app/scripts/smoke-phase1.ts",
+    "smoke:onboarding": "bun run app/scripts/smoke-onboarding.ts",
+    "smoke:readme-import": "bun run app/scripts/smoke-readme-import.ts"
   },
   "dependencies": {
     "@openrouter/ai-sdk-provider": "^2.2.3",
@@ -16,6 +18,7 @@
     "reachat": "^3.0.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
+    "reaviz": "^16.1.2",
     "surrealdb": "2.0.0-alpha.18",
     "zod": "^4.3.6"
   },

@@ -1,4 +1,18 @@
-export type EntityKind = "task" | "decision" | "question";
+export type EntityKind = "workspace" | "project" | "person" | "feature" | "task" | "decision" | "question";
+
+export type SourceKind = "message" | "document_chunk";
+
+export type CreateWorkspaceRequest = {
+  name: string;
+  ownerDisplayName: string;
+};
+
+export type CreateWorkspaceResponse = {
+  workspaceId: string;
+  workspaceName: string;
+  conversationId: string;
+  onboardingComplete: boolean;
+};
 
 export type ChatMessageRequest = {
   clientMessageId: string;
@@ -9,17 +23,21 @@ export type ChatMessageRequest = {
 
 export type ChatMessageResponse = {
   messageId: string;
+  userMessageId: string;
   conversationId: string;
   workspaceId: string;
   streamUrl: string;
 };
+
+export type OnboardingState = "active" | "summary_pending" | "complete";
 
 export type ExtractedEntity = {
   id: string;
   kind: EntityKind;
   text: string;
   confidence: number;
-  sourceMessageId: string;
+  sourceKind: SourceKind;
+  sourceId: string;
 };
 
 export type ExtractedRelationship = {
@@ -28,9 +46,38 @@ export type ExtractedRelationship = {
   fromId: string;
   toId: string;
   confidence: number;
-  sourceMessageId: string;
+  sourceKind?: SourceKind;
+  sourceId?: string;
+  sourceMessageId?: string;
   fromText?: string;
   toText?: string;
+};
+
+export type OnboardingSeedItem = {
+  id: string;
+  kind: EntityKind;
+  text: string;
+  confidence: number;
+  sourceKind: SourceKind;
+  sourceId: string;
+  sourceLabel?: string;
+};
+
+export type WorkspaceBootstrapMessage = {
+  id: string;
+  role: "user" | "assistant";
+  text: string;
+  createdAt: string;
+};
+
+export type WorkspaceBootstrapResponse = {
+  workspaceId: string;
+  workspaceName: string;
+  onboardingComplete: boolean;
+  onboardingState: OnboardingState;
+  conversationId: string;
+  messages: WorkspaceBootstrapMessage[];
+  seeds: OnboardingSeedItem[];
 };
 
 export type TokenEvent = {
@@ -52,6 +99,18 @@ export type ExtractionEvent = {
   relationships: ExtractedRelationship[];
 };
 
+export type OnboardingSeedEvent = {
+  type: "onboarding_seed";
+  messageId: string;
+  seeds: OnboardingSeedItem[];
+};
+
+export type OnboardingStateEvent = {
+  type: "onboarding_state";
+  messageId: string;
+  onboardingState: OnboardingState;
+};
+
 export type DoneEvent = {
   type: "done";
   messageId: string;
@@ -63,12 +122,20 @@ export type ErrorEvent = {
   error: string;
 };
 
-export type StreamEvent = TokenEvent | AssistantMessageEvent | ExtractionEvent | DoneEvent | ErrorEvent;
+export type StreamEvent =
+  | TokenEvent
+  | AssistantMessageEvent
+  | ExtractionEvent
+  | OnboardingSeedEvent
+  | OnboardingStateEvent
+  | DoneEvent
+  | ErrorEvent;
 
 export type SearchEntityResponse = {
   id: string;
   kind: EntityKind;
   text: string;
   confidence: number;
-  sourceMessageId: string;
+  sourceId: string;
+  sourceKind: SourceKind;
 };
