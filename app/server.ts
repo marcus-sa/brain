@@ -39,8 +39,8 @@ type ExtractionPromptRelationship = {
   fromTempId: string;
   toTempId: string;
   confidence: number;
-  fromText?: string;
-  toText?: string;
+  fromText: string;
+  toText: string;
 };
 
 type StreamState = {
@@ -86,8 +86,8 @@ const extractionResultSchema = z.object({
       fromTempId: z.string().min(1),
       toTempId: z.string().min(1),
       confidence: z.number().min(0).max(1),
-      fromText: z.string().min(1).optional(),
-      toText: z.string().min(1).optional(),
+      fromText: z.string().min(1),
+      toText: z.string().min(1),
     }),
   ),
 });
@@ -125,12 +125,6 @@ const surreal = new Surreal();
 await surreal.connect(surrealUrl);
 await surreal.signin({ username: surrealUsername, password: surrealPassword });
 await surreal.use({ namespace: surrealNamespace, database: surrealDatabase });
-
-const schemaSql = await Bun.file(new URL("../schema/surreal-schema.surql", import.meta.url)).text();
-if (schemaSql.trim().length === 0) {
-  throw new Error("schema/surreal-schema.surql is empty");
-}
-await surreal.query(schemaSql).collect();
 
 const openrouter = createOpenRouter({ apiKey: openRouterApiKey });
 const assistantModel = openrouter(assistantModelId, {
@@ -206,6 +200,7 @@ async function handlePostChatMessage(request: Request): Promise<Response> {
       clientMessageId: parsed.data.clientMessageId,
     });
   } catch (error) {
+    logServerError("persist user message failed", error, { conversationId, messageId });
     const errorText = error instanceof Error ? error.message : "failed to persist user message";
     return jsonError(errorText, 500);
   }
@@ -347,6 +342,7 @@ async function processChatMessage(
         "Entity kinds: task, decision, question.",
         "Each entity must include a tempId.",
         "Each relationship must reference entities via fromTempId and toTempId.",
+        "Each relationship must include fromText and toText snippets from the source conversation.",
         "Relationship kind is free-form uppercase snake_case when possible (for example DEPENDS_ON, BLOCKS, RELATES_TO).",
         "Confidence values must be between 0 and 1.",
       ].join(" "),
@@ -390,14 +386,16 @@ async function processChatMessage(
         kind: relationship.kind.trim(),
         fromTempId: relationship.fromTempId.trim(),
         toTempId: relationship.toTempId.trim(),
-        fromText: relationship.fromText?.trim(),
-        toText: relationship.toText?.trim(),
+        fromText: relationship.fromText.trim(),
+        toText: relationship.toText.trim(),
       }))
       .filter(
         (relationship) =>
           relationship.kind.length > 0 &&
           relationship.fromTempId.length > 0 &&
-          relationship.toTempId.length > 0,
+          relationship.toTempId.length > 0 &&
+          relationship.fromText.length > 0 &&
+          relationship.toText.length > 0,
       );
 
     const now = new Date();
@@ -452,8 +450,8 @@ async function processChatMessage(
         }
 
         const relationshipRecord = new RecordId("extraction_relation", randomUUID());
-        const fromText = relationship.fromText ?? fromEntity.text;
-        const toText = relationship.toText ?? toEntity.text;
+        const fromText = relationship.fromText;
+        const toText = relationship.toText;
 
         await transaction.create(relationshipRecord).content({
           in: fromEntity.record,
@@ -497,8 +495,9 @@ async function processChatMessage(
         text: entity.text,
       })),
     ).catch((error: unknown) => {
-      const errorText = error instanceof Error ? error.message : "embedding persistence failed";
-      console.warn(`Embedding persistence failed: ${errorText}`);
+      logServerError("embedding persistence failed", error, {
+        messageId: assistantMessageRecord.id,
+      });
     });
 
     emitEvent(messageId, {
@@ -519,7 +518,8 @@ async function processChatMessage(
       messageId,
     });
   } catch (error) {
-    const errorText = error instanceof Error ? error.message : "chat processing failed";
+    logServerError("chat processing failed", error, { conversationId, messageId });
+    const errorText = userFacingError(error, "chat processing failed");
     emitEvent(messageId, {
       type: "error",
       messageId,
@@ -569,8 +569,9 @@ async function createEmbedding(value: string): Promise<number[] | undefined> {
 
     return result.embedding;
   } catch (error) {
-    const errorText = error instanceof Error ? error.message : "embedding call failed";
-    console.warn(`Embedding generation failed: ${errorText}`);
+    logServerError("embedding generation failed", error, {
+      valuePreview: normalized.slice(0, 120),
+    });
     return undefined;
   }
 }
@@ -760,6 +761,88 @@ function parseOpenRouterReasoning(): OpenRouterReasoningOptions | undefined {
   }
 
   return reasoning;
+}
+
+function userFacingError(error: unknown, fallback: string): string {
+  if (!(error instanceof Error)) {
+    return fallback;
+  }
+
+  const causeMessage = extractCauseMessage(error);
+  if (causeMessage && causeMessage !== error.message) {
+    return `${error.message}: ${causeMessage}`;
+  }
+
+  return error.message;
+}
+
+function logServerError(context: string, error: unknown, meta?: Record<string, unknown>): void {
+  console.error(`[${context}]`, {
+    ...(meta ?? {}),
+    error: serializeError(error),
+  });
+}
+
+function serializeError(error: unknown, depth = 0): Record<string, unknown> | unknown {
+  if (depth > 2) {
+    return { message: "max depth reached" };
+  }
+
+  if (!(error instanceof Error)) {
+    return error;
+  }
+
+  const candidate = error as Error & {
+    cause?: unknown;
+    statusCode?: unknown;
+    responseBody?: unknown;
+    data?: unknown;
+    url?: unknown;
+  };
+
+  const serialized: Record<string, unknown> = {
+    name: candidate.name,
+    message: candidate.message,
+    stack: candidate.stack,
+  };
+
+  if (candidate.statusCode !== undefined) {
+    serialized.statusCode = candidate.statusCode;
+  }
+  if (candidate.url !== undefined) {
+    serialized.url = candidate.url;
+  }
+  if (candidate.responseBody !== undefined) {
+    serialized.responseBody = candidate.responseBody;
+  }
+  if (candidate.data !== undefined) {
+    serialized.data = candidate.data;
+  }
+  if (candidate.cause !== undefined) {
+    serialized.cause = serializeError(candidate.cause, depth + 1);
+  }
+
+  return serialized;
+}
+
+function extractCauseMessage(error: Error & { cause?: unknown }): string | undefined {
+  const cause = error.cause;
+  if (!cause) {
+    return undefined;
+  }
+
+  if (cause instanceof Error) {
+    return cause.message;
+  }
+
+  if (typeof cause === "object" && cause !== null && "message" in cause) {
+    const message = (cause as { message?: unknown }).message;
+    if (typeof message === "string" && message.length > 0) {
+      return message;
+    }
+  }
+
+  return undefined;
 }
 
 function jsonError(message: string, status: number): Response {

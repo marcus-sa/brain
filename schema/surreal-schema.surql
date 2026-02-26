@@ -204,7 +204,8 @@ DEFINE FUNCTION fn::entity_search($q: string, $limit: int) {
     "task" AS kind,
     title AS text,
     extraction_confidence AS confidence,
-    source_message AS sourceMessage
+    source_message AS sourceMessage,
+    created_at
   FROM task
   WHERE source_message != NONE
     AND extraction_confidence != NONE
@@ -217,7 +218,8 @@ DEFINE FUNCTION fn::entity_search($q: string, $limit: int) {
     "decision" AS kind,
     summary AS text,
     extraction_confidence AS confidence,
-    source_message AS sourceMessage
+    source_message AS sourceMessage,
+    created_at
   FROM decision
   WHERE source_message != NONE
     AND extraction_confidence != NONE
@@ -230,7 +232,8 @@ DEFINE FUNCTION fn::entity_search($q: string, $limit: int) {
     "question" AS kind,
     text AS text,
     extraction_confidence AS confidence,
-    source_message AS sourceMessage
+    source_message AS sourceMessage,
+    created_at
   FROM question
   WHERE source_message != NONE
     AND extraction_confidence != NONE
