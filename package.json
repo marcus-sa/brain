@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^3.0.34",
+    "@openrouter/ai-sdk-provider": "^2.2.3",
     "@tanstack/react-router": "^1.131.24",
     "ai": "^6.0.101",
     "reachat": "^3.0.0",

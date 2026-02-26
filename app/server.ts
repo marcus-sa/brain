@@ -2,13 +2,21 @@
 
 import { randomUUID } from "node:crypto";
 import { generateObject, generateText } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import appHtml from "./src/client/index.html";
 import { RecordId, Surreal } from "surrealdb";
 import { z } from "zod";
 
 type EntityKind = "task" | "decision" | "question";
 type RelationshipKind = "BELONGS_TO" | "DEPENDS_ON";
+type OpenRouterReasoningEffort = "xhigh" | "high" | "medium" | "low" | "minimal" | "none";
+
+type OpenRouterReasoningOptions = {
+  enabled?: boolean;
+  exclude?: boolean;
+  max_tokens?: number;
+  effort?: OpenRouterReasoningEffort;
+};
 
 type ExtractedEntity = {
   id: string;
@@ -129,9 +137,9 @@ const extractionResultSchema = z.object({
 const encoder = new TextEncoder();
 const streams = new Map<string, StreamState>();
 
-const openAiApiKey = Bun.env.OPENAI_API_KEY;
-if (!openAiApiKey || openAiApiKey.trim().length === 0) {
-  throw new Error("OPENAI_API_KEY is required");
+const openRouterApiKey = Bun.env.OPENROUTER_API_KEY;
+if (!openRouterApiKey || openRouterApiKey.trim().length === 0) {
+  throw new Error("OPENROUTER_API_KEY is required");
 }
 
 const extractionThresholdValue = Bun.env.EXTRACTION_CONFIDENCE_THRESHOLD ?? "0.75";
@@ -140,8 +148,9 @@ if (!Number.isFinite(extractionThreshold) || extractionThreshold < 0 || extracti
   throw new Error("EXTRACTION_CONFIDENCE_THRESHOLD must be a number between 0 and 1");
 }
 
-const assistantModelId = Bun.env.ASSISTANT_MODEL ?? "gpt-4.1-mini";
-const extractionModelId = Bun.env.EXTRACTION_MODEL ?? "gpt-4.1-mini";
+const assistantModelId = Bun.env.ASSISTANT_MODEL ?? "openai/gpt-4.1-mini";
+const extractionModelId = Bun.env.EXTRACTION_MODEL ?? "openai/gpt-4.1-mini";
+const openRouterReasoning = parseOpenRouterReasoning();
 
 const surrealUrl = Bun.env.SURREAL_URL ?? "ws://127.0.0.1:8000/rpc";
 const surrealUsername = Bun.env.SURREAL_USERNAME ?? "root";
@@ -160,7 +169,15 @@ if (schemaSql.trim().length === 0) {
 }
 await surreal.query(schemaSql).collect();
 
-const openai = createOpenAI({ apiKey: openAiApiKey });
+const openrouter = createOpenRouter({ apiKey: openRouterApiKey });
+const assistantModel = openrouter(assistantModelId, {
+  plugins: [{ id: "response-healing" }],
+  ...(openRouterReasoning ? { extraBody: { reasoning: openRouterReasoning } } : {}),
+});
+const extractionModel = openrouter(extractionModelId, {
+  plugins: [{ id: "response-healing" }],
+  ...(openRouterReasoning ? { extraBody: { reasoning: openRouterReasoning } } : {}),
+});
 
 const server = Bun.serve({
   port: Number(Bun.env.PORT ?? "3000"),
@@ -328,7 +345,7 @@ async function processChatMessage(
     const contextRows = await loadConversationContext(conversationId);
 
     const assistantResponse = await generateText({
-      model: openai(assistantModelId),
+      model: assistantModel,
       system:
         "You are helping a product team capture actionable project state. Respond concisely with clear next actions.",
       prompt: [
@@ -355,7 +372,7 @@ async function processChatMessage(
     }
 
     const extractionOutput = await generateObject({
-      model: openai(extractionModelId),
+      model: extractionModel,
       schema: extractionResultSchema,
       system: [
         "Extract structured business entities and relationships from the conversation.",
@@ -559,6 +576,45 @@ function parseChatMessageRequest(body: unknown):
       text: payload.text.trim(),
     },
   };
+}
+
+function parseOpenRouterReasoning(): OpenRouterReasoningOptions | undefined {
+  const effortValue = Bun.env.OPENROUTER_REASONING_EFFORT;
+  const maxTokensValue = Bun.env.OPENROUTER_REASONING_MAX_TOKENS;
+
+  if (!effortValue && !maxTokensValue) {
+    return undefined;
+  }
+
+  const reasoning: OpenRouterReasoningOptions = {};
+
+  if (effortValue) {
+    const allowedEfforts: OpenRouterReasoningEffort[] = [
+      "xhigh",
+      "high",
+      "medium",
+      "low",
+      "minimal",
+      "none",
+    ];
+
+    if (!allowedEfforts.includes(effortValue as OpenRouterReasoningEffort)) {
+      throw new Error(
+        "OPENROUTER_REASONING_EFFORT must be one of xhigh, high, medium, low, minimal, none",
+      );
+    }
+    reasoning.effort = effortValue as OpenRouterReasoningEffort;
+  }
+
+  if (maxTokensValue) {
+    const parsed = Number(maxTokensValue);
+    if (!Number.isFinite(parsed) || parsed < 1) {
+      throw new Error("OPENROUTER_REASONING_MAX_TOKENS must be a positive number");
+    }
+    reasoning.max_tokens = parsed;
+  }
+
+  return reasoning;
 }
 
 function jsonError(message: string, status: number): Response {
