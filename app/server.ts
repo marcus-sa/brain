@@ -6,6 +6,11 @@ import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import appHtml from "./src/client/index.html";
 import { getRequestLogger, serializeError } from "./src/server/logging";
 import { runWithRequestContext } from "./src/server/request-context";
+import { buildExtractionComponentBlock } from "./src/server/extraction/components";
+import { dedupeExtractedEntities } from "./src/server/extraction/filtering";
+import { isRicherEntityName } from "./src/server/extraction/dedup";
+import { resolvePersonReferencePatch } from "./src/server/extraction/person";
+import { extractionResultSchema, type ExtractionPromptEntity, type ExtractionPromptOutput, type ExtractionPromptRelationship } from "./src/server/extraction/schema";
 import type {
   ChatMessageResponse,
   CreateWorkspaceRequest,
@@ -38,29 +43,6 @@ type PersistableExtractableEntityKind = Exclude<ExtractableEntityKind, "person">
 type GraphEntityTable = "workspace" | "project" | "person" | "feature" | "task" | "decision" | "question";
 type GraphEntityRecord = RecordId<GraphEntityTable, string>;
 type SourceRecord = RecordId<"message" | "document_chunk", string>;
-
-type ExtractionPromptEntity = {
-  tempId: string;
-  kind: ExtractableEntityKind;
-  text: string;
-  confidence: number;
-  evidence: string;
-};
-
-type ExtractionPromptRelationship = {
-  kind: string;
-  fromTempId: string;
-  toTempId: string;
-  confidence: number;
-  fromText: string;
-  toText: string;
-};
-
-type ExtractionPromptOutput = {
-  entities: ExtractionPromptEntity[];
-  relationships: ExtractionPromptRelationship[];
-  tools: string[];
-};
 
 type StreamState = {
   queue: StreamEvent[];
@@ -190,29 +172,6 @@ class HttpError extends Error {
 const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
 const allowedUploadExtensions = new Set(["md", "txt"]);
 
-const extractionResultSchema = z.object({
-  entities: z.array(
-    z.object({
-      tempId: z.string().min(1),
-      kind: z.enum(["project", "person", "feature", "task", "decision", "question"]),
-      text: z.string().min(1),
-      confidence: z.number().min(0).max(1),
-      evidence: z.string().min(1),
-    }),
-  ),
-  relationships: z.array(
-    z.object({
-      kind: z.string().min(1),
-      fromTempId: z.string().min(1),
-      toTempId: z.string().min(1),
-      confidence: z.number().min(0).max(1),
-      fromText: z.string().min(1),
-      toText: z.string().min(1),
-    }),
-  ),
-  tools: z.array(z.string().min(1)),
-});
-
 const assistantReplySchema = z.object({
   message: z.string().min(1),
   suggestions: z.array(z.string().min(1)).max(3),
@@ -226,29 +185,67 @@ if (!openRouterApiKey || openRouterApiKey.trim().length === 0) {
   throw new Error("OPENROUTER_API_KEY is required");
 }
 
-const extractionStoreThreshold = parseUnitInterval(
-  Bun.env.EXTRACTION_STORE_THRESHOLD ?? Bun.env.EXTRACTION_CONFIDENCE_THRESHOLD ?? "0.6",
-  "EXTRACTION_STORE_THRESHOLD",
-);
-const extractionDisplayThreshold = parseUnitInterval(
-  Bun.env.EXTRACTION_DISPLAY_THRESHOLD ?? "0.85",
-  "EXTRACTION_DISPLAY_THRESHOLD",
-);
+const extractionStoreThresholdValue = Bun.env.EXTRACTION_STORE_THRESHOLD;
+if (!extractionStoreThresholdValue || extractionStoreThresholdValue.trim().length === 0) {
+  throw new Error("EXTRACTION_STORE_THRESHOLD is required");
+}
+const extractionStoreThreshold = parseUnitInterval(extractionStoreThresholdValue, "EXTRACTION_STORE_THRESHOLD");
+
+const extractionDisplayThresholdValue = Bun.env.EXTRACTION_DISPLAY_THRESHOLD;
+if (!extractionDisplayThresholdValue || extractionDisplayThresholdValue.trim().length === 0) {
+  throw new Error("EXTRACTION_DISPLAY_THRESHOLD is required");
+}
+const extractionDisplayThreshold = parseUnitInterval(extractionDisplayThresholdValue, "EXTRACTION_DISPLAY_THRESHOLD");
 if (extractionDisplayThreshold < extractionStoreThreshold) {
   throw new Error("EXTRACTION_DISPLAY_THRESHOLD must be greater than or equal to EXTRACTION_STORE_THRESHOLD");
 }
 
-const assistantModelId = Bun.env.ASSISTANT_MODEL ?? "openai/gpt-4.1-mini";
-const extractionModelId = Bun.env.EXTRACTION_MODEL ?? "openai/gpt-4.1-mini";
-const embeddingModelId = Bun.env.OPENROUTER_EMBEDDING_MODEL ?? "openai/text-embedding-3-small";
-const embeddingDimension = parsePositiveInteger(Bun.env.EMBEDDING_DIMENSION ?? "1536", "EMBEDDING_DIMENSION");
+const assistantModelId = Bun.env.ASSISTANT_MODEL;
+if (!assistantModelId || assistantModelId.trim().length === 0) {
+  throw new Error("ASSISTANT_MODEL is required");
+}
+
+const extractionModelId = Bun.env.EXTRACTION_MODEL;
+if (!extractionModelId || extractionModelId.trim().length === 0) {
+  throw new Error("EXTRACTION_MODEL is required");
+}
+
+const embeddingModelId = Bun.env.OPENROUTER_EMBEDDING_MODEL;
+if (!embeddingModelId || embeddingModelId.trim().length === 0) {
+  throw new Error("OPENROUTER_EMBEDDING_MODEL is required");
+}
+
+const embeddingDimensionValue = Bun.env.EMBEDDING_DIMENSION;
+if (!embeddingDimensionValue || embeddingDimensionValue.trim().length === 0) {
+  throw new Error("EMBEDDING_DIMENSION is required");
+}
+const embeddingDimension = parsePositiveInteger(embeddingDimensionValue, "EMBEDDING_DIMENSION");
 const openRouterReasoning = parseOpenRouterReasoning();
 
-const surrealUrl = Bun.env.SURREAL_URL ?? "ws://127.0.0.1:8000/rpc";
-const surrealUsername = Bun.env.SURREAL_USERNAME ?? "root";
-const surrealPassword = Bun.env.SURREAL_PASSWORD ?? "root";
-const surrealNamespace = Bun.env.SURREAL_NAMESPACE ?? "brain";
-const surrealDatabase = Bun.env.SURREAL_DATABASE ?? "app";
+const surrealUrl = Bun.env.SURREAL_URL;
+if (!surrealUrl || surrealUrl.trim().length === 0) {
+  throw new Error("SURREAL_URL is required");
+}
+
+const surrealUsername = Bun.env.SURREAL_USERNAME;
+if (!surrealUsername || surrealUsername.trim().length === 0) {
+  throw new Error("SURREAL_USERNAME is required");
+}
+
+const surrealPassword = Bun.env.SURREAL_PASSWORD;
+if (!surrealPassword || surrealPassword.trim().length === 0) {
+  throw new Error("SURREAL_PASSWORD is required");
+}
+
+const surrealNamespace = Bun.env.SURREAL_NAMESPACE;
+if (!surrealNamespace || surrealNamespace.trim().length === 0) {
+  throw new Error("SURREAL_NAMESPACE is required");
+}
+
+const surrealDatabase = Bun.env.SURREAL_DATABASE;
+if (!surrealDatabase || surrealDatabase.trim().length === 0) {
+  throw new Error("SURREAL_DATABASE is required");
+}
 
 const surreal = new Surreal();
 await surreal.connect(surrealUrl);
@@ -267,33 +264,11 @@ const extractionModel = openrouter(extractionModelId, {
 });
 const embeddingModel = openrouter.textEmbeddingModel(embeddingModelId);
 
-const placeholderEntityNames = new Set([
-  "my project",
-  "the project",
-  "our project",
-  "my app",
-  "the app",
-  "our app",
-  "this feature",
-  "the feature",
-  "that feature",
-  "my idea",
-  "the idea",
-  "this idea",
-  "the thing",
-  "this thing",
-  "that thing",
-  "my business",
-  "the business",
-  "my team",
-  "the team",
-]);
-
-const ownerRelationKinds = new Set(["OWNER", "OWNED_BY", "HAS_OWNER"]);
-const decisionByRelationKinds = new Set(["DECIDED_BY", "MADE_BY", "DECISION_BY"]);
-const assignedRelationKinds = new Set(["ASSIGNED_TO", "ASKED_TO", "RESPONSIBLE_FOR"]);
-
-const port = Number(Bun.env.PORT ?? "3000");
+const portValue = Bun.env.PORT;
+if (!portValue || portValue.trim().length === 0) {
+  throw new Error("PORT is required");
+}
+const port = parsePositiveInteger(portValue, "PORT");
 
 const server = Bun.serve({
   port,
@@ -930,7 +905,11 @@ async function processChatMessage(input: {
       })),
       latestTools: dedupedTools,
     });
-    const summaryBlock = buildExtractionSummaryComponentBlock(persistedEntities, persistedRelationships);
+    const summaryBlock = buildExtractionComponentBlock(
+      persistedEntities,
+      persistedRelationships,
+      extractionDisplayThreshold,
+    );
     const assistantText = summaryBlock
       ? `${assistantReply.message.trim()}\n\n${summaryBlock}`
       : assistantReply.message.trim();
@@ -1434,7 +1413,7 @@ async function persistExtractionOutput(input: {
   });
 
   try {
-    const entities = dedupeExtractedEntities(input.output.entities, input.promptText);
+    const entities = dedupeExtractedEntities(input.output.entities, input.promptText, extractionStoreThreshold);
     const relationships = input.output.relationships
       .filter((relationship) => relationship.confidence >= extractionStoreThreshold)
       .map((relationship) => ({
@@ -1486,6 +1465,7 @@ async function persistExtractionOutput(input: {
           model: extractionModelId,
           now: input.now,
           fromText: extracted.text,
+          evidence: extracted.evidence,
         });
 
         entityByTempId.set(extracted.tempId, {
@@ -1633,103 +1613,6 @@ async function persistExtractionOutput(input: {
   }
 }
 
-function dedupeExtractedEntities(entities: ExtractionPromptEntity[], sourceText: string): ExtractionPromptEntity[] {
-  const byTempId = new Map<string, ExtractionPromptEntity>();
-  const normalizedSourceText = normalizeName(sourceText);
-
-  for (const entity of entities) {
-    const tempId = entity.tempId.trim();
-    if (tempId.length === 0) {
-      continue;
-    }
-
-    const text = entity.text.trim();
-    if (text.length === 0) {
-      continue;
-    }
-
-    const evidence = entity.evidence.trim();
-    if (evidence.length === 0) {
-      continue;
-    }
-
-    if (entity.confidence < extractionStoreThreshold) {
-      continue;
-    }
-
-    if (placeholderEntityNames.has(normalizeName(text))) {
-      continue;
-    }
-
-    const normalizedEvidence = normalizeName(evidence);
-    if (normalizedEvidence.length === 0 || !normalizedSourceText.includes(normalizedEvidence)) {
-      continue;
-    }
-
-    const existing = byTempId.get(tempId);
-    if (!existing || entity.confidence > existing.confidence) {
-      byTempId.set(tempId, {
-        ...entity,
-        tempId,
-        text,
-        evidence,
-      });
-    }
-  }
-
-  return [...byTempId.values()];
-}
-
-function buildExtractionSummaryComponentBlock(
-  entities: ExtractedEntity[],
-  relationships: ExtractedRelationship[],
-): string | undefined {
-  const summaryEntities = new Map<
-    string,
-    { kind: ExtractableEntityKind; name: string; confidence: number; status: "captured" }
-  >();
-
-  for (const entity of [...entities].sort((a, b) => b.confidence - a.confidence)) {
-    if (entity.kind === "workspace" || entity.confidence < extractionDisplayThreshold) {
-      continue;
-    }
-
-    const name = entity.text.trim();
-    if (name.length === 0) {
-      continue;
-    }
-
-    const key = `${entity.kind}:${normalizeName(name)}`;
-    if (!summaryEntities.has(key)) {
-      summaryEntities.set(key, {
-        kind: entity.kind as ExtractableEntityKind,
-        name,
-        confidence: entity.confidence,
-        status: "captured",
-      });
-    }
-  }
-
-  if (summaryEntities.size === 0) {
-    return undefined;
-  }
-
-  const relationshipCount = relationships.filter(
-    (relationship) => relationship.confidence >= extractionDisplayThreshold,
-  ).length;
-
-  const summarySpec = {
-    type: "ExtractionSummary",
-    props: {
-      title: "Captured from your latest message",
-      entities: [...summaryEntities.values()].slice(0, 6),
-      relationshipCount,
-    },
-  };
-
-  return ["```component", JSON.stringify(summarySpec, null, 2), "```"].join("\n");
-}
-
 async function upsertGraphEntity(input: {
   workspaceRecord: RecordId<"workspace", string>;
   workspaceProjects: ProjectScopeRow[];
@@ -1747,7 +1630,7 @@ async function upsertGraphEntity(input: {
 
   const exactNameCandidate = candidates.find((candidate) => normalizeName(candidate.text) === normalizedExtractedText);
   if (exactNameCandidate) {
-    const mergedText = await maybeUpgradeMergedFeatureName(
+    const mergedText = await maybeUpgradeMergedEntityName(
       input.extracted.kind,
       input.extracted.text,
       exactNameCandidate,
@@ -1761,6 +1644,7 @@ async function upsertGraphEntity(input: {
       model: extractionModelId,
       now: input.now,
       fromText: input.extracted.text,
+      evidence: input.extracted.evidence,
     });
 
     return {
@@ -1791,7 +1675,7 @@ async function upsertGraphEntity(input: {
     : false;
 
   if (bestCandidate && bestSimilarity > 0.95 && fuzzyMatch) {
-    const mergedText = await maybeUpgradeMergedFeatureName(
+    const mergedText = await maybeUpgradeMergedEntityName(
       input.extracted.kind,
       input.extracted.text,
       bestCandidate,
@@ -1805,6 +1689,7 @@ async function upsertGraphEntity(input: {
       model: extractionModelId,
       now: input.now,
       fromText: input.extracted.text,
+      evidence: input.extracted.evidence,
     });
 
     return {
@@ -1827,6 +1712,7 @@ async function upsertGraphEntity(input: {
     model: extractionModelId,
     now: input.now,
     fromText: input.extracted.text,
+    evidence: input.extracted.evidence,
   });
 
   if (input.extracted.kind === "project") {
@@ -1874,22 +1760,42 @@ async function upsertGraphEntity(input: {
   };
 }
 
-async function maybeUpgradeMergedFeatureName(
+async function maybeUpgradeMergedEntityName(
   kind: PersistableExtractableEntityKind,
   incomingText: string,
   candidate: CandidateEntityRow,
   now: Date,
 ): Promise<string> {
-  if (kind !== "feature") {
+  if (!isRicherEntityName(incomingText, candidate.text)) {
     return candidate.text;
   }
 
-  if (!isRicherFeatureName(incomingText, candidate.text)) {
-    return candidate.text;
+  if (kind === "project" || kind === "feature") {
+    await surreal.update(candidate.id as RecordId<"project" | "feature", string>).merge({
+      name: incomingText,
+      updated_at: now,
+    });
+    return incomingText;
   }
 
-  await surreal.update(candidate.id as RecordId<"feature", string>).merge({
-    name: incomingText,
+  if (kind === "task") {
+    await surreal.update(candidate.id as RecordId<"task", string>).merge({
+      title: incomingText,
+      updated_at: now,
+    });
+    return incomingText;
+  }
+
+  if (kind === "decision") {
+    await surreal.update(candidate.id as RecordId<"decision", string>).merge({
+      summary: incomingText,
+      updated_at: now,
+    });
+    return incomingText;
+  }
+
+  await surreal.update(candidate.id as RecordId<"question", string>).merge({
+    text: incomingText,
     updated_at: now,
   });
 
@@ -1979,9 +1885,27 @@ async function applyPersonReferenceFromRelationship(input: {
     return;
   }
 
-  const relationKind = input.relationship.kind;
-  if (targetEntity.kind === "feature" && ownerRelationKinds.has(relationKind)) {
-    if (person.record) {
+  if (
+    targetEntity.kind !== "feature" &&
+    targetEntity.kind !== "task" &&
+    targetEntity.kind !== "decision" &&
+    targetEntity.kind !== "question"
+  ) {
+    return;
+  }
+
+  const patch = resolvePersonReferencePatch({
+    targetKind: targetEntity.kind,
+    relationshipKind: input.relationship.kind,
+    personName: person.name,
+    ...(person.record ? { personRecordId: person.record.id as string } : {}),
+  });
+  if (!patch) {
+    return;
+  }
+
+  if (patch.kind === "feature") {
+    if (patch.field === "owner" && person.record) {
       await surreal.update(targetEntity.record as RecordId<"feature", string>).merge({
         owner: person.record,
         updated_at: input.now,
@@ -1990,14 +1914,14 @@ async function applyPersonReferenceFromRelationship(input: {
     }
 
     await surreal.update(targetEntity.record as RecordId<"feature", string>).merge({
-      owner_name: person.name,
+      owner_name: patch.value,
       updated_at: input.now,
     });
     return;
   }
 
-  if (targetEntity.kind === "task" && (ownerRelationKinds.has(relationKind) || assignedRelationKinds.has(relationKind))) {
-    if (person.record) {
+  if (patch.kind === "task") {
+    if (patch.field === "owner" && person.record) {
       await surreal.update(targetEntity.record as RecordId<"task", string>).merge({
         owner: person.record,
         updated_at: input.now,
@@ -2006,14 +1930,14 @@ async function applyPersonReferenceFromRelationship(input: {
     }
 
     await surreal.update(targetEntity.record as RecordId<"task", string>).merge({
-      owner_name: person.name,
+      owner_name: patch.value,
       updated_at: input.now,
     });
     return;
   }
 
-  if (targetEntity.kind === "decision" && decisionByRelationKinds.has(relationKind)) {
-    if (person.record) {
+  if (patch.kind === "decision") {
+    if (patch.field === "decided_by" && person.record) {
       await surreal.update(targetEntity.record as RecordId<"decision", string>).merge({
         decided_by: person.record,
         updated_at: input.now,
@@ -2022,17 +1946,13 @@ async function applyPersonReferenceFromRelationship(input: {
     }
 
     await surreal.update(targetEntity.record as RecordId<"decision", string>).merge({
-      decided_by_name: person.name,
+      decided_by_name: patch.value,
       updated_at: input.now,
     });
     return;
   }
 
-  if (targetEntity.kind !== "question" || !assignedRelationKinds.has(relationKind)) {
-    return;
-  }
-
-  if (person.record) {
+  if (patch.field === "assigned_to" && person.record) {
     await surreal.update(targetEntity.record as RecordId<"question", string>).merge({
       assigned_to: person.record,
       updated_at: input.now,
@@ -2041,7 +1961,7 @@ async function applyPersonReferenceFromRelationship(input: {
   }
 
   await surreal.update(targetEntity.record as RecordId<"question", string>).merge({
-    assigned_to_name: person.name,
+    assigned_to_name: patch.value,
     updated_at: input.now,
   });
 }
@@ -2053,6 +1973,7 @@ async function createProvenanceEdge(input: {
   model: string;
   now: Date;
   fromText: string;
+  evidence: string;
 }): Promise<void> {
   await surreal.relate(input.sourceRecord, new RecordId("extraction_relation", randomUUID()), input.targetRecord, {
     confidence: input.confidence,
@@ -2060,6 +1981,7 @@ async function createProvenanceEdge(input: {
     created_at: input.now,
     model: input.model,
     from_text: input.fromText,
+    evidence: input.evidence,
   }).output("after");
 }
 
@@ -3065,22 +2987,6 @@ function normalizeRelationshipKind(value: string): string {
     .replace(/^_/, "")
     .replace(/_$/, "")
     .toUpperCase();
-}
-
-function isRicherFeatureName(incomingName: string, existingName: string): boolean {
-  const normalizedIncoming = normalizeName(incomingName);
-  const normalizedExisting = normalizeName(existingName);
-  if (normalizedIncoming.length === 0 || normalizedExisting.length === 0) {
-    return false;
-  }
-
-  const incomingWords = normalizedIncoming.split(" ").filter((word) => word.length > 0);
-  const existingWords = normalizedExisting.split(" ").filter((word) => word.length > 0);
-  if (incomingWords.length <= existingWords.length) {
-    return false;
-  }
-
-  return normalizedIncoming.length > normalizedExisting.length;
 }
 
 function isFuzzyNameMatch(a: string, b: string): boolean {

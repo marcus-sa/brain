@@ -1,15 +1,16 @@
 import pino, { type Logger, type LevelWithSilent } from "pino";
 import { getRequestContext } from "./request-context";
 
-const runtimeEnv = Bun.env.NODE_ENV ?? "development";
-const isProduction = runtimeEnv === "production";
+const runtimeEnv = Bun.env.NODE_ENV;
+if (!runtimeEnv || runtimeEnv.trim().length === 0) {
+  throw new Error("NODE_ENV is required");
+}
 
 const configuredLevel = Bun.env.LOG_LEVEL?.trim();
-const logLevel = (configuredLevel && configuredLevel.length > 0
-  ? configuredLevel
-  : isProduction
-    ? "info"
-    : "debug") as LevelWithSilent;
+if (!configuredLevel || configuredLevel.length === 0) {
+  throw new Error("LOG_LEVEL is required");
+}
+const logLevel = configuredLevel as LevelWithSilent;
 
 export const logger = pino({
   level: logLevel,
