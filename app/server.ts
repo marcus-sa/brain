@@ -1593,9 +1593,9 @@ async function loadOnboardingSummary(workspaceRecord: RecordId<"workspace", stri
     .collect<[Array<{ name: string }>]>()
 
   const [decisionRows] = await surreal
-    .query<[Array<{ summary: string }>]>(
+    .query<[Array<{ summary: string; created_at: Date | string }>]>(
       [
-        "SELECT summary",
+        "SELECT summary, created_at",
         "FROM decision",
         "WHERE id IN (",
         "  SELECT VALUE `in`",
@@ -1607,12 +1607,12 @@ async function loadOnboardingSummary(workspaceRecord: RecordId<"workspace", stri
       ].join(" "),
       { workspace: workspaceRecord },
     )
-    .collect<[Array<{ summary: string }>]>()
+    .collect<[Array<{ summary: string; created_at: Date | string }>]>()
 
   const [questionRows] = await surreal
-    .query<[Array<{ text: string }>]>(
+    .query<[Array<{ text: string; created_at: Date | string }>]>(
       [
-        "SELECT text",
+        "SELECT text, created_at",
         "FROM question",
         "WHERE id IN (",
         "  SELECT VALUE `in`",
@@ -1624,7 +1624,7 @@ async function loadOnboardingSummary(workspaceRecord: RecordId<"workspace", stri
       ].join(" "),
       { workspace: workspaceRecord },
     )
-    .collect<[Array<{ text: string }>]>()
+    .collect<[Array<{ text: string; created_at: Date | string }>]>()
 
   return [
     `Projects: ${projectRows.map((row) => row.name).join(", ") || "none"}`,

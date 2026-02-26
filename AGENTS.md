@@ -41,7 +41,7 @@ Reference: https://surrealdb.com/learn/fundamentals/schemafull/define-fields
 - Query results return `RecordId` objects for record references - cast directly, no string conversion needed.
 - Clause order: `SELECT ... FROM ... WHERE ... LIMIT ... FETCH ...` - `LIMIT` must come before `FETCH`.
 - ORDER BY fields must be in the SELECT clause - you cannot order by fields not selected.
-- Always include every `ORDER BY` field in the `SELECT` projection. For conversation bootstrap lookups, if ordering by `createdAt`, select both `id` and `createdAt`.
+- Always include every `ORDER BY` field in the `SELECT` projection. Example: if ordering decisions/questions by `created_at DESC`, select `summary, created_at` or `text, created_at` (not just `summary` / `text`).
 - Type query results directly. Access `RecordId.id` directly - do NOT create wrapper functions like `extractRecordId()`, `toString()`, etc:
   ```typescript
   const rows = await selectMany("SELECT id, name FROM gladiator WHERE totalWins > 0;") as Array<{ id: RecordId; name: string }>;
