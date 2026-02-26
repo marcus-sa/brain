@@ -1146,13 +1146,19 @@ async function generateAssistantReply(input: {
     ].join("\n"),
   });
 
-  const assistantText = assistantResponse.object.message.trim();
+  let assistantText = assistantResponse.object.message.trim();
   if (assistantText.length === 0) {
     throw new Error("assistant response was empty");
   }
 
   if (input.onboardingState === "active") {
-    validateActiveOnboardingReply(assistantText, input.latestEntities, input.latestTools);
+    const enforced = enforceActiveOnboardingReply(assistantText, input.latestEntities, input.latestTools);
+    if (enforced.corrected) {
+      logWarn("onboarding.reply.corrected", "Corrected onboarding assistant reply that failed quality guard", {
+        reason: enforced.reason,
+      });
+      assistantText = enforced.message;
+    }
   }
 
   const suggestions = [...new Set(assistantResponse.object.suggestions.map((value) => value.trim()))]
@@ -1182,32 +1188,62 @@ function formatLatestExtractionContext(
   return lines.length > 0 ? lines.join("\n") : "(no extracted entities or tools)";
 }
 
-function validateActiveOnboardingReply(
+function enforceActiveOnboardingReply(
   message: string,
   entities: Array<{ kind: EntityKind; text: string; confidence: number }>,
   tools: string[],
-): void {
+): { message: string; corrected: boolean; reason?: string } {
+  const groundingTerm = selectGroundingReference(entities, tools);
   const questionCount = [...message].filter((char) => char === "?").length;
-  if (questionCount !== 1) {
-    throw new Error("active onboarding reply must contain exactly one follow-up question");
+  const hasGroundingReference = groundingTerm ? includesGroundingReference(message, [groundingTerm]) : true;
+
+  if (questionCount === 1 && hasGroundingReference) {
+    return { message, corrected: false };
   }
 
-  const groundingTerms = [
-    ...entities.map((entity) => entity.text),
-    ...tools,
-  ]
-    .map((term) => normalizeName(term))
-    .filter((term) => term.length >= 3);
+  const reason = questionCount !== 1
+    ? "reply did not contain exactly one follow-up question"
+    : "reply did not reference extracted entity or tool";
+  const base = message.replace(/\?/g, ".").trim();
+  const groundedPrefix = hasGroundingReference || !groundingTerm ? "" : `I captured ${groundingTerm}. `;
+  const followUp = buildOnboardingFollowUpQuestion(groundingTerm);
+  return {
+    message: `${groundedPrefix}${base} ${followUp}`.trim(),
+    corrected: true,
+    reason,
+  };
+}
 
-  if (groundingTerms.length === 0) {
-    return;
+function selectGroundingReference(
+  entities: Array<{ kind: EntityKind; text: string; confidence: number }>,
+  tools: string[],
+): string | undefined {
+  const tool = tools.find((value) => value.trim().length >= 3);
+  if (tool) {
+    return tool.trim();
   }
 
+  const topEntity = entities
+    .slice()
+    .sort((a, b) => b.confidence - a.confidence)
+    .find((entity) => entity.text.trim().length >= 3);
+  return topEntity?.text.trim();
+}
+
+function includesGroundingReference(message: string, refs: string[]): boolean {
   const normalizedMessage = normalizeName(message);
-  const hasGroundingReference = groundingTerms.some((term) => normalizedMessage.includes(term));
-  if (!hasGroundingReference) {
-    throw new Error("active onboarding reply must reference a specific extracted entity or tool");
+  const normalizedRefs = refs.map((value) => normalizeName(value)).filter((value) => value.length >= 3);
+  if (normalizedRefs.length === 0) {
+    return true;
   }
+  return normalizedRefs.some((value) => normalizedMessage.includes(value));
+}
+
+function buildOnboardingFollowUpQuestion(groundingTerm?: string): string {
+  if (!groundingTerm) {
+    return "What should we capture next to move onboarding forward?";
+  }
+  return `What's the current status of ${groundingTerm}?`;
 }
 
 async function ingestAttachment(input: {
