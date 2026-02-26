@@ -54,6 +54,7 @@ type ConversationRow = {
   id: RecordId<"conversation", string>;
   createdAt: Date | string;
   updatedAt: Date | string;
+  workspace: RecordId<"workspace", string>;
 };
 
 type MessageContextRow = {
@@ -70,6 +71,24 @@ type SearchEntityRow = {
   confidence: number;
   sourceMessage: RecordId<"message", string>;
 };
+
+type HasProjectRow = {
+  id: RecordId<"has_project", string>;
+};
+
+type ProjectScopeRow = {
+  id: RecordId<"project", string>;
+  name: string;
+};
+
+class HttpError extends Error {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
 
 const extractionResultSchema = z.object({
   entities: z.array(
@@ -125,6 +144,7 @@ const surreal = new Surreal();
 await surreal.connect(surrealUrl);
 await surreal.signin({ username: surrealUsername, password: surrealPassword });
 await surreal.use({ namespace: surrealNamespace, database: surrealDatabase });
+await ensureDefaultWorkspaceProjectScope();
 
 const openrouter = createOpenRouter({ apiKey: openRouterApiKey });
 const assistantModel = openrouter(assistantModelId, {
@@ -139,6 +159,7 @@ const embeddingModel = openrouter.textEmbeddingModel(embeddingModelId);
 
 const server = Bun.serve({
   port: Number(Bun.env.PORT ?? "3000"),
+  idleTimeout: 0,
   routes: {
     "/healthz": {
       GET: () => jsonResponse({ status: "ok" }, 200),
@@ -174,13 +195,23 @@ async function handlePostChatMessage(request: Request): Promise<Response> {
 
   const conversationId = parsed.data.conversationId ?? randomUUID();
   const messageId = randomUUID();
+  const workspaceId = parsed.data.workspaceId;
 
   try {
+    const workspaceRecord = await resolveWorkspaceRecord(workspaceId);
     const now = new Date();
     const conversationRecord = new RecordId("conversation", conversationId);
     const existingConversation = await surreal.select<ConversationRow>(conversationRecord);
 
     if (existingConversation) {
+      if (!existingConversation.workspace) {
+        throw new HttpError(500, "conversation is missing workspace scope");
+      }
+
+      if (existingConversation.workspace.id !== workspaceRecord.id) {
+        throw new HttpError(400, "conversation scope does not match workspaceId");
+      }
+
       await surreal.update(conversationRecord).merge({
         updatedAt: now,
       });
@@ -188,6 +219,7 @@ async function handlePostChatMessage(request: Request): Promise<Response> {
       await surreal.create(conversationRecord).content({
         createdAt: now,
         updatedAt: now,
+        workspace: workspaceRecord,
       });
     }
 
@@ -200,6 +232,10 @@ async function handlePostChatMessage(request: Request): Promise<Response> {
       clientMessageId: parsed.data.clientMessageId,
     });
   } catch (error) {
+    if (error instanceof HttpError) {
+      return jsonError(error.message, error.status);
+    }
+
     logServerError("persist user message failed", error, { conversationId, messageId });
     const errorText = error instanceof Error ? error.message : "failed to persist user message";
     return jsonError(errorText, 500);
@@ -215,6 +251,7 @@ async function handlePostChatMessage(request: Request): Promise<Response> {
   const response: ChatMessageResponse = {
     messageId,
     conversationId,
+    workspaceId,
     streamUrl: `/api/chat/stream/${messageId}`,
   };
 
@@ -262,6 +299,13 @@ function handleChatStream(messageId: string): Response {
 }
 
 async function handleEntitySearch(url: URL): Promise<Response> {
+  const workspaceId = url.searchParams.get("workspaceId")?.trim();
+  if (!workspaceId) {
+    return jsonError("workspaceId is required", 400);
+  }
+
+  const projectId = url.searchParams.get("projectId")?.trim();
+
   const query = url.searchParams.get("q")?.trim().toLowerCase();
   if (!query) {
     return jsonError("q is required", 400);
@@ -274,16 +318,46 @@ async function handleEntitySearch(url: URL): Promise<Response> {
   }
 
   const limit = Math.min(Math.floor(parsedLimit), 100);
+  let workspaceRecord: RecordId<"workspace", string>;
+  let projectRecord: RecordId<"project", string> | undefined;
 
-  const [rows] = await surreal
-    .query<[SearchEntityRow[]]>(
-      "RETURN fn::entity_search($query, $limit);",
-      {
-        query,
-        limit,
-      },
-    )
-    .collect<[SearchEntityRow[]]>();
+  try {
+    workspaceRecord = await resolveWorkspaceRecord(workspaceId);
+    if (projectId) {
+      projectRecord = await resolveWorkspaceProjectRecord(workspaceRecord, projectId);
+    }
+  } catch (error) {
+    if (error instanceof HttpError) {
+      return jsonError(error.message, error.status);
+    }
+
+    logServerError("scope validation failed", error, { workspaceId, projectId });
+    const errorText = error instanceof Error ? error.message : "failed to validate scope";
+    return jsonError(errorText, 500);
+  }
+
+  const [rows] = projectRecord
+    ? await surreal
+        .query<[SearchEntityRow[]]>(
+          "RETURN fn::entity_search_project($query, $limit, $workspace, $project);",
+          {
+            query,
+            limit,
+            workspace: workspaceRecord,
+            project: projectRecord,
+          },
+        )
+        .collect<[SearchEntityRow[]]>()
+    : await surreal
+        .query<[SearchEntityRow[]]>(
+          "RETURN fn::entity_search_workspace($query, $limit, $workspace);",
+          {
+            query,
+            limit,
+            workspace: workspaceRecord,
+          },
+        )
+        .collect<[SearchEntityRow[]]>();
 
   const responseRows = rows
     .map((row) => ({
@@ -401,6 +475,15 @@ async function processChatMessage(
     const now = new Date();
     const assistantMessageRecord = new RecordId("message", messageId);
     const conversationRecord = new RecordId("conversation", conversationId);
+    const conversation = await surreal.select<ConversationRow>(conversationRecord);
+    if (!conversation) {
+      throw new Error("conversation not found");
+    }
+    if (!conversation.workspace) {
+      throw new Error("conversation missing workspace");
+    }
+
+    const workspaceProjects = await loadWorkspaceProjects(conversation.workspace);
     const sourceMessageId = assistantMessageRecord.id as string;
     const persistedEntities: ExtractedEntity[] = [];
     const persistedRelationships: ExtractedRelationship[] = [];
@@ -422,6 +505,14 @@ async function processChatMessage(
         await transaction.create(entityRecord).content(
           buildEntityRecordContent(entity.kind, entity.text, entity.confidence, assistantMessageRecord, now),
         );
+
+        const projectRecord = resolveEntityProject(entity.text, promptText, workspaceProjects);
+        if (projectRecord) {
+          const belongsToRecord = new RecordId("belongs_to", randomUUID());
+          await transaction.relate(entityRecord, belongsToRecord, projectRecord, {
+            added_at: now,
+          });
+        }
 
         entitiesByTempId.set(entity.tempId, {
           record: entityRecord,
@@ -449,13 +540,12 @@ async function processChatMessage(
           continue;
         }
 
-        const relationshipRecord = new RecordId("extraction_relation", randomUUID());
+        const relationshipId = randomUUID();
+        const relationshipRecord = new RecordId("extraction_relation", relationshipId);
         const fromText = relationship.fromText;
         const toText = relationship.toText;
 
-        await transaction.create(relationshipRecord).content({
-          in: fromEntity.record,
-          out: toEntity.record,
+        await transaction.relate(fromEntity.record, relationshipRecord, toEntity.record, {
           kind: relationship.kind,
           confidence: relationship.confidence,
           source_message: assistantMessageRecord,
@@ -466,7 +556,7 @@ async function processChatMessage(
         });
 
         persistedRelationships.push({
-          id: relationshipRecord.id as string,
+          id: relationshipId,
           kind: relationship.kind,
           fromId: fromEntity.id,
           toId: toEntity.id,
@@ -601,10 +691,129 @@ function formatContextRows(rows: MessageContextRow[]): string {
     .join("\n");
 }
 
+async function ensureDefaultWorkspaceProjectScope(): Promise<void> {
+  const now = new Date();
+  const workspaceRecord = new RecordId("workspace", "default");
+  const projectRecord = new RecordId("project", "brain");
+
+  const workspace = await surreal.select<{ id: RecordId<"workspace", string> }>(workspaceRecord);
+  if (!workspace) {
+    await surreal.create(workspaceRecord).content({
+      name: "Marcus's Brain",
+      status: "active",
+      description: "Default dogfooding workspace",
+      created_at: now,
+      updated_at: now,
+    });
+  }
+
+  const project = await surreal.select<{ id: RecordId<"project", string> }>(projectRecord);
+  if (!project) {
+    await surreal.create(projectRecord).content({
+      name: "AI-Native Business Management Platform",
+      status: "active",
+      description: "Default dogfooding project",
+      created_at: now,
+      updated_at: now,
+    });
+  }
+
+  const [edgeRows] = await surreal
+    .query<[HasProjectRow[]]>(
+      "SELECT id FROM has_project WHERE `in` = $workspace AND out = $project LIMIT 1;",
+      {
+        workspace: workspaceRecord,
+        project: projectRecord,
+      },
+    )
+    .collect<[HasProjectRow[]]>();
+
+  if (edgeRows.length === 0) {
+    await surreal.relate(workspaceRecord, new RecordId("has_project", randomUUID()), projectRecord, {
+      added_at: now,
+    });
+  }
+}
+
+async function resolveWorkspaceRecord(workspaceId: string): Promise<RecordId<"workspace", string>> {
+  const workspaceRecord = new RecordId("workspace", workspaceId);
+  const workspace = await surreal.select<{ id: RecordId<"workspace", string> }>(workspaceRecord);
+  if (!workspace) {
+    throw new HttpError(404, `workspace not found: ${workspaceId}`);
+  }
+  return workspaceRecord;
+}
+
+async function resolveWorkspaceProjectRecord(
+  workspaceRecord: RecordId<"workspace", string>,
+  projectId: string,
+): Promise<RecordId<"project", string>> {
+  const projectRecord = new RecordId("project", projectId);
+  const project = await surreal.select<{ id: RecordId<"project", string> }>(projectRecord);
+  if (!project) {
+    throw new HttpError(404, `project not found: ${projectId}`);
+  }
+
+  const [edgeRows] = await surreal
+    .query<[HasProjectRow[]]>(
+      "SELECT id FROM has_project WHERE `in` = $workspace AND out = $project LIMIT 1;",
+      {
+        workspace: workspaceRecord,
+        project: projectRecord,
+      },
+    )
+    .collect<[HasProjectRow[]]>();
+
+  if (edgeRows.length === 0) {
+    throw new HttpError(400, "project is not linked to workspace");
+  }
+
+  return projectRecord;
+}
+
+async function loadWorkspaceProjects(
+  workspaceRecord: RecordId<"workspace", string>,
+): Promise<ProjectScopeRow[]> {
+  const [rows] = await surreal
+    .query<[ProjectScopeRow[]]>(
+      "SELECT id, name FROM project WHERE id IN (SELECT VALUE out FROM has_project WHERE `in` = $workspace);",
+      {
+        workspace: workspaceRecord,
+      },
+    )
+    .collect<[ProjectScopeRow[]]>();
+
+  return rows;
+}
+
+function resolveEntityProject(
+  entityText: string,
+  promptText: string,
+  projects: ProjectScopeRow[],
+): RecordId<"project", string> | undefined {
+  if (projects.length === 0) {
+    return undefined;
+  }
+
+  if (projects.length === 1) {
+    return projects[0].id;
+  }
+
+  const haystack = `${promptText}\n${entityText}`.toLowerCase();
+  const matchingProjects = projects.filter((project) => haystack.includes(project.name.toLowerCase()));
+
+  if (matchingProjects.length !== 1) {
+    return undefined;
+  }
+
+  return matchingProjects[0].id;
+}
+
 function emitEvent(messageId: string, event: StreamEvent) {
   const state = streams.get(messageId);
   if (!state) {
-    throw new Error("stream missing in state");
+    console.warn(`Dropping ${event.type} event for missing stream state`, { messageId });
+    return;
   }
 
   if (state.controller) {
@@ -652,6 +861,10 @@ function parseChatMessageRequest(body: unknown):
     return { ok: false, error: "clientMessageId is required" };
   }
 
+  if (!payload.workspaceId || payload.workspaceId.trim().length === 0) {
+    return { ok: false, error: "workspaceId is required" };
+  }
+
   if (!payload.text || payload.text.trim().length === 0) {
     return { ok: false, error: "text is required" };
   }
@@ -664,6 +877,7 @@ function parseChatMessageRequest(body: unknown):
     ok: true,
     data: {
       clientMessageId: payload.clientMessageId,
+      workspaceId: payload.workspaceId.trim(),
       conversationId: payload.conversationId,
       text: payload.text.trim(),
     },

@@ -1,6 +1,7 @@
 DEFINE TABLE conversation SCHEMAFULL;
 DEFINE FIELD createdAt ON conversation TYPE datetime;
 DEFINE FIELD updatedAt ON conversation TYPE datetime;
+DEFINE FIELD workspace ON conversation TYPE record<workspace>;
 DEFINE FIELD source ON conversation TYPE option<string>;
 DEFINE FIELD timestamp ON conversation TYPE option<datetime>;
 DEFINE FIELD messages ON conversation TYPE option<array<record<message>>>;
@@ -33,6 +34,14 @@ DEFINE FIELD confidence ON relationship TYPE float ASSERT $value >= 0 AND $value
 DEFINE FIELD sourceMessage ON relationship TYPE record<message>;
 DEFINE FIELD createdAt ON relationship TYPE datetime;
 DEFINE INDEX relationship_createdAt ON relationship FIELDS createdAt;
+
+DEFINE TABLE workspace SCHEMAFULL;
+DEFINE FIELD name ON workspace TYPE string;
+DEFINE FIELD status ON workspace TYPE string;
+DEFINE FIELD description ON workspace TYPE option<string>;
+DEFINE FIELD created_at ON workspace TYPE datetime;
+DEFINE FIELD updated_at ON workspace TYPE option<datetime>;
+DEFINE INDEX workspace_name ON workspace FIELDS name;
 
 DEFINE TABLE project SCHEMAFULL;
 DEFINE FIELD name ON project TYPE string;
@@ -147,11 +156,18 @@ DEFINE INDEX pull_request_url ON pull_request FIELDS url UNIQUE;
 DEFINE TABLE has_feature TYPE RELATION IN project OUT feature SCHEMAFULL;
 DEFINE FIELD added_at ON has_feature TYPE datetime;
 
+DEFINE TABLE has_project TYPE RELATION IN workspace OUT project SCHEMAFULL;
+DEFINE FIELD added_at ON has_project TYPE datetime;
+
 DEFINE TABLE has_task TYPE RELATION IN feature OUT task SCHEMAFULL;
 DEFINE FIELD added_at ON has_task TYPE datetime;
 
 DEFINE TABLE owns TYPE RELATION IN person OUT task | project | feature SCHEMAFULL;
 DEFINE FIELD assigned_at ON owns TYPE datetime;
+
+DEFINE TABLE member_of TYPE RELATION IN person OUT workspace SCHEMAFULL;
+DEFINE FIELD role ON member_of TYPE option<string>;
+DEFINE FIELD added_at ON member_of TYPE datetime;
 
 DEFINE TABLE depends_on TYPE RELATION IN task | feature OUT task | feature SCHEMAFULL;
 DEFINE FIELD type ON depends_on TYPE string ASSERT $value IN ["blocks", "needs", "soft"];
@@ -195,9 +211,11 @@ DEFINE TABLE attended_by TYPE RELATION IN meeting OUT person SCHEMAFULL;
 DEFINE FIELD role ON attended_by TYPE option<string> ASSERT $value = NONE OR $value IN ["organizer", "attendee"];
 DEFINE FIELD added_at ON attended_by TYPE option<datetime>;
 
-DEFINE FUNCTION fn::entity_search($q: string, $limit: int) {
+DEFINE FUNCTION fn::entity_search_workspace($q: string, $limit: int, $workspace: record<workspace>) {
   LET $query = string::lowercase(string::trim($q));
   LET $safe_limit = math::min([math::max([$limit, 1]), 100]);
+  LET $workspace_conversations = SELECT VALUE id FROM conversation WHERE workspace = $workspace;
+  LET $workspace_messages = SELECT VALUE id FROM message WHERE conversation IN $workspace_conversations;
 
   LET $task_rows = SELECT
     id,
@@ -208,6 +226,7 @@ DEFINE FUNCTION fn::entity_search($q: string, $limit: int) {
     created_at
   FROM task
   WHERE source_message != NONE
+    AND source_message IN $workspace_messages
     AND extraction_confidence != NONE
     AND string::contains(string::lowercase(title), $query)
   ORDER BY created_at DESC
@@ -222,6 +241,7 @@ DEFINE FUNCTION fn::entity_search($q: string, $limit: int) {
     created_at
   FROM decision
   WHERE source_message != NONE
+    AND source_message IN $workspace_messages
     AND extraction_confidence != NONE
     AND string::contains(string::lowercase(summary), $query)
   ORDER BY created_at DESC
@@ -236,7 +256,66 @@ DEFINE FUNCTION fn::entity_search($q: string, $limit: int) {
     created_at
   FROM question
   WHERE source_message != NONE
+    AND source_message IN $workspace_messages
     AND extraction_confidence != NONE
+    AND string::contains(string::lowercase(text), $query)
+  ORDER BY created_at DESC
+  LIMIT $safe_limit;
+
+  RETURN array::flatten([$task_rows, $decision_rows, $question_rows]);
+};
+
+DEFINE FUNCTION fn::entity_search_project($q: string, $limit: int, $workspace: record<workspace>, $project: record<project>) {
+  LET $query = string::lowercase(string::trim($q));
+  LET $safe_limit = math::min([math::max([$limit, 1]), 100]);
+  LET $workspace_conversations = SELECT VALUE id FROM conversation WHERE workspace = $workspace;
+  LET $workspace_messages = SELECT VALUE id FROM message WHERE conversation IN $workspace_conversations;
+  LET $project_entity_ids = SELECT VALUE `in` FROM belongs_to WHERE out = $project;
+
+  LET $task_rows = SELECT
+    id,
+    "task" AS kind,
+    title AS text,
+    extraction_confidence AS confidence,
+    source_message AS sourceMessage,
+    created_at
+  FROM task
+  WHERE source_message != NONE
+    AND source_message IN $workspace_messages
+    AND extraction_confidence != NONE
+    AND id IN $project_entity_ids
+    AND string::contains(string::lowercase(title), $query)
+  ORDER BY created_at DESC
+  LIMIT $safe_limit;
+
+  LET $decision_rows = SELECT
+    id,
+    "decision" AS kind,
+    summary AS text,
+    extraction_confidence AS confidence,
+    source_message AS sourceMessage,
+    created_at
+  FROM decision
+  WHERE source_message != NONE
+    AND source_message IN $workspace_messages
+    AND extraction_confidence != NONE
+    AND id IN $project_entity_ids
+    AND string::contains(string::lowercase(summary), $query)
+  ORDER BY created_at DESC
+  LIMIT $safe_limit;
+
+  LET $question_rows = SELECT
+    id,
+    "question" AS kind,
+    text AS text,
+    extraction_confidence AS confidence,
+    source_message AS sourceMessage,
+    created_at
+  FROM question
+  WHERE source_message != NONE
+    AND source_message IN $workspace_messages
+    AND extraction_confidence != NONE
+    AND id IN $project_entity_ids
     AND string::contains(string::lowercase(text), $query)
   ORDER BY created_at DESC
   LIMIT $safe_limit;

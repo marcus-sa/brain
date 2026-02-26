@@ -2,6 +2,7 @@ export type EntityKind = "task" | "decision" | "question";
 
 export type ChatMessageRequest = {
   clientMessageId: string;
+  workspaceId: string;
   conversationId?: string;
   text: string;
 };
@@ -9,6 +10,7 @@ export type ChatMessageRequest = {
 export type ChatMessageResponse = {
   messageId: string;
   conversationId: string;
+  workspaceId: string;
   streamUrl: string;
 };
 

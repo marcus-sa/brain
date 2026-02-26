@@ -15,3 +15,4 @@
 7. Type `@` in chat input and verify mention suggestions return extracted entities.
 8. Optionally run script check:
    - `bun run smoke:phase1`
+   - optional scope override: `SMOKE_WORKSPACE_ID=default bun run smoke:phase1`

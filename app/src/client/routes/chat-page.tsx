@@ -47,6 +47,7 @@ const COMMAND_ITEMS: SlashCommandItem[] = [
     value: "question: ",
   },
 ];
+const WORKSPACE_ID = "default";
 
 export function ChatPage() {
   const [sessions, setSessions] = useState<Session[]>([
@@ -77,7 +78,9 @@ export function ChatPage() {
   }
 
   async function searchMentions(query: string): Promise<MentionItem[]> {
-    const response = await fetch(`/api/entities/search?q=${encodeURIComponent(query)}&limit=8`);
+    const response = await fetch(
+      `/api/entities/search?q=${encodeURIComponent(query)}&workspaceId=${encodeURIComponent(WORKSPACE_ID)}&limit=8`,
+    );
     if (!response.ok) {
       throw new Error(`entity search failed: ${response.status}`);
     }
@@ -107,6 +110,7 @@ export function ChatPage() {
     const clientMessageId = crypto.randomUUID();
     const requestBody: ChatMessageRequest = {
       clientMessageId,
+      workspaceId: WORKSPACE_ID,
       text,
     };
 

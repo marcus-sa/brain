@@ -1,5 +1,6 @@
 const baseUrl = process.env.BASE_URL ?? "http://127.0.0.1:3000";
 const requestTimeoutMs = Number(process.env.SMOKE_TIMEOUT_MS ?? "90000");
+const workspaceId = process.env.SMOKE_WORKSPACE_ID ?? "default";
 
 const messageText =
   "Task: ship OAuth callback handler this week. Decision: use OpenRouter embeddings first. Question: do we keep a fallback provider? The OAuth task blocks API integration.";
@@ -18,12 +19,14 @@ async function run(): Promise<void> {
   const chatResponse = await fetchJson<{
     messageId: string;
     conversationId: string;
+    workspaceId: string;
     streamUrl: string;
   }>(`${baseUrl}/api/chat/messages`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       clientMessageId: crypto.randomUUID(),
+      workspaceId,
       text: messageText,
     }),
   });
@@ -33,6 +36,7 @@ async function run(): Promise<void> {
     typeof chatResponse.conversationId === "string" && chatResponse.conversationId.length > 0,
     "conversationId missing",
   );
+  assert(chatResponse.workspaceId === workspaceId, "workspaceId mismatch");
   assert(typeof chatResponse.streamUrl === "string" && chatResponse.streamUrl.length > 0, "streamUrl missing");
   console.log("chat metadata check passed");
 
@@ -58,7 +62,9 @@ async function run(): Promise<void> {
 
   const rows = await fetchJson<
     Array<{ id: string; kind: string; text: string; confidence: number; sourceMessageId: string }>
-  >(`${baseUrl}/api/entities/search?q=${encodeURIComponent(query)}&limit=10`);
+  >(
+    `${baseUrl}/api/entities/search?q=${encodeURIComponent(query)}&workspaceId=${encodeURIComponent(workspaceId)}&limit=10`,
+  );
 
   assert(rows.length > 0, "entity search returned no rows");
   for (const row of rows) {
