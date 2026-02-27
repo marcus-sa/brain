@@ -217,9 +217,13 @@ DEFINE FIELD created_at ON extraction_relation TYPE datetime;
 DEFINE FIELD model ON extraction_relation TYPE option<string>;
 DEFINE FIELD from_text ON extraction_relation TYPE option<string>;
 DEFINE FIELD evidence ON extraction_relation TYPE option<string>;
+DEFINE FIELD evidence_source ON extraction_relation TYPE option<record<message>>;
+DEFINE FIELD resolved_from ON extraction_relation TYPE option<record<message>>;
 DEFINE FIELD to_text ON extraction_relation TYPE option<string>;
 DEFINE INDEX extraction_relation_confidence ON extraction_relation FIELDS confidence;
 DEFINE INDEX extraction_relation_extracted_at ON extraction_relation FIELDS extracted_at;
+DEFINE INDEX extraction_relation_evidence_source ON extraction_relation FIELDS evidence_source;
+DEFINE INDEX extraction_relation_resolved_from ON extraction_relation FIELDS resolved_from;
 
 DEFINE TABLE entity_relation TYPE RELATION IN workspace | project | person | feature | task | decision | question OUT workspace | project | person | feature | task | decision | question SCHEMAFULL;
 DEFINE FIELD kind ON entity_relation TYPE string ASSERT string::len(string::trim($value)) > 0;

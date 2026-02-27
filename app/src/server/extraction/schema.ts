@@ -6,6 +6,7 @@ export const extractionEntitySchema = z.object({
   text: z.string().min(1),
   confidence: z.number().min(0).max(1),
   evidence: z.string().min(1),
+  resolvedFromMessageId: z.string().min(1).optional(),
 });
 
 export const extractionRelationshipSchema = z.object({

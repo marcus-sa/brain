@@ -135,6 +135,7 @@
       "graph capabilities",
       "multi-model query support"
     ],
+    "expectedResolvedFromContextIndex": 1,
     "intent": "strict_single",
     "expectedEntities": [
       {
@@ -197,6 +198,68 @@
     "input": "This feels risky unless we improve it.",
     "intent": "strict_single",
     "expectedEntities": []
+  },
+  {
+    "id": "long-context-first-option-resolution",
+    "context": [
+      {
+        "role": "user",
+        "text": "We should consider SurrealDB for the graph layer."
+      },
+      {
+        "role": "assistant",
+        "text": "That seems promising for graph traversal and flexible schema."
+      },
+      {
+        "role": "user",
+        "text": "What about licensing?"
+      },
+      {
+        "role": "assistant",
+        "text": "SurrealDB has BSL terms we should review."
+      },
+      {
+        "role": "user",
+        "text": "Could we use Postgres plus an extension instead?"
+      },
+      {
+        "role": "assistant",
+        "text": "That is possible but adds integration work."
+      },
+      {
+        "role": "user",
+        "text": "Actually TigerBeetle looks interesting for financial parts."
+      },
+      {
+        "role": "assistant",
+        "text": "TigerBeetle seems strongest for ledger workloads."
+      },
+      {
+        "role": "user",
+        "text": "For graph specifically we still need a primary option."
+      },
+      {
+        "role": "assistant",
+        "text": "Right now SurrealDB and Postgres are the two options."
+      },
+      {
+        "role": "user",
+        "text": "Let's keep moving and decide now."
+      },
+      {
+        "role": "assistant",
+        "text": "If you choose the first option, we should plan a licensing review."
+      }
+    ],
+    "input": "Ok let's go with the first option for the graph.",
+    "expectedResolvedFromContextIndex": 0,
+    "intent": "strict_single",
+    "expectedEntities": [
+      {
+        "kind": "decision",
+        "text_contains": "SurrealDB"
+      }
+    ]
   },
   {
     "id": "document-like-chunk-1",

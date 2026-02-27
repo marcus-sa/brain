@@ -72,7 +72,7 @@ The platform uses different models for different jobs, optimizing for cost, late
 | **Reasoning** (feed, conflicts, MCP context) | Claude Sonnet 4.5 | Multi-hop graph reasoning, conflict classification ("is this actually a conflict?"), and context synthesis require real judgment. Runs async so latency doesn't matter. |
 | **Document editing** (Tiptap AI) | Claude Sonnet 4.5 | PRD generation and document edits need quality. Schema-aware edits require understanding document structure and graph context simultaneously. |
 
-**Architecture principle:** Extraction and chat are separate LLM calls. User sends a message → Sonnet streams a conversational response immediately → simultaneously, Haiku processes the same message for entity extraction in the background. If extraction fails or is slow, the chat experience is unaffected.
+**Architecture principle:** Extraction and chat are separate LLM calls with a shared graph context step. User sends a message → system builds graph context (semantic search + conversation entities + project state, see Chat Agent Graph Awareness in 3.2) → Sonnet streams a conversational response with graph context injected into system prompt → simultaneously, Haiku processes the same message for entity extraction in the background using the full conversation context. If extraction fails or is slow, the chat experience is unaffected.
 
 **Provider agnosticism:** The Vercel AI SDK abstracts model providers. If pricing shifts or a competitor model outperforms on extraction (e.g., GPT-4o-mini, Gemini Flash), swap models without changing the pipeline. The extraction prompt uses strict JSON schemas with Zod validation — if the model returns malformed JSON, retry once, then drop silently. Better to miss an extraction than block the pipeline.
 
@@ -176,16 +176,101 @@ The extraction pipeline is the system's core intelligence layer. Every incoming 
 
 #### Extraction Prompt Strategy
 
-The extraction prompt receives the current message plus relevant graph context (via vector search + graph traversal). It outputs structured JSON with high-confidence extractions only. The system errs on the side of missing things rather than creating noise — building trust over time as accuracy proves out.
+The extraction prompt receives the **full conversation context** plus relevant graph context and extracts entities from the **current user message only**. It outputs structured JSON with high-confidence extractions. The system errs on the side of missing things rather than creating noise — building trust over time as accuracy proves out.
+
+**Extraction input model:**
+
+```
+{
+  conversationSummary?   // compressed summary of older messages (when history > 15 messages)
+  existingEntities       // entities already extracted from this conversation (graph nodes)
+  recentMessages         // last 10-15 messages verbatim (all roles, for context)
+  currentMessage         // the specific user message being extracted (role: 'user')
+  graphContext           // workspace entities from vector search + graph traversal
+}
+```
+
+The full conversation history enables **reference resolution**: when a user says "Yes, let's go with that" or "the first option" or "what we discussed earlier," the extraction prompt resolves the reference to its concrete meaning using the conversation history. This applies identically to web chat and Slack threads — the Slack bot receives thread history via the Slack API and passes it through the same extraction input model.
+
+**Token budget strategy for long conversations:** Don't pass every message verbatim. Recent messages (last 10-15) are included verbatim. Older messages are summarized. The graph itself acts as compressed history — entities extracted from earlier messages already exist as nodes, so even summarized messages retain their semantic content through the entity references in `existingEntities`.
 
 **Critical rules:**
 
-- **Only extract from user messages.** Never run extraction on assistant-generated responses — this creates feedback loops where the system re-extracts its own paraphrases of already-captured entities.
-- **Person references are resolved, not created.** When a name is detected, match it against existing Person nodes in the workspace. If a match is found, create the appropriate relationship edges (OWNS, DECIDED_BY, etc.). If no match is found, store as an unresolved string attribute on the related entity (e.g., `decided_by: "Sarah"`) and flag for a suggestion: "You mentioned Sarah — want to add her to the workspace?" Person nodes are only created through IAM (workspace creation, OAuth, manual invite), never inferred from extraction.
+- **Only extract from user messages.** Never run extraction on assistant-generated responses — this creates feedback loops where the system re-extracts its own paraphrases of already-captured entities. The conversation history includes assistant messages for *context*, but entities are only created from user messages.
+- **Resolve references, don't parrot.** When the user confirms or references something from prior context ("yes", "let's go with that", "sounds good", "the first option"), resolve the reference to produce a descriptive entity name. The entity name should be the resolved concept (e.g., "Use SurrealDB for the graph layer"), not the user's literal words ("let's go with that"). The evidence field captures the user's actual words. The `resolved_from` field links to the original message where the concept was first stated.
+- **Person references are resolved, not created.** When a name is detected, match it against existing Person nodes in the workspace. If a match is found, create the appropriate relationship edges (OWNS, DECIDED_BY, etc.). If no match is found, store as an unresolved string attribute on the related entity (e.g., `decided_by_name: "Sarah"`) and flag for a suggestion: "You mentioned Sarah — want to add her to the workspace?" Person nodes are only created through IAM (workspace creation, OAuth, manual invite), never inferred from extraction.
 - **Placeholder filtering.** The prompt includes negative examples of non-entities ("my project", "the thing", "this idea"). A server-side blocklist provides a deterministic safety net, dropping known placeholder phrases before persistence.
 - **Confidence-gated display.** Store entities at ≥0.6 confidence. Display inline EntityCards at ≥0.85 confidence only. Entities between 0.6–0.85 are stored silently for later corroboration or review.
+- **Actionability guard for Tasks.** The prompt distinguishes Tasks (actionable commitments with implicit owner and concrete action verb) from goals/descriptions ("transform conversations into a knowledge graph"). A server-side heuristic checks for action verb presence and reclassifies goal-like text to Feature.
+- **Adoption-only tool filtering.** Tools/technologies mentioned as competitors or references ("existing PM tools like Linear, Notion") are not extracted. Only tools with adoption signals in the evidence ("we use", "built with", "stored in") create entity nodes.
+
+**Evidence provenance model on `extraction_relation` edges:**
+
+```
+{
+  evidence: string,           // user's exact words from current message
+  evidence_source: MessageId, // the current message being extracted
+  resolved_from?: MessageId,  // the earlier message where the referenced concept originated (if different)
+  from_text: string,          // resolved entity name
+  confidence: number,
+  extracted_at: Date,
+  model: string               // 'haiku-4.5'
+}
+```
+
+This provides full provenance: the user confirmed a decision in message 12 (`evidence_source`), but the concept originated in message 1 (`resolved_from`). The complete chain is traceable.
 
 Explicit entity references via @mentions and #project tags bypass the extraction pipeline entirely and create direct graph links, ensuring zero-loss for intentional references.
+
+#### Chat Agent Graph Awareness
+
+The chat agent (Sonnet) needs graph awareness to have useful conversations — "what did we decide about auth?" should return a real answer from the knowledge graph, not "I don't have access to that information." This is achieved through a phased approach: system prompt injection first, graph query tools later.
+
+**Phase 1 — System prompt injection:**
+
+Before each Sonnet call, the system queries the graph and injects relevant context into the system prompt. No tool calling needed — the agent simply *knows* things.
+
+```
+async function buildChatContext(conversation, latestMessage, workspaceId):
+  1. conversationEntities  → entities already extracted from this conversation
+  2. relevantEntities      → semantic search across workspace (top 20-30 entities matching latest message)
+  3. projectContext        → active decisions, tasks, open questions for mentioned projects
+  4. crossProjectConflicts → entities from OTHER projects that relate to current conversation
+  
+  → Inject all into system prompt as structured context
+```
+
+This covers ~90% of use cases: "what did we decide about X?", "what tasks are open?", "remind me about the auth approach." The answer is already in the injected context window. No tool calling latency, no orchestration complexity.
+
+Cross-project intelligence surfaces naturally here: if the semantic search returns entities from other projects that relate to the current conversation, they're included in the context. The agent can say "By the way, this conflicts with a decision in Project B" — not because it ran a conflict detection tool, but because the conflicting entity was in its context window.
+
+**Phase 2 — Graph query tools:**
+
+When the injected context doesn't cover the user's question — "find all decisions across every project that mention SurrealDB", "what depends on the auth migration?", "show me the full dependency chain" — the agent needs to query the graph dynamically.
+
+Tools added to the chat agent:
+
+```
+search_entities({ query, kinds?, project? })        → semantic search across graph
+get_entity_detail({ entityId })                       → full details + relationships for one entity
+get_project_status({ projectId })                     → active tasks, recent decisions, open questions
+find_conflicts({ proposedDecision, projectId? })      → check proposed decision against existing graph
+get_conversation_history({ query, projectId? })       → search past conversations about a topic
+```
+
+The system prompt still provides ambient awareness (current conversation and project state). Tools let the agent go deeper when needed. The agent decides when to use tools based on whether the injected context contains the answer.
+
+**Phase 3 — Unified tool interface:**
+
+The same graph query tools the chat agent uses internally become the MCP tools exposed to coding agents externally. One tool interface, two consumers:
+
+```
+Chat agent (Sonnet)  ─→ graph query tools ←─  Coding agents (via MCP)
+                              ↓
+                         SurrealDB graph
+```
+
+The `resolve_decision` and `create_provisional_decision` MCP tools (section 3.4) are also available to the chat agent, enabling it to answer questions like "should I use REST or tRPC?" by reasoning over the graph — the same way a coding agent would via MCP.
 
 ### 3.3 Data Strategy: Store the Graph, Not the Raw Data
 
@@ -287,7 +372,7 @@ The platform includes a Slack bot that functions as a direct interface to the kn
 - **Active commands:** `/brain status project-x` to get a project summary, `/brain decide "use GraphQL for reporting API"` to explicitly record a decision, `/brain task @marcus "implement auth flow" by Friday` to create a tracked task
 - **Notifications:** The bot surfaces cross-project conflicts and feed items directly in Slack — hard conflicts as DMs, soft tensions in a dedicated channel
 
-**Architecture:** The Slack bot is a thin client that authenticates via the IAM layer (see 3.7), maps Slack user IDs to Person nodes in the graph, and routes messages through the same extraction pipeline as the web chat. Messages processed via Slack get a `source: slack` tag with a reference link back to the original message.
+**Architecture:** The Slack bot is a thin client that authenticates via the IAM layer (see 3.7), maps Slack user IDs to Person nodes in the graph, and routes messages through the same extraction pipeline as the web chat. For thread-based conversations, the bot retrieves the full thread history via the Slack API and passes it through the same extraction input model used for web chat (see Extraction Prompt Strategy in 3.2) — `recentMessages` contains the thread history, `currentMessage` is the latest message. This ensures reference resolution ("the first option", "what we discussed") works identically across web chat and Slack threads. Messages processed via Slack get a `source: slack` tag with a reference link back to the original message.
 
 ### 3.6 Meeting Intelligence: Transcripts as Graph Input
 
@@ -416,7 +501,7 @@ The MVP is structured as four two-week phases, designed for dogfooding from day 
 
 1. **SurrealDB setup:** Define schema for all entity types and relationship edges, starting from the Workspace root. Configure vector index (HNSW) for embeddings on message and entity nodes. Write SurrealQL functions for entity retrieval and graph traversal.
 2. **TypeScript backend API (Hono):** REST/WebSocket endpoints for chat messages, streaming LLM responses, and graph queries. SurrealDB JS SDK integration. Message persistence and embedding generation (OpenRouter). Shared type definitions with frontend.
-3. **Extraction pipeline v1:** LLM prompt (Haiku 4.5) that takes a message + context and outputs structured JSON with entities and relationships. Initial focus on tasks, decisions, and questions. Confidence scoring to filter noise. Extracted relationships stored as `extraction_relation` edges with `{kind, confidence, source_message}` — no premature ontology resolution. Entity and message nodes embedded via OpenRouter for semantic search.
+3. **Extraction pipeline v1:** LLM prompt (Haiku 4.5) that takes the full conversation context (recent messages verbatim, older messages summarized, existing extracted entities) and extracts from the current user message only. Outputs structured JSON with entities and relationships. Reference resolution: pronouns and callbacks ("that approach", "the first option") resolve to concrete concepts using conversation history. Initial focus on tasks, decisions, and questions. Confidence scoring to filter noise. Extracted relationships stored as `extraction_relation` edges with `{from_text, evidence, evidence_source, resolved_from?, confidence, model}` — full provenance chain from user words to resolved entity name to originating message. Entity and message nodes embedded via OpenRouter for semantic search.
 4. **Reachat frontend:** Chat textarea with LLM streaming (Sonnet 4.5). Configure @mention support with entity search against SurrealDB. Two key Reachat features used from day one:
 
    **Component catalog:** Register custom components that the LLM can render inline in chat messages. Extracted entities appear as rich interactive cards inside the conversation, not just text. Phase 1 catalog:
@@ -443,7 +528,7 @@ The MVP is structured as four two-week phases, designed for dogfooding from day 
    **Layer 3 — Integration smoke tests (Bun script, full pipeline):** Hit the running stack end-to-end: health check → create workspace → send message → wait for extraction → assert entity exists with correct type, extraction_relation edge, evidence field, embedding vector → assert no phantom Person nodes → assert component block generated → cleanup.
 8. **Dogfooding checkpoint:** Run the onboarding conversation for the dogfooding workspace ("AI-Native Business Management Platform"), uploading this MVP plan as the seed document. Start using the tool to plan and track building the tool itself. Every architecture decision becomes a graph node.
 
-*Deliverable: A working chat that talks to an LLM and builds a knowledge graph from conversations. Extracted entities render as rich inline components via Reachat's component catalog. Suggestions guide the user through onboarding and contextual actions. Conversation sidebar groups chats by project automatically. Workspace creation is a self-service onboarding conversation that bootstraps the graph. Document upload accelerates graph seeding.*
+*Deliverable: A working chat that talks to an LLM and builds a knowledge graph from conversations. The chat agent is graph-aware via system prompt injection — it can answer questions about existing decisions, tasks, and project state from the knowledge graph. Extracted entities render as rich inline components via Reachat's component catalog. Suggestions guide the user through onboarding and contextual actions. Conversation sidebar groups chats by project automatically. Workspace creation is a self-service onboarding conversation that bootstraps the graph. Document upload accelerates graph seeding.*
 
 ---
 
@@ -455,6 +540,7 @@ The MVP is structured as four two-week phases, designed for dogfooding from day 
 2. **Entity detail panels:** Click a node to see its full context: related conversations, decisions, tasks, open questions. Link back to the original chat message where it was created.
 3. **Chat → Graph navigation:** Clicking an inline annotation in chat navigates to that node in the graph. Clicking a conversation reference in the graph jumps to that chat message.
 4. **Search and filter:** Full-text and semantic search across the graph. Filter by entity type, project, person, date range.
+5. **Chat agent graph tools:** Upgrade the chat agent from system prompt injection only to dynamic graph query tools (`search_entities`, `get_entity_detail`, `get_project_status`, `find_conflicts`, `get_conversation_history`). The agent decides when to use tools based on whether the injected context contains the answer. Same tool interface later exposed via MCP in Phase 3.
 5. **Extraction pipeline v2:** Iterate on extraction quality based on real dogfooding data. Tune confidence thresholds. Add relationship strength scoring.
 6. **Conversation branching:** Select a message range or click "branch from here" to create a focused sub-conversation. Creates a new Conversation with `BRANCHED_FROM` edge to parent. Branch carries forward relevant graph context (parent's extracted entities pre-loaded for high-confidence project/feature resolution). Branched conversations display as nested under their parent in the sidebar.
 7. **Conversation drift detection:** After each extraction, the system checks whether newly extracted entities share any `entity_relation` or project ancestry with the conversation's earlier entities. If the last 3–4 messages produce entities belonging to a different project cluster than the conversation's existing entities, the system surfaces a contextual suggestion: "This seems like a separate thread — branch into a new conversation about [detected topic]?" The suggestion names the new topic based on the most recent extracted entities. If ignored, the system doesn't nag — the entities still get extracted and linked to the correct projects regardless. This is a UX quality signal, not a functional gate. Reinforces the anti-bloat strategy: shorter, focused conversations that map cleanly to projects and produce better graph provenance.

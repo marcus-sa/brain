@@ -5,7 +5,8 @@
       "kind": "decision",
       "text": "Use TypeScript over Rust for backend",
       "confidence": 0.91,
-      "evidence": "I've decided to use TypeScript over Rust for the backend"
+      "evidence": "I've decided to use TypeScript over Rust for the backend",
+      "resolvedFromMessageId": "msg-root-context"
     },
     {
       "tempId": "e2",

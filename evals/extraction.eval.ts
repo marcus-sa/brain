@@ -14,6 +14,8 @@ import { evidenceGroundedScorer } from "./scorers/evidence-grounded";
 import { noPlaceholdersScorer } from "./scorers/no-placeholders";
 import { noExtraEntitiesScorer } from "./scorers/no-extra-entities";
 import { noContextBleedScorer } from "./scorers/no-context-bleed";
+import { evidenceSourceCurrentMessageScorer } from "./scorers/evidence-source-current-message";
+import { resolvedFromLineageScorer } from "./scorers/resolved-from-lineage";
 import type { ExtractionEvalOutput, GoldenCase, GoldenCaseIntent } from "./types";
 import { normalizeForSubstring } from "./scorers/shared";
 
@@ -46,29 +48,35 @@ const intentScoreWeights: Record<
     | "evidence-grounded"
     | "no-placeholders"
     | "no-context-bleed"
+    | "evidence-source-current-message"
+    | "resolved-from-lineage"
     | "factuality",
     number
   >
 > = {
   strict_single: {
-    "entity-precision": 0.2,
-    "entity-recall": 0.2,
-    "no-extra-entities": 0.22,
-    "no-phantom-persons": 0.14,
-    "evidence-grounded": 0.1,
+    "entity-precision": 0.18,
+    "entity-recall": 0.18,
+    "no-extra-entities": 0.2,
+    "no-phantom-persons": 0.13,
+    "evidence-grounded": 0.09,
     "no-placeholders": 0.05,
-    "no-context-bleed": 0.06,
-    factuality: 0.03,
+    "no-context-bleed": 0.05,
+    "evidence-source-current-message": 0.06,
+    "resolved-from-lineage": 0.04,
+    factuality: 0.02,
   },
   multi_allowed: {
-    "entity-precision": 0.28,
-    "entity-recall": 0.28,
+    "entity-precision": 0.25,
+    "entity-recall": 0.25,
     "no-extra-entities": 0.05,
-    "no-phantom-persons": 0.14,
-    "evidence-grounded": 0.1,
+    "no-phantom-persons": 0.12,
+    "evidence-grounded": 0.09,
     "no-placeholders": 0.05,
-    "no-context-bleed": 0.06,
-    factuality: 0.04,
+    "no-context-bleed": 0.05,
+    "evidence-source-current-message": 0.07,
+    "resolved-from-lineage": 0.04,
+    factuality: 0.03,
   },
 };
 
@@ -120,6 +128,8 @@ evalite<GoldenCase, ExtractionEvalOutput, GoldenCase>("Extraction Golden Cases",
     evidenceGroundedScorer,
     noPlaceholdersScorer,
     noContextBleedScorer,
+    evidenceSourceCurrentMessageScorer,
+    resolvedFromLineageScorer,
     factualityScorer,
   ],
   columns: ({ input, output, scores }) => [
@@ -131,6 +141,8 @@ evalite<GoldenCase, ExtractionEvalOutput, GoldenCase>("Extraction Golden Cases",
     { label: "Evidence", value: formatScoreCell(scoreByName(scores, "evidence-grounded")) },
     { label: "NoPlace", value: formatScoreCell(scoreByName(scores, "no-placeholders")) },
     { label: "NoCtxBleed", value: formatScoreCell(scoreByName(scores, "no-context-bleed")) },
+    { label: "EvSrc", value: formatScoreCell(scoreByName(scores, "evidence-source-current-message")) },
+    { label: "Lineage", value: formatScoreCell(scoreByName(scores, "resolved-from-lineage")) },
     { label: "Factual", value: formatScoreCell(scoreByName(scores, "factuality")) },
     { label: "Intent", value: input.intent },
     { label: "Case", value: input.id },
@@ -223,9 +235,10 @@ async function runCase(testCase: GoldenCase): Promise<ExtractionEvalOutput> {
     const db = await getSurreal();
     const ownerPersonCount = await loadWorkspacePeopleCount(db, workspaceRecord);
     const conversationRecord = new RecordId("conversation", workspace.conversationId);
-    if ((testCase.context?.length ?? 0) > 0) {
-      await seedConversationContext(db, conversationRecord, testCase.context);
-    }
+    const seededContext = testCase.context ?? [];
+    const contextMessageIds = seededContext.length > 0
+      ? await seedConversationContext(db, conversationRecord, seededContext)
+      : [];
 
     const message = await fetchJson<{ streamUrl: string; userMessageId: string }>(`${baseUrl}/api/chat/messages`, {
       method: "POST",
@@ -244,17 +257,31 @@ async function runCase(testCase: GoldenCase): Promise<ExtractionEvalOutput> {
       | undefined;
 
     const [evidenceRows] = await db
-      .query<[Array<{ evidence?: string; from_text?: string; model?: string }>]>(
-        "SELECT evidence, from_text, model FROM extraction_relation WHERE `in` = $source;",
+      .query<[Array<{
+        evidence?: string;
+        from_text?: string;
+        model?: string;
+        evidence_source?: RecordId<"message", string>;
+        resolved_from?: RecordId<"message", string>;
+      }>]>(
+        "SELECT evidence, from_text, model, evidence_source, resolved_from FROM extraction_relation WHERE `in` = $source;",
         { source: new RecordId("message", message.userMessageId) },
       )
-      .collect<[Array<{ evidence?: string; from_text?: string; model?: string }>]>();
+      .collect<[Array<{
+        evidence?: string;
+        from_text?: string;
+        model?: string;
+        evidence_source?: RecordId<"message", string>;
+        resolved_from?: RecordId<"message", string>;
+      }>]>();
 
     const personCount = await loadWorkspacePeopleCount(db, workspaceRecord);
 
     output = {
       caseId: testCase.id,
       input: testCase.input,
+      userMessageId: message.userMessageId,
+      contextMessageIds,
       extractedEntities: extractionEvent?.entities ?? [],
       personCount,
       ownerPersonCount,
@@ -262,6 +289,8 @@ async function runCase(testCase: GoldenCase): Promise<ExtractionEvalOutput> {
         evidence: row.evidence,
         fromText: row.from_text,
         model: row.model,
+        evidenceSourceId: row.evidence_source?.id as string | undefined,
+        resolvedFromId: row.resolved_from?.id as string | undefined,
       })),
     };
 
@@ -555,16 +584,18 @@ function hasEnv(name: string): boolean {
 }
 
 function buildCaseCacheKey(modelId: string, testCase: GoldenCase): string {
+  const cacheVersion = "lineage-v1";
   const caseHash = createHash("sha256").update(JSON.stringify(testCase)).digest("hex").slice(0, 24);
-  return `${modelId}:${testCase.id}:${caseHash}`;
+  return `${cacheVersion}:${modelId}:${testCase.id}:${caseHash}`;
 }
 
 async function seedConversationContext(
   db: Surreal,
   conversationRecord: RecordId<"conversation", string>,
   context: Array<{ role: "user" | "assistant"; text: string }>,
-): Promise<void> {
+): Promise<string[]> {
   const now = Date.now();
+  const messageIds: string[] = [];
   for (const [index, message] of context.entries()) {
     const seededMessageRecord = new RecordId("message", randomUUID());
     await db.create(seededMessageRecord).content({
@@ -573,5 +604,8 @@ async function seedConversationContext(
       text: message.text,
       createdAt: new Date(now + index),
     });
+    messageIds.push(seededMessageRecord.id as string);
   }
+
+  return messageIds;
 }

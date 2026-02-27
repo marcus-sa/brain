@@ -143,11 +143,21 @@ describe("extraction pipeline smoke", () => {
     expect((decisionRows[0].embedding ?? []).length).toBeGreaterThan(0);
 
     const [edgeRows] = await surreal
-      .query<[Array<{ id: RecordId<"extraction_relation", string>; evidence?: string }>]>(
-        "SELECT id, evidence FROM extraction_relation WHERE `in` = $sourceMessage AND out = $decision LIMIT 1;",
+      .query<[Array<{
+        id: RecordId<"extraction_relation", string>;
+        evidence?: string;
+        evidence_source?: RecordId<"message", string>;
+        resolved_from?: RecordId<"message", string>;
+      }>]>(
+        "SELECT id, evidence, evidence_source, resolved_from FROM extraction_relation WHERE `in` = $sourceMessage AND out = $decision LIMIT 1;",
         { sourceMessage: userMessageRecord, decision: decisionRows[0].id },
       )
-      .collect<[Array<{ id: RecordId<"extraction_relation", string>; evidence?: string }>]>();
+      .collect<[Array<{
+        id: RecordId<"extraction_relation", string>;
+        evidence?: string;
+        evidence_source?: RecordId<"message", string>;
+        resolved_from?: RecordId<"message", string>;
+      }>]>();
 
     expect(edgeRows.length).toBe(1);
     expect(typeof edgeRows[0].evidence).toBe("string");
@@ -156,6 +166,8 @@ describe("extraction pipeline smoke", () => {
     const normalizedInput = normalizeText("I decided to use TypeScript over Rust for backend implementation.");
     const normalizedEvidence = normalizeText(edgeRows[0].evidence ?? "");
     expect(normalizedInput.includes(normalizedEvidence)).toBe(true);
+    expect((edgeRows[0].evidence_source?.id as string | undefined) ?? "").toBe(message.userMessageId);
+    expect(edgeRows[0].resolved_from).toBeUndefined();
 
     const workspaceRecord = new RecordId("workspace", workspace.workspaceId);
     const [personRows] = await surreal

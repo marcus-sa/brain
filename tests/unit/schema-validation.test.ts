@@ -37,4 +37,11 @@ describe("extraction schema validation", () => {
 
     expect(parsed.ok).toBe(false);
   });
+
+  it("fails when resolvedFromMessageId is present but empty", () => {
+    const payload = JSON.parse(readFileSync(join(fixturesDir, "invalid-resolved-from.json"), "utf8")) as unknown;
+    const parsed = parseExtractionOutput(payload);
+
+    expect(parsed.ok).toBe(false);
+  });
 });

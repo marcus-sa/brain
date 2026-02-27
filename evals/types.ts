@@ -19,6 +19,7 @@ export type GoldenCase = {
   input: string;
   intent: GoldenCaseIntent;
   context?: Array<{ role: "user" | "assistant"; text: string }>;
+  expectedResolvedFromContextIndex?: number;
   forbiddenContextOnlyPhrases?: string[];
   expectedEntities: ExpectedEntity[];
 };
@@ -26,8 +27,16 @@ export type GoldenCase = {
 export type ExtractionEvalOutput = {
   caseId: string;
   input: string;
+  userMessageId: string;
+  contextMessageIds: string[];
   extractedEntities: Array<{ kind: string; text: string; confidence: number }>;
   personCount: number;
   ownerPersonCount: number;
-  evidenceRows: Array<{ evidence?: string; fromText?: string; model?: string }>;
+  evidenceRows: Array<{
+    evidence?: string;
+    fromText?: string;
+    model?: string;
+    evidenceSourceId?: string;
+    resolvedFromId?: string;
+  }>;
 };

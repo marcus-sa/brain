@@ -10,6 +10,7 @@ import { buildExtractionComponentBlock } from "./src/server/extraction/component
 import { dedupeExtractedEntities } from "./src/server/extraction/filtering";
 import { isRicherEntityName } from "./src/server/extraction/dedup";
 import { resolvePersonReferencePatch } from "./src/server/extraction/person";
+import { resolveValidatedResolvedFromMessageId } from "./src/server/extraction/provenance";
 import { extractionResultSchema, type ExtractionPromptEntity, type ExtractionPromptOutput, type ExtractionPromptRelationship } from "./src/server/extraction/schema";
 import type {
   ChatMessageResponse,
@@ -76,6 +77,19 @@ type MessageContextRow = {
   suggestions?: string[];
 };
 
+type ExtractionConversationContext = {
+  conversationHistory: MessageContextRow[];
+  currentMessage: MessageContextRow;
+};
+
+type ExtractionGraphContextRow = {
+  id: GraphEntityRecord;
+  kind: ExtractableEntityKind;
+  text: string;
+  confidence: number;
+  sourceMessage: RecordId<"message", string>;
+};
+
 type SearchEntityRow = {
   id: RecordId<"task" | "decision" | "question", string>;
   kind: "task" | "decision" | "question";
@@ -106,6 +120,13 @@ type CandidateEntityRow = {
 type ProvenanceEdgeRow = {
   id: RecordId<"extraction_relation", string>;
   in: SourceRecord;
+  out: GraphEntityRecord;
+  confidence: number;
+  extracted_at: Date | string;
+};
+
+type ConversationProvenanceRow = {
+  in: RecordId<"message", string>;
   out: GraphEntityRecord;
   confidence: number;
   extracted_at: Date | string;
@@ -831,7 +852,12 @@ async function processChatMessage(input: {
       throw new Error("conversation not found");
     }
 
-    const contextRows = await loadConversationContext(input.conversationId);
+    const assistantContextRows = await loadAssistantConversationContext(input.conversationId);
+    const extractionConversationContext = await loadExtractionConversationContext({
+      conversationId: input.conversationId,
+      currentMessageRecord: input.userMessageRecord,
+    });
+    const extractionGraphContext = await loadConversationGraphContext(input.conversationId, 60);
     const persistedEntities: ExtractedEntity[] = [];
     const persistedRelationships: ExtractedRelationship[] = [];
     const seedItems: OnboardingSeedItem[] = [];
@@ -855,8 +881,10 @@ async function processChatMessage(input: {
     }
 
     const textExtraction = await extractStructuredGraph({
-      contextRows,
-      latestText: input.userText,
+      conversationHistory: extractionConversationContext.conversationHistory,
+      currentMessage: extractionConversationContext.currentMessage,
+      graphContext: extractionGraphContext,
+      sourceText: input.userText,
       onboarding: !workspace.onboarding_complete,
     });
 
@@ -868,6 +896,7 @@ async function processChatMessage(input: {
       promptText: input.userText,
       output: textExtraction,
       sourceMessageRecord: input.userMessageRecord,
+      extractionHistoryMessageIds: extractionConversationContext.conversationHistory.map((row) => row.id.id as string),
       now,
     });
 
@@ -896,7 +925,7 @@ async function processChatMessage(input: {
 
     const assistantReply = await generateAssistantReply({
       onboardingState: onboardingAfter,
-      contextRows,
+      contextRows: assistantContextRows,
       latestUserText: input.userText,
       workspaceRecord: input.workspaceRecord,
       latestEntities: persistedEntities.map((entity) => ({
@@ -1272,8 +1301,9 @@ async function ingestAttachment(input: {
       });
 
       const extraction = await extractStructuredGraph({
-        contextRows: [],
-        latestText: chunk.content,
+        conversationHistory: [],
+        graphContext: [],
+        sourceText: chunk.content,
         onboarding: true,
         heading: chunk.heading,
       });
@@ -1325,8 +1355,10 @@ async function ingestAttachment(input: {
 }
 
 async function extractStructuredGraph(input: {
-  contextRows: MessageContextRow[];
-  latestText: string;
+  conversationHistory: MessageContextRow[];
+  currentMessage?: MessageContextRow;
+  graphContext: ExtractionGraphContextRow[];
+  sourceText: string;
   onboarding: boolean;
   heading?: string;
 }): Promise<ExtractionPromptOutput> {
@@ -1334,8 +1366,10 @@ async function extractStructuredGraph(input: {
   logInfo("extraction.generate.started", "Structured extraction started", {
     onboarding: input.onboarding,
     hasHeading: input.heading !== undefined,
-    contextMessageCount: input.contextRows.length,
-    sourceLength: input.latestText.length,
+    contextMessageCount: input.conversationHistory.length,
+    hasCurrentMessage: input.currentMessage !== undefined,
+    graphContextCount: input.graphContext.length,
+    sourceLength: input.sourceText.length,
   });
 
   try {
@@ -1347,12 +1381,16 @@ async function extractStructuredGraph(input: {
         "Return only high-confidence extractions with explicit entity references.",
         "Entity kinds: project, person, feature, task, decision, question.",
         "Each entity must include a tempId.",
-        "Each entity must include evidence as a direct snippet from Source text supporting the extraction.",
-        "Use conversation context only for disambiguation; only extract entities evidenced in Source text.",
-        "Context may resolve pronouns or references (for example that/it/this), but context alone must not introduce new entities.",
-        "When resolving pronouns from context, put the canonical referenced concept in entity text and keep the source pronoun phrase in evidence.",
+        "Each entity must include evidence as a direct snippet from Current source text supporting the extraction.",
+        "When Current message metadata is provided, only extract entities from Current message text and use Conversation history only for disambiguation.",
+        "When Current message metadata is unavailable (for example document chunk extraction), do not emit resolvedFromMessageId.",
+        "Conversation history may resolve pronouns or references (for example that/it/this/first option), but history alone must not introduce new entities.",
+        "When resolving pronouns or callbacks from history, put the canonical referenced concept in entity text and keep the source pronoun phrase in evidence.",
+        "If you resolved an entity from earlier context, include resolvedFromMessageId with the exact message id from Conversation history where that concept originates.",
+        "Do not include resolvedFromMessageId when no earlier message resolution is required.",
+        "Never set resolvedFromMessageId to Current message id.",
         "For confirmations like yes, let's go with that, sounds good, or I agree, resolve the decision text to the referenced concept from context (for example Use SurrealDB for the graph layer), not the literal confirmation phrase.",
-        "Evidence must stay as the user's literal words from Source text (for example Yes, let's go with that).",
+        "Evidence must stay as the user's literal words from Current source text (for example Yes, let's go with that).",
         "If a confirmation cannot be resolved to one specific concept from context, do not emit an entity.",
         "When source text is a single question with alternatives (X or Y), extract one question entity for the decision point and do not extract each option as a separate entity.",
         "Commitment language indicates a decision entity, not a feature: let's go with, let's move forward with, we decided, I'm choosing, settled on, committed to.",
@@ -1371,12 +1409,18 @@ async function extractStructuredGraph(input: {
           : "Prioritize actionable entities and direct relationships.",
       ].join(" "),
       prompt: [
-        "Conversation context:",
-        formatContextRows(input.contextRows),
+        "Conversation history (reference resolution only):",
+        formatExtractionConversationHistory(input.conversationHistory),
+        "",
+        "Current message (extract only from this text when message metadata exists):",
+        formatExtractionCurrentMessage(input.currentMessage, input.sourceText),
+        "",
+        "Existing graph context (semantic index of prior extracted entities):",
+        formatExtractionGraphContext(input.graphContext),
         input.heading ? `Section heading: ${input.heading}` : "",
         "",
-        "Source text:",
-        input.latestText,
+        "Current source text:",
+        input.sourceText,
       ]
         .filter((line) => line.length > 0)
         .join("\n"),
@@ -1410,6 +1454,7 @@ async function persistExtractionOutput(input: {
   output: ExtractionPromptOutput;
   sourceMessageRecord?: RecordId<"message", string>;
   sourceChunkRecord?: RecordId<"document_chunk", string>;
+  extractionHistoryMessageIds?: string[];
   now: Date;
 }): Promise<PersistExtractionResult> {
   const startedAt = performance.now();
@@ -1423,6 +1468,11 @@ async function persistExtractionOutput(input: {
 
   try {
     const entities = dedupeExtractedEntities(input.output.entities, input.promptText, extractionStoreThreshold);
+    if (input.sourceKind === "message" && !input.sourceMessageRecord) {
+      throw new Error("message extraction persistence requires sourceMessageRecord");
+    }
+
+    const extractionHistoryMessageIds = new Set(input.extractionHistoryMessageIds ?? []);
     const relationships = input.output.relationships
       .filter((relationship) => relationship.confidence >= extractionStoreThreshold)
       .map((relationship) => ({
@@ -1455,6 +1505,16 @@ async function persistExtractionOutput(input: {
       : [];
 
     for (const extracted of entities) {
+      const resolvedFromMessageId = resolveValidatedResolvedFromMessageId({
+        resolvedFromMessageId: extracted.resolvedFromMessageId,
+        sourceKind: input.sourceKind,
+        sourceMessageId: input.sourceMessageRecord?.id as string | undefined,
+        extractionHistoryMessageIds,
+      });
+      const resolvedFromMessageRecord = resolvedFromMessageId
+        ? new RecordId("message", resolvedFromMessageId)
+        : undefined;
+
       if (extracted.kind === "person") {
         const personMatch = await resolveWorkspacePersonMention(extracted.text, personCandidates);
         personMentionsByTempId.set(extracted.tempId, {
@@ -1475,6 +1535,8 @@ async function persistExtractionOutput(input: {
           now: input.now,
           fromText: extracted.text,
           evidence: extracted.evidence,
+          evidenceSourceRecord: input.sourceMessageRecord,
+          resolvedFromRecord: resolvedFromMessageRecord,
         });
 
         entityByTempId.set(extracted.tempId, {
@@ -1516,6 +1578,7 @@ async function persistExtractionOutput(input: {
         extracted: extractedNonPerson,
         sourceMessageRecord: input.sourceMessageRecord,
         sourceChunkRecord: input.sourceChunkRecord,
+        resolvedFromMessageRecord,
         now: input.now,
       });
 
@@ -1631,6 +1694,7 @@ async function upsertGraphEntity(input: {
   extracted: ExtractionPromptEntity & { kind: PersistableExtractableEntityKind };
   sourceMessageRecord?: RecordId<"message", string>;
   sourceChunkRecord?: RecordId<"document_chunk", string>;
+  resolvedFromMessageRecord?: RecordId<"message", string>;
   now: Date;
 }): Promise<{ record: GraphEntityRecord; text: string; kind: EntityKind; created: boolean }> {
   const candidateEmbedding = await createEmbedding(input.extracted.text);
@@ -1654,6 +1718,8 @@ async function upsertGraphEntity(input: {
       now: input.now,
       fromText: input.extracted.text,
       evidence: input.extracted.evidence,
+      evidenceSourceRecord: input.sourceMessageRecord,
+      resolvedFromRecord: input.resolvedFromMessageRecord,
     });
 
     return {
@@ -1699,6 +1765,8 @@ async function upsertGraphEntity(input: {
       now: input.now,
       fromText: input.extracted.text,
       evidence: input.extracted.evidence,
+      evidenceSourceRecord: input.sourceMessageRecord,
+      resolvedFromRecord: input.resolvedFromMessageRecord,
     });
 
     return {
@@ -1729,6 +1797,8 @@ async function upsertGraphEntity(input: {
     now: input.now,
     fromText: input.extracted.text,
     evidence: input.extracted.evidence,
+    evidenceSourceRecord: input.sourceMessageRecord,
+    resolvedFromRecord: input.resolvedFromMessageRecord,
   });
 
   if (input.extracted.kind === "project") {
@@ -1990,6 +2060,8 @@ async function createProvenanceEdge(input: {
   now: Date;
   fromText: string;
   evidence: string;
+  evidenceSourceRecord?: RecordId<"message", string>;
+  resolvedFromRecord?: RecordId<"message", string>;
 }): Promise<void> {
   await surreal.relate(input.sourceRecord, new RecordId("extraction_relation", randomUUID()), input.targetRecord, {
     confidence: input.confidence,
@@ -1998,6 +2070,8 @@ async function createProvenanceEdge(input: {
     model: input.model,
     from_text: input.fromText,
     evidence: input.evidence,
+    ...(input.evidenceSourceRecord ? { evidence_source: input.evidenceSourceRecord } : {}),
+    ...(input.resolvedFromRecord ? { resolved_from: input.resolvedFromRecord } : {}),
   }).output("after");
 }
 
@@ -2394,7 +2468,7 @@ async function createEmbedding(value: string): Promise<number[] | undefined> {
   return result.embedding;
 }
 
-async function loadConversationContext(conversationId: string): Promise<MessageContextRow[]> {
+async function loadAssistantConversationContext(conversationId: string): Promise<MessageContextRow[]> {
   const conversationRecord = new RecordId("conversation", conversationId);
   const [rows] = await surreal
     .query<[MessageContextRow[]]>(
@@ -2409,12 +2483,122 @@ async function loadConversationContext(conversationId: string): Promise<MessageC
   return [...rows].reverse();
 }
 
+async function loadExtractionConversationContext(input: {
+  conversationId: string;
+  currentMessageRecord: RecordId<"message", string>;
+}): Promise<ExtractionConversationContext> {
+  const conversationRecord = new RecordId("conversation", input.conversationId);
+  const [rows] = await surreal
+    .query<[MessageContextRow[]]>(
+      "RETURN fn::conversation_recent($conversation, $limit);",
+      {
+        conversation: conversationRecord,
+        limit: 31,
+      },
+    )
+    .collect<[MessageContextRow[]]>();
+
+  const ordered = [...rows].reverse();
+  const currentMessage = ordered.find((row) => row.id.id === input.currentMessageRecord.id);
+  if (!currentMessage) {
+    throw new Error(`current message not found in conversation context: ${input.currentMessageRecord.id as string}`);
+  }
+
+  return {
+    conversationHistory: ordered.filter((row) => row.id.id !== input.currentMessageRecord.id).slice(-30),
+    currentMessage,
+  };
+}
+
+async function loadConversationGraphContext(conversationId: string, limit: number): Promise<ExtractionGraphContextRow[]> {
+  const conversationRecord = new RecordId("conversation", conversationId);
+  const [rows] = await surreal
+    .query<[ConversationProvenanceRow[]]>(
+      [
+        "SELECT `in`, out, confidence, extracted_at",
+        "FROM extraction_relation",
+        "WHERE `in` IN (SELECT VALUE id FROM message WHERE conversation = $conversation)",
+        "ORDER BY extracted_at DESC",
+        "LIMIT $limit;",
+      ].join(" "),
+      { conversation: conversationRecord, limit },
+    )
+    .collect<[ConversationProvenanceRow[]]>();
+
+  const seen = new Set<string>();
+  const items: ExtractionGraphContextRow[] = [];
+
+  for (const row of rows) {
+    const entityId = row.out.id as string;
+    if (seen.has(entityId)) {
+      continue;
+    }
+
+    const entityTable = (row.out as unknown as { tb: string }).tb;
+    if (
+      entityTable !== "project" &&
+      entityTable !== "person" &&
+      entityTable !== "feature" &&
+      entityTable !== "task" &&
+      entityTable !== "decision" &&
+      entityTable !== "question"
+    ) {
+      continue;
+    }
+
+    const entityText = await readEntityText(row.out);
+    if (!entityText) {
+      continue;
+    }
+
+    items.push({
+      id: row.out,
+      kind: entityTable as ExtractableEntityKind,
+      text: entityText,
+      confidence: row.confidence,
+      sourceMessage: row.in,
+    });
+    seen.add(entityId);
+  }
+
+  return items;
+}
+
 function formatContextRows(rows: MessageContextRow[]): string {
   if (rows.length === 0) {
     return "(no prior messages)";
   }
 
   return rows.map((row) => `${row.role.toUpperCase()}: ${row.text}`).join("\n");
+}
+
+function formatExtractionConversationHistory(rows: MessageContextRow[]): string {
+  if (rows.length === 0) {
+    return "(no prior messages)";
+  }
+
+  return rows.map((row) => `[message:${row.id.id as string}] ${row.role.toUpperCase()}: ${row.text}`).join("\n");
+}
+
+function formatExtractionCurrentMessage(currentMessage: MessageContextRow | undefined, sourceText: string): string {
+  if (!currentMessage) {
+    return `(no message metadata; source text: ${sourceText})`;
+  }
+
+  return `[message:${currentMessage.id.id as string}] ${currentMessage.role.toUpperCase()}: ${currentMessage.text}`;
+}
+
+function formatExtractionGraphContext(rows: ExtractionGraphContextRow[]): string {
+  if (rows.length === 0) {
+    return "(no prior extracted entities)";
+  }
+
+  return rows
+    .map((row) => {
+      const table = (row.id as unknown as { tb: string }).tb;
+      return `[entity:${table}:${row.id.id as string}] ${row.kind}: ${row.text} (confidence ${row.confidence.toFixed(2)}, source message ${row.sourceMessage.id as string})`;
+    })
+    .join("\n");
 }
 
 async function loadWorkspaceSeeds(

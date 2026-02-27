@@ -1,0 +1,14 @@
+{
+  "entities": [
+    {
+      "tempId": "e1",
+      "kind": "decision",
+      "text": "Use TypeScript",
+      "confidence": 0.9,
+      "evidence": "Use TypeScript",
+      "resolvedFromMessageId": ""
+    }
+  ],
+  "relationships": [],
+  "tools": []
+}
