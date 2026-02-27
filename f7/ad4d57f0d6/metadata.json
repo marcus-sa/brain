@@ -1,0 +1,29 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "f7ad4d57f0d6",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/gh-issue-11",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "evals/data/golden-cases.json",
+    "evals/eval-test-kit.ts",
+    "evals/extraction.eval.ts",
+    "evals/types.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/f7/ad4d57f0d6/0/metadata.json",
+      "transcript": "/f7/ad4d57f0d6/0/full.jsonl",
+      "context": "/f7/ad4d57f0d6/0/context.md",
+      "content_hash": "/f7/ad4d57f0d6/0/content_hash.txt",
+      "prompt": "/f7/ad4d57f0d6/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 220,
+    "cache_creation_tokens": 159193,
+    "cache_read_tokens": 4349059,
+    "output_tokens": 18300,
+    "api_call_count": 54
+  }
+}
