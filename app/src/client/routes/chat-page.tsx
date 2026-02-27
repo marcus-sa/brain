@@ -545,6 +545,27 @@ export function ChatPage() {
         return;
       }
 
+      if (parsed.type === "extraction") {
+        setSeedItems((existing) => {
+          const deduped = new Map(existing.map((item) => [`${item.id}:${item.sourceKind}:${item.sourceId}`, item]));
+          for (const entity of parsed.entities) {
+            const key = `${entity.id}:${entity.sourceKind}:${entity.sourceId}`;
+            if (!deduped.has(key)) {
+              deduped.set(key, {
+                id: entity.id,
+                kind: entity.kind,
+                text: entity.text,
+                confidence: entity.confidence,
+                sourceKind: entity.sourceKind,
+                sourceId: entity.sourceId,
+              });
+            }
+          }
+          return [...deduped.values()];
+        });
+        return;
+      }
+
       if (parsed.type === "assistant_message") {
         streamedText = parsed.text;
         setSuggestions(

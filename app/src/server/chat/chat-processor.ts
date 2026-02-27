@@ -73,6 +73,23 @@ export async function processChatMessage(input: {
         userMessageRecord: input.userMessageRecord,
         attachment: input.attachment,
         now,
+        onChunkResult: (chunkResult) => {
+          if (chunkResult.entities.length > 0 || chunkResult.relationships.length > 0) {
+            input.deps.sse.emitEvent(input.messageId, {
+              type: "extraction",
+              messageId: input.messageId,
+              entities: chunkResult.entities,
+              relationships: chunkResult.relationships,
+            });
+          }
+          if (chunkResult.seeds.length > 0) {
+            input.deps.sse.emitEvent(input.messageId, {
+              type: "onboarding_seed",
+              messageId: input.messageId,
+              seeds: chunkResult.seeds,
+            });
+          }
+        },
       });
 
       persistedEntities.push(...ingestion.entities);

@@ -19,6 +19,7 @@ export async function ingestAttachment(input: {
   userMessageRecord: RecordId<"message", string>;
   attachment: IncomingAttachment;
   now: Date;
+  onChunkResult?: (result: PersistExtractionResult) => void;
 }): Promise<PersistExtractionResult> {
   const startedAt = performance.now();
   const documentRecord = new RecordId("document", randomUUID());
@@ -87,6 +88,8 @@ export async function ingestAttachment(input: {
         sourceChunkRecord: chunkRecord,
         now: input.now,
       });
+
+      input.onChunkResult?.(result);
 
       persistedEntities.push(...result.entities);
       persistedRelationships.push(...result.relationships);
