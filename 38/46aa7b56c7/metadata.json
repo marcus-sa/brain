@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "3846aa7b56c7",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/project-feature-distinction",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "app/src/server/chat/chat-processor.ts",
+    "app/src/server/extraction/document-ingestion.ts",
+    "app/src/server/extraction/extract-graph.ts",
+    "app/src/server/extraction/prompt.ts",
+    "app/src/server/workspace/workspace-scope.ts",
+    "evals/data/golden-cases.json",
+    "tests/unit/resolve-entity-project.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/38/46aa7b56c7/0/metadata.json",
+      "transcript": "/38/46aa7b56c7/0/full.jsonl",
+      "context": "/38/46aa7b56c7/0/context.md",
+      "content_hash": "/38/46aa7b56c7/0/content_hash.txt",
+      "prompt": "/38/46aa7b56c7/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 105,
+    "cache_creation_tokens": 186621,
+    "cache_read_tokens": 5623662,
+    "output_tokens": 23849,
+    "api_call_count": 67
+  }
+}
