@@ -21,6 +21,7 @@ export function buildExtractionSystemPrompt(input: { onboarding: boolean }): str
     "- Use the shortest canonical concept phrase when resolving references.",
     "- If entity meaning requires context resolution, include resolvedFromMessageId as the raw message id string only (UUID).",
     "- Never include wrappers or prefixes in resolvedFromMessageId (no [message:...], no message:...).",
+    "- resolvedFromMessageId must be one of the allowed history message ids listed in the prompt section; otherwise omit it.",
     "- Prefer user messages as resolvedFromMessageId anchors when both user and assistant mention the same concept.",
     "- Never set resolvedFromMessageId to Current message id.",
     "- If Current message metadata is unavailable (document chunk extraction), do not emit resolvedFromMessageId.",

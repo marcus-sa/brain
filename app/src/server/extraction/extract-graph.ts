@@ -38,6 +38,9 @@ export async function extractStructuredGraph(input: {
         "Current message (extract only from this text when message metadata exists):",
         formatExtractionCurrentMessage(input.currentMessage, input.sourceText),
         "",
+        "Resolved-from lineage constraints:",
+        formatResolvedFromConstraints(input.currentMessage, input.conversationHistory),
+        "",
         "Existing graph context (semantic index of prior extracted entities):",
         formatExtractionGraphContext(input.graphContext),
         input.heading ? `Section heading: ${input.heading}` : "",
@@ -95,4 +98,29 @@ function formatExtractionGraphContext(rows: ExtractionGraphContextRow[]): string
       return `[entity:${table}:${row.id.id as string}] ${row.kind}: ${row.text} (confidence ${row.confidence.toFixed(2)}, source message ${row.sourceMessage.id as string})`;
     })
     .join("\n");
+}
+
+function formatResolvedFromConstraints(
+  currentMessage: MessageContextRow | undefined,
+  conversationHistory: MessageContextRow[],
+): string {
+  if (!currentMessage) {
+    return "Current message id unavailable; omit resolvedFromMessageId.";
+  }
+
+  const currentMessageId = currentMessage.id.id as string;
+  if (conversationHistory.length === 0) {
+    return [
+      `Current message id (forbidden for resolvedFromMessageId): ${currentMessageId}`,
+      "Allowed resolvedFromMessageId values (history only): none",
+      "Omit resolvedFromMessageId.",
+    ].join("\n");
+  }
+
+  const historyMessageIds = conversationHistory.map((row) => row.id.id as string);
+  return [
+    `Current message id (forbidden for resolvedFromMessageId): ${currentMessageId}`,
+    `Allowed resolvedFromMessageId values (history only): ${historyMessageIds.join(", ")}`,
+    "Use one of the allowed ids exactly, or omit resolvedFromMessageId.",
+  ].join("\n");
 }
