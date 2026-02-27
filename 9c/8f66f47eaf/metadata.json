@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "9c8f66f47eaf",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/md-parser-extraction",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "app/src/server/extraction/document-ingestion.ts",
+    "app/src/server/extraction/markdown-chunker.ts",
+    "bun.lock",
+    "package.json",
+    "tests/unit/markdown-chunker.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/9c/8f66f47eaf/0/metadata.json",
+      "transcript": "/9c/8f66f47eaf/0/full.jsonl",
+      "context": "/9c/8f66f47eaf/0/context.md",
+      "content_hash": "/9c/8f66f47eaf/0/content_hash.txt",
+      "prompt": "/9c/8f66f47eaf/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 2124,
+    "cache_creation_tokens": 102670,
+    "cache_read_tokens": 1673306,
+    "output_tokens": 13263,
+    "api_call_count": 30
+  }
+}
