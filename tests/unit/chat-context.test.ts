@@ -27,6 +27,9 @@ describe("chat context", () => {
 
     const systemPrompt = buildSystemPrompt(context);
     expect(systemPrompt.includes("- none")).toBe(true);
+    expect(systemPrompt.includes("```component")).toBe(true);
+    expect(systemPrompt.includes("EntityCard")).toBe(true);
+    expect(systemPrompt.includes("ExtractionSummary")).toBe(true);
   });
 
   it("returns populated conversation entities and workspace summaries", async () => {
@@ -77,5 +80,6 @@ describe("chat context", () => {
     const systemPrompt = buildSystemPrompt(context);
     expect(systemPrompt.includes("Use token bucket for rate limiting")).toBe(true);
     expect(systemPrompt.includes("Projects:")).toBe(true);
+    expect(systemPrompt.includes("```component")).toBe(true);
   });
 });

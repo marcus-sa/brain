@@ -2,6 +2,7 @@ import { generateObject } from "ai";
 import { RecordId, type Surreal } from "surrealdb";
 import { z } from "zod";
 import type { EntityKind, OnboardingState } from "../../shared/contracts";
+import { chatComponentSystemPrompt } from "../chat/chat-component-system-prompt";
 import { normalizeName } from "../extraction/normalize";
 import { logWarn } from "../http/observability";
 import { loadOnboardingSummary } from "./onboarding-state";
@@ -29,8 +30,12 @@ export async function generateOnboardingAssistantReply(input: {
   latestEntities: Array<{ kind: EntityKind; text: string; confidence: number }>;
   latestTools: string[];
 }): Promise<{ message: string; suggestions: string[] }> {
-  let systemPrompt =
-    "You are helping a product team capture actionable project state. Respond concisely with clear next actions.";
+  let systemPrompt = [
+    "You are helping a product team capture actionable project state. Respond concisely with clear next actions.",
+    "",
+    "## UI Components",
+    chatComponentSystemPrompt,
+  ].join("\n");
 
   if (input.onboardingState === "active") {
     const summary = await loadOnboardingSummary(input.surreal, input.workspaceRecord);
@@ -47,7 +52,10 @@ export async function generateOnboardingAssistantReply(input: {
       "Do not dump all questions at once.",
       "Current extracted context:",
       summary,
-    ].join(" ");
+      "",
+      "## UI Components",
+      chatComponentSystemPrompt,
+    ].join("\n");
   }
 
   if (input.onboardingState === "summary_pending") {
@@ -59,7 +67,10 @@ export async function generateOnboardingAssistantReply(input: {
       "Return exactly 3 short clickable follow-up suggestions.",
       "Current extracted context:",
       summary,
-    ].join(" ");
+      "",
+      "## UI Components",
+      chatComponentSystemPrompt,
+    ].join("\n");
   }
 
   const assistantResponse = await generateObject({
@@ -68,7 +79,7 @@ export async function generateOnboardingAssistantReply(input: {
     system: systemPrompt,
     prompt: [
       "Return JSON with this shape: { message: string, suggestions: string[] }.",
-      "Message must be plain text only. Do not include markdown code fences or component JSON.",
+      "Message may include markdown and ```component fenced JSON when useful.",
       "Suggestions must be short and actionable. Do not include numbering or punctuation-only entries.",
       "Conversation context:",
       formatContextRows(input.contextRows),

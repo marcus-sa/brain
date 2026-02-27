@@ -1,24 +1,12 @@
 import { componentCatalog } from "reachat";
-import { z } from "zod";
+import type { ExtractableKind } from "../shared/chat-component-definitions";
+import {
+  chatComponentDefinitions,
+  type EntityCardProps,
+  type ExtractionSummaryProps,
+} from "../shared/chat-component-definitions";
 
-const extractableKindSchema = z.enum(["project", "person", "feature", "task", "decision", "question"]);
-
-const entityCardPropsSchema = z.object({
-  kind: extractableKindSchema,
-  name: z.string().min(1),
-  confidence: z.number().min(0).max(1),
-  status: z.string().min(1),
-});
-
-type EntityCardProps = z.infer<typeof entityCardPropsSchema>;
-
-type ExtractionSummaryProps = {
-  title: string;
-  entities: EntityCardProps[];
-  relationshipCount: number;
-};
-
-const kindLabelByKind: Record<z.infer<typeof extractableKindSchema>, string> = {
+const kindLabelByKind: Record<ExtractableKind, string> = {
   project: "Project",
   person: "Person",
   feature: "Feature",
@@ -62,17 +50,11 @@ function ExtractionSummary(props: ExtractionSummaryProps) {
 
 export const chatComponentCatalog = componentCatalog({
   EntityCard: {
-    description: "Renders one extracted entity card with kind, name, status, and confidence.",
-    props: entityCardPropsSchema,
+    ...chatComponentDefinitions.EntityCard,
     component: EntityCard as any,
   },
   ExtractionSummary: {
-    description: "Renders a batch of extracted entities and the relationship count.",
-    props: z.object({
-      title: z.string().min(1),
-      entities: z.array(entityCardPropsSchema).min(1),
-      relationshipCount: z.number().int().min(0),
-    }),
+    ...chatComponentDefinitions.ExtractionSummary,
     component: ExtractionSummary as any,
   },
 });

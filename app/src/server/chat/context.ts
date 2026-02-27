@@ -9,6 +9,7 @@ import {
   type WorkspaceProjectSummary,
   type WorkspaceQuestionSummary,
 } from "../graph/queries";
+import { chatComponentSystemPrompt } from "./chat-component-system-prompt";
 
 export type ChatContext = {
   conversationEntities: ConversationEntity[];
@@ -145,6 +146,10 @@ export function buildSystemPrompt(context: ChatContext): string {
     "",
     "## Tools",
     "Use tools for anything that needs deeper lookup, graph traversal, provenance, or decision actions.",
+    "",
+    "## UI Components",
+    "When useful, render structured component blocks that match the available catalog.",
+    chatComponentSystemPrompt,
     "",
     "## Behavior",
     "- Reference entities by name when relevant.",
