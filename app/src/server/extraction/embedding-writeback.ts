@@ -20,7 +20,25 @@ export async function persistEmbeddings(input: {
   try {
     const messageEmbedding = await createEmbedding(input.embeddingModel, input.embeddingDimension, input.assistantText);
     if (messageEmbedding) {
-      await input.surreal.update(input.assistantMessageRecord).merge({ embedding: messageEmbedding });
+      const [assistantResult] = await input.surreal
+        .query<[unknown]>(
+          "UPDATE $record MERGE $patch RETURN AFTER;",
+          {
+            record: input.assistantMessageRecord,
+            patch: { embedding: messageEmbedding },
+          },
+        )
+        .collect<[unknown]>();
+
+      const assistantRows = Array.isArray(assistantResult) ? assistantResult : [assistantResult];
+      if (assistantRows.length !== 1 || typeof assistantRows[0] !== "object" || !assistantRows[0]) {
+        throw new Error("assistant message embedding update did not return a record");
+      }
+
+      const assistantRecord = assistantRows[0] as { id?: RecordId<"message", string> };
+      if (!assistantRecord.id) {
+        throw new Error("assistant message embedding update did not include id");
+      }
     }
 
     let embeddedEntityCount = 0;
@@ -30,7 +48,30 @@ export async function persistEmbeddings(input: {
         continue;
       }
 
-      await input.surreal.update(entity.record).merge({ embedding: entityEmbedding });
+      const [entityResult] = await input.surreal
+        .query<[unknown]>(
+          "UPDATE $record MERGE $patch RETURN AFTER;",
+          {
+            record: entity.record,
+            patch: { embedding: entityEmbedding },
+          },
+        )
+        .collect<[unknown]>();
+
+      const entityRows = Array.isArray(entityResult) ? entityResult : [entityResult];
+      if (entityRows.length !== 1 || typeof entityRows[0] !== "object" || !entityRows[0]) {
+        throw new Error(
+          `entity embedding update did not return a record for ${entity.record.tb}:${entity.record.id as string}`,
+        );
+      }
+
+      const entityRecord = entityRows[0] as { id?: GraphEntityRecord };
+      if (!entityRecord.id) {
+        throw new Error(
+          `entity embedding update did not include id for ${entity.record.tb}:${entity.record.id as string}`,
+        );
+      }
+
       embeddedEntityCount += 1;
     }
 

@@ -1,5 +1,6 @@
 import { normalizeName } from "./normalize";
 import type { ExtractionPromptEntity } from "./schema";
+import type { SourceKind } from "../../shared/contracts";
 
 export const placeholderEntityNames = new Set([
   "my project",
@@ -45,15 +46,16 @@ export function hasGroundedEvidence(evidence: string, sourceText: string): boole
   return normalizedSource.includes(normalizedEvidence);
 }
 
-export function dedupeExtractedEntities(
-  entities: ExtractionPromptEntity[],
-  sourceText: string,
-  storeThreshold: number,
-): ExtractionPromptEntity[] {
+export function dedupeExtractedEntities(input: {
+  entities: ExtractionPromptEntity[];
+  sourceText: string;
+  storeThreshold: number;
+  sourceKind: SourceKind;
+}): ExtractionPromptEntity[] {
   const byTempId = new Map<string, ExtractionPromptEntity>();
-  const hasDecisionCommitmentLanguage = hasCommitmentIndicator(sourceText);
+  const hasDecisionCommitmentLanguage = hasCommitmentIndicator(input.sourceText);
 
-  for (const entity of entities) {
+  for (const entity of input.entities) {
     const tempId = entity.tempId.trim();
     if (tempId.length === 0) {
       continue;
@@ -69,7 +71,7 @@ export function dedupeExtractedEntities(
       continue;
     }
 
-    if (!shouldStoreExtraction(entity.confidence, storeThreshold)) {
+    if (!shouldStoreExtraction(entity.confidence, input.storeThreshold)) {
       continue;
     }
 
@@ -77,11 +79,15 @@ export function dedupeExtractedEntities(
       continue;
     }
 
-    if (!hasGroundedEvidence(evidence, sourceText)) {
+    if (!hasGroundedEvidence(evidence, input.sourceText)) {
       continue;
     }
 
-    const normalizedEntity = normalizeEntityKind(entity, hasDecisionCommitmentLanguage);
+    const normalizedEntity = normalizeEntityKind({
+      entity,
+      hasDecisionCommitmentLanguage,
+      sourceKind: input.sourceKind,
+    });
     const existing = byTempId.get(tempId);
     const resolvedFromMessageId = ("resolvedFromMessageId" in normalizedEntity ? normalizedEntity.resolvedFromMessageId : undefined)
       ?.trim();
@@ -96,7 +102,7 @@ export function dedupeExtractedEntities(
     }
   }
 
-  return pruneQuestionAlternatives([...byTempId.values()], sourceText);
+  return pruneQuestionAlternatives([...byTempId.values()], input.sourceText);
 }
 
 const commitmentIndicators = [
@@ -113,18 +119,82 @@ function hasCommitmentIndicator(sourceText: string): boolean {
   return commitmentIndicators.some((pattern) => pattern.test(sourceText));
 }
 
-function normalizeEntityKind(
-  entity: ExtractionPromptEntity,
-  hasDecisionCommitmentLanguage: boolean,
-): ExtractionPromptEntity {
-  if (!hasDecisionCommitmentLanguage || entity.kind !== "feature") {
+function normalizeEntityKind(input: {
+  entity: ExtractionPromptEntity;
+  hasDecisionCommitmentLanguage: boolean;
+  sourceKind: SourceKind;
+}): ExtractionPromptEntity {
+  if (input.hasDecisionCommitmentLanguage && input.entity.kind === "feature") {
+    return {
+      ...input.entity,
+      kind: "decision",
+    };
+  }
+
+  if (input.sourceKind !== "document_chunk") {
+    return input.entity;
+  }
+
+  return normalizeDocumentChunkKind(input.entity);
+}
+
+const taskDirectiveIndicators = [
+  /\b(implement|build|create|write|fix|migrate|deploy|ship|set\s+up|setup|configure|test|document|refactor|investigate|review|finalize|extract)\b/i,
+  /\b(today|tomorrow|this\s+week|next\s+week|this\s+sprint|next\s+sprint|by\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|eod|eow|end\s+of\s+week|end\s+of\s+sprint|next\s+sprint|q[1-4]|[0-9]{4}-[0-9]{2}-[0-9]{2}))\b/i,
+  /\b(responsible|owner)\b/i,
+];
+
+const architectureDecisionIndicators = [
+  /\b(use|using|adopt|adopted|choose|chosen|select|selected|standardize)\b/i,
+  /\b(store|persist)\b.{0,40}\b(in|on)\b/i,
+  /\b(backed\s+by|powered\s+by)\b/i,
+];
+
+const technologyKeywordPattern =
+  /\b(surrealdb|postgres|mysql|mariadb|mongodb|redis|kafka|tigerbeetle|openrouter|openai|anthropic|typescript|rust|go|bun)\b/i;
+
+function normalizeDocumentChunkKind(entity: ExtractionPromptEntity): ExtractionPromptEntity {
+  if (entity.kind === "task") {
+    if (isArchitectureChoiceStatement(entity)) {
+      return {
+        ...entity,
+        kind: "decision",
+      };
+    }
+
+    if (!isTaskDirectiveStatement(entity)) {
+      return {
+        ...entity,
+        kind: "feature",
+      };
+    }
+
     return entity;
   }
 
-  return {
-    ...entity,
-    kind: "decision",
-  };
+  if (entity.kind === "decision" && isTaskDirectiveStatement(entity) && !isArchitectureChoiceStatement(entity)) {
+    return {
+      ...entity,
+      kind: "task",
+    };
+  }
+
+  return entity;
+}
+
+function isTaskDirectiveStatement(entity: ExtractionPromptEntity): boolean {
+  const classifierText = `${entity.text} ${entity.evidence}`;
+  return taskDirectiveIndicators.some((pattern) => pattern.test(classifierText));
+}
+
+function isArchitectureChoiceStatement(entity: ExtractionPromptEntity): boolean {
+  const classifierText = `${entity.text} ${entity.evidence}`;
+  const hasArchitectureVerb = architectureDecisionIndicators.some((pattern) => pattern.test(classifierText));
+  if (!hasArchitectureVerb) {
+    return false;
+  }
+
+  return technologyKeywordPattern.test(classifierText);
 }
 
 function pruneQuestionAlternatives(

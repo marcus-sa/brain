@@ -32,7 +32,12 @@ describe("evidence validation", () => {
       },
     ];
 
-    const output = dedupeExtractedEntities(entities, message, 0.6);
+    const output = dedupeExtractedEntities({
+      entities,
+      sourceText: message,
+      storeThreshold: 0.6,
+      sourceKind: "message",
+    });
     expect(output).toHaveLength(0);
   });
 });

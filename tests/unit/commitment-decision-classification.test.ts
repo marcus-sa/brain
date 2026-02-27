@@ -15,7 +15,12 @@ describe("commitment language decision classification", () => {
       },
     ];
 
-    const output = dedupeExtractedEntities(entities, source, 0.6);
+    const output = dedupeExtractedEntities({
+      entities,
+      sourceText: source,
+      storeThreshold: 0.6,
+      sourceKind: "message",
+    });
     expect(output).toHaveLength(1);
     expect(output[0]?.kind).toBe("decision");
   });
@@ -32,7 +37,12 @@ describe("commitment language decision classification", () => {
       },
     ];
 
-    const output = dedupeExtractedEntities(entities, source, 0.6);
+    const output = dedupeExtractedEntities({
+      entities,
+      sourceText: source,
+      storeThreshold: 0.6,
+      sourceKind: "message",
+    });
     expect(output).toHaveLength(1);
     expect(output[0]?.kind).toBe("feature");
   });
@@ -49,7 +59,12 @@ describe("commitment language decision classification", () => {
       },
     ];
 
-    const output = dedupeExtractedEntities(entities, source, 0.6);
+    const output = dedupeExtractedEntities({
+      entities,
+      sourceText: source,
+      storeThreshold: 0.6,
+      sourceKind: "message",
+    });
     expect(output).toHaveLength(1);
     expect(output[0]?.kind).toBe("task");
   });

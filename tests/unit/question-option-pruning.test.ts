@@ -29,7 +29,12 @@ describe("question option pruning", () => {
       },
     ];
 
-    const output = dedupeExtractedEntities(entities, source, 0.6);
+    const output = dedupeExtractedEntities({
+      entities,
+      sourceText: source,
+      storeThreshold: 0.6,
+      sourceKind: "message",
+    });
     expect(output).toHaveLength(1);
     expect(output[0]?.kind).toBe("question");
   });
@@ -53,7 +58,12 @@ describe("question option pruning", () => {
       },
     ];
 
-    const output = dedupeExtractedEntities(entities, source, 0.6);
+    const output = dedupeExtractedEntities({
+      entities,
+      sourceText: source,
+      storeThreshold: 0.6,
+      sourceKind: "message",
+    });
     expect(output).toHaveLength(2);
     expect(output.some((entity) => entity.kind === "decision")).toBe(true);
     expect(output.some((entity) => entity.kind === "question")).toBe(true);
@@ -78,7 +88,12 @@ describe("question option pruning", () => {
       },
     ];
 
-    const output = dedupeExtractedEntities(entities, source, 0.6);
+    const output = dedupeExtractedEntities({
+      entities,
+      sourceText: source,
+      storeThreshold: 0.6,
+      sourceKind: "message",
+    });
     expect(output).toHaveLength(2);
   });
 });

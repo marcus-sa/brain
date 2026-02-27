@@ -584,7 +584,7 @@ function hasEnv(name: string): boolean {
 }
 
 function buildCaseCacheKey(modelId: string, testCase: GoldenCase): string {
-  const cacheVersion = "lineage-v1";
+  const cacheVersion = "lineage-v2";
   const caseHash = createHash("sha256").update(JSON.stringify(testCase)).digest("hex").slice(0, 24);
   return `${cacheVersion}:${modelId}:${testCase.id}:${caseHash}`;
 }

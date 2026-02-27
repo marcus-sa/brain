@@ -50,7 +50,12 @@ export async function persistExtractionOutput(input: {
   });
 
   try {
-    const entities = dedupeExtractedEntities(input.output.entities, input.promptText, input.extractionStoreThreshold);
+    const entities = dedupeExtractedEntities({
+      entities: input.output.entities,
+      sourceText: input.promptText,
+      storeThreshold: input.extractionStoreThreshold,
+      sourceKind: input.sourceKind,
+    });
     if (input.sourceKind === "message" && !input.sourceMessageRecord) {
       throw new Error("message extraction persistence requires sourceMessageRecord");
     }

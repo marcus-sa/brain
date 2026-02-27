@@ -26,6 +26,7 @@
 - Run smoke test: `bun test tests/smoke/`
 - Run eval suite: `bun run eval`
 - Run eval watch mode: `bun run eval:watch`
+- Agents must not run evals directly. Delegate eval execution to the user and ask them to run eval commands and share results.
 
 ### Smoke Test Isolation
 
