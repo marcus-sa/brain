@@ -40,3 +40,18 @@ export type ExtractionEvalOutput = {
     resolvedFromId?: string;
   }>;
 };
+
+export type SuggestionGoldenCase = {
+  id: string;
+  input: string;
+  requiredAnchors: string[];
+  expectedMinSuggestions?: number;
+  forbiddenSuggestions?: string[];
+};
+
+export type SuggestionsEvalOutput = {
+  caseId: string;
+  input: string;
+  assistantText: string;
+  suggestions: string[];
+};

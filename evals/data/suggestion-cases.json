@@ -1,0 +1,32 @@
+[
+  {
+    "id": "architecture-grounding",
+    "input": "We're building an AI-native business management platform with SurrealDB, cross-project conflict detection, GitHub commit awareness, and Slack ingestion.",
+    "requiredAnchors": ["SurrealDB", "GitHub", "Slack", "conflict detection"],
+    "expectedMinSuggestions": 1
+  },
+  {
+    "id": "database-status-followup",
+    "input": "We chose SurrealDB but still need to de-risk scaling and define a fallback migration path.",
+    "requiredAnchors": ["SurrealDB", "scaling", "fallback", "migration"],
+    "expectedMinSuggestions": 1
+  },
+  {
+    "id": "tool-sequencing",
+    "input": "We need sequencing for GitHub integration versus Slack bot ingestion, and commit awareness should ship first.",
+    "requiredAnchors": ["GitHub", "Slack", "commit awareness", "sequencing"],
+    "expectedMinSuggestions": 1
+  },
+  {
+    "id": "people-and-schema",
+    "input": "Marcus is driving extraction, Dana is reviewing schemafull constraints, and we're refining onboarding prompts.",
+    "requiredAnchors": ["Marcus", "Dana", "schemafull", "onboarding"],
+    "expectedMinSuggestions": 1
+  },
+  {
+    "id": "no-anchor-turn",
+    "input": "ok and to be",
+    "requiredAnchors": [],
+    "expectedMinSuggestions": 0
+  }
+]
