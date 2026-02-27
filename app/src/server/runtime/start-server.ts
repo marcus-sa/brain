@@ -1,0 +1,85 @@
+import appHtml from "../../client/index.html";
+import { withRequestLogging } from "../http/request-logging";
+import { jsonResponse } from "../http/response";
+import { logInfo } from "../http/observability";
+import { createSseRegistry } from "../streaming/sse-registry";
+import { createRuntimeDependencies } from "./dependencies";
+import { loadServerConfig } from "./config";
+import type { ServerDependencies } from "./types";
+import { ensureDefaultWorkspaceProjectScope } from "../workspace/workspace-scope";
+import { createWorkspaceRouteHandlers } from "../workspace/workspace-routes";
+import { createChatIngressHandlers } from "../chat/chat-ingress";
+import { createEntitySearchHandler } from "../entities/entity-search-route";
+
+export async function startServer(): Promise<void> {
+  const config = loadServerConfig();
+  const runtime = await createRuntimeDependencies(config);
+  await ensureDefaultWorkspaceProjectScope(runtime.surreal);
+
+  const deps: ServerDependencies = {
+    config,
+    surreal: runtime.surreal,
+    assistantModel: runtime.assistantModel,
+    extractionModel: runtime.extractionModel,
+    embeddingModel: runtime.embeddingModel,
+    sse: createSseRegistry(),
+  };
+
+  const workspaceHandlers = createWorkspaceRouteHandlers(deps);
+  const chatHandlers = createChatIngressHandlers(deps);
+  const entitySearchHandler = createEntitySearchHandler(deps);
+
+  const server = Bun.serve({
+    port: config.port,
+    idleTimeout: 0,
+    routes: {
+      "/healthz": {
+        GET: withRequestLogging("GET /healthz", "GET", async () => jsonResponse({ status: "ok" }, 200)),
+      },
+      "/api/workspaces": {
+        POST: withRequestLogging("POST /api/workspaces", "POST", (request) => workspaceHandlers.handleCreateWorkspace(request)),
+      },
+      "/api/workspaces/:workspaceId/bootstrap": {
+        GET: withRequestLogging(
+          "GET /api/workspaces/:workspaceId/bootstrap",
+          "GET",
+          (request) => workspaceHandlers.handleWorkspaceBootstrap(request.params.workspaceId),
+        ),
+      },
+      "/api/chat/messages": {
+        POST: withRequestLogging("POST /api/chat/messages", "POST", (request) => chatHandlers.handlePostChatMessage(request)),
+      },
+      "/api/chat/stream/:messageId": {
+        GET: withRequestLogging("GET /api/chat/stream/:messageId", "GET", (request) =>
+          chatHandlers.handleChatStream(request.params.messageId),
+        ),
+      },
+      "/api/entities/search": {
+        GET: withRequestLogging("GET /api/entities/search", "GET", (request) => entitySearchHandler(new URL(request.url))),
+      },
+      "/": appHtml,
+      "/*": appHtml,
+    },
+  });
+
+  logInfo("server.started", "Brain app server started", {
+    port: server.port,
+    host: "127.0.0.1",
+    assistantModelId: config.assistantModelId,
+    extractionModelId: config.extractionModelId,
+    embeddingModelId: config.embeddingModelId,
+    embeddingDimension: config.embeddingDimension,
+    extractionStoreThreshold: config.extractionStoreThreshold,
+    extractionDisplayThreshold: config.extractionDisplayThreshold,
+    surrealTransport: config.surrealUrl.startsWith("wss://")
+      ? "wss"
+      : config.surrealUrl.startsWith("ws://")
+        ? "ws"
+        : config.surrealUrl.startsWith("https://")
+          ? "https"
+          : "http",
+    surrealNamespace: config.surrealNamespace,
+    surrealDatabase: config.surrealDatabase,
+    openRouterReasoningEnabled: config.openRouterReasoning !== undefined,
+  });
+}

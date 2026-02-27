@@ -1,0 +1,201 @@
+import { randomUUID } from "node:crypto";
+import { RecordId, type Surreal } from "surrealdb";
+import { HttpError } from "../http/errors";
+import { elapsedMs, logError, logInfo } from "../http/observability";
+import { createEmbedding } from "./embedding-writeback";
+import { extractStructuredGraph } from "./extract-graph";
+import { persistExtractionOutput } from "./persist-extraction";
+import type { IncomingAttachment, PersistExtractionResult, SourceRecord } from "./types";
+
+export async function ingestAttachment(input: {
+  surreal: Surreal;
+  extractionModel: any;
+  embeddingModel: any;
+  embeddingDimension: number;
+  extractionStoreThreshold: number;
+  extractionModelId: string;
+  workspaceRecord: RecordId<"workspace", string>;
+  conversationRecord: RecordId<"conversation", string>;
+  userMessageRecord: RecordId<"message", string>;
+  attachment: IncomingAttachment;
+  now: Date;
+}): Promise<PersistExtractionResult> {
+  const startedAt = performance.now();
+  const documentRecord = new RecordId("document", randomUUID());
+  const workspaceId = input.workspaceRecord.id as string;
+  const conversationId = input.conversationRecord.id as string;
+
+  logInfo("attachment.ingest.started", "Attachment ingestion started", {
+    workspaceId,
+    conversationId,
+    documentId: documentRecord.id as string,
+    fileSizeBytes: input.attachment.sizeBytes,
+  });
+
+  try {
+    await input.surreal.create(documentRecord).content({
+      workspace: input.workspaceRecord,
+      name: input.attachment.fileName,
+      mime_type: input.attachment.mimeType,
+      size_bytes: input.attachment.sizeBytes,
+      uploaded_at: input.now,
+    });
+
+    const chunks = splitDocumentIntoChunks(input.attachment.content);
+    const persistedEntities = [];
+    const persistedRelationships = [];
+    const seeds = [];
+    const embeddingTargets = [];
+    const tools = [];
+
+    for (const chunk of chunks) {
+      const chunkRecord = new RecordId("document_chunk", randomUUID());
+      const chunkEmbedding = await createEmbedding(input.embeddingModel, input.embeddingDimension, chunk.content);
+
+      await input.surreal.create(chunkRecord).content({
+        document: documentRecord,
+        workspace: input.workspaceRecord,
+        content: chunk.content,
+        ...(chunk.heading ? { section_heading: chunk.heading } : {}),
+        position: chunk.position,
+        ...(chunkEmbedding ? { embedding: chunkEmbedding } : {}),
+        created_at: input.now,
+      });
+
+      const extraction = await extractStructuredGraph({
+        extractionModel: input.extractionModel,
+        conversationHistory: [],
+        graphContext: [],
+        sourceText: chunk.content,
+        onboarding: true,
+        heading: chunk.heading,
+      });
+
+      const result = await persistExtractionOutput({
+        surreal: input.surreal,
+        embeddingModel: input.embeddingModel,
+        embeddingDimension: input.embeddingDimension,
+        extractionModelId: input.extractionModelId,
+        extractionStoreThreshold: input.extractionStoreThreshold,
+        workspaceRecord: input.workspaceRecord,
+        sourceRecord: chunkRecord as SourceRecord,
+        sourceKind: "document_chunk",
+        sourceLabel: chunk.heading ? `${input.attachment.fileName} · ${chunk.heading}` : input.attachment.fileName,
+        promptText: chunk.content,
+        output: extraction,
+        sourceChunkRecord: chunkRecord,
+        now: input.now,
+      });
+
+      persistedEntities.push(...result.entities);
+      persistedRelationships.push(...result.relationships);
+      seeds.push(...result.seeds);
+      embeddingTargets.push(...result.embeddingTargets);
+      tools.push(...result.tools);
+    }
+
+    logInfo("attachment.ingest.completed", "Attachment ingestion completed", {
+      workspaceId,
+      conversationId,
+      documentId: documentRecord.id as string,
+      entityCount: persistedEntities.length,
+      relationshipCount: persistedRelationships.length,
+      chunkCount: chunks.length,
+      durationMs: elapsedMs(startedAt),
+    });
+
+    return {
+      entities: persistedEntities,
+      relationships: persistedRelationships,
+      seeds,
+      embeddingTargets,
+      tools,
+    };
+  } catch (error) {
+    logError("attachment.ingest.failed", "Attachment ingestion failed", error, {
+      workspaceId,
+      conversationId,
+      documentId: documentRecord.id as string,
+      durationMs: elapsedMs(startedAt),
+    });
+    throw error;
+  }
+}
+
+function splitDocumentIntoChunks(content: string): Array<{ heading?: string; content: string; position: number }> {
+  const normalized = content.replace(/\r\n/g, "\n").trim();
+  if (normalized.length === 0) {
+    throw new HttpError(400, "uploaded file content is empty");
+  }
+
+  const lines = normalized.split("\n");
+  const sections: Array<{ heading?: string; text: string }> = [];
+
+  let currentHeading: string | undefined;
+  let currentLines: string[] = [];
+
+  for (const line of lines) {
+    const headingMatch = /^(#{1,6})\s+(.+)$/.exec(line.trim());
+    if (headingMatch) {
+      if (currentLines.length > 0) {
+        sections.push({
+          heading: currentHeading,
+          text: currentLines.join("\n").trim(),
+        });
+      }
+
+      currentHeading = headingMatch[2].trim();
+      currentLines = [];
+      continue;
+    }
+
+    currentLines.push(line);
+  }
+
+  if (currentLines.length > 0) {
+    sections.push({
+      heading: currentHeading,
+      text: currentLines.join("\n").trim(),
+    });
+  }
+
+  const maxChunkChars = 2400;
+  const chunks: Array<{ heading?: string; content: string; position: number }> = [];
+  let position = 0;
+
+  for (const section of sections) {
+    if (section.text.length === 0) {
+      continue;
+    }
+
+    if (section.text.length <= maxChunkChars) {
+      chunks.push({
+        heading: section.heading,
+        content: section.text,
+        position,
+      });
+      position += 1;
+      continue;
+    }
+
+    let cursor = 0;
+    while (cursor < section.text.length) {
+      const slice = section.text.slice(cursor, cursor + maxChunkChars).trim();
+      if (slice.length > 0) {
+        chunks.push({
+          heading: section.heading,
+          content: slice,
+          position,
+        });
+        position += 1;
+      }
+      cursor += maxChunkChars;
+    }
+  }
+
+  if (chunks.length === 0) {
+    throw new HttpError(400, "uploaded file produced no extractable chunks");
+  }
+
+  return chunks;
+}

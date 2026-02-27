@@ -42,6 +42,45 @@
   - `EVAL_RESULTS_DIR` for evalite sqlite output.
   - `EVAL_CACHE_DIR` for extraction eval cache.
 
+## Server Architecture Overview
+
+- Entrypoint is `app/server.ts`; it only calls `startServer()` from `app/src/server/runtime/start-server.ts`.
+- Runtime bootstrap is split into:
+  - `runtime/config.ts` (env parsing/validation)
+  - `runtime/dependencies.ts` (Surreal + model clients)
+  - `runtime/start-server.ts` (route registration + Bun server startup)
+- HTTP cross-cutting concerns live in `app/src/server/http`:
+  - `request-logging.ts` (request context + top-level error boundary)
+  - `response.ts` (JSON/headers helpers)
+  - `parsing.ts` (request/form-data parsing)
+  - `errors.ts` + `observability.ts` (error/log primitives)
+- SSE state management is isolated in `app/src/server/streaming/sse-registry.ts`.
+- Route/business domains are separated by workflow:
+  - `workspace/*` for workspace create/bootstrap/scope checks
+  - `chat/*` for ingress + async message processing
+  - `entities/*` for entity search endpoints
+  - `onboarding/*` for onboarding state and guided replies
+  - `extraction/*` for extraction generation, persistence, dedupe/upsert, embeddings, and context loaders
+- `graph/*` contains reusable Surreal graph queries used by chat/tools and higher-level workflows.
+
+### Primary Chat Flow (`POST /api/chat/messages`)
+
+- `chat/chat-ingress.ts` validates/persists user input and registers an SSE stream message id.
+- `chat/chat-processor.ts` orchestrates async processing:
+  - load conversation + graph context
+  - run extraction (message and optional attachment chunks)
+  - persist entities/relationships/provenance
+  - transition onboarding state
+  - generate assistant response (onboarding reply or graph-aware chat)
+  - emit SSE events (`token`, `extraction`, `onboarding_seed`, `onboarding_state`, `assistant_message`, `done|error`)
+
+### RecordId and Table Access Rules
+
+- Use `RecordId` objects everywhere for Surreal identifiers (never `table:id` strings).
+- Server extraction types define typed record aliases:
+  - `GraphEntityRecord` and `SourceRecord` include a typed `tb` field for table discrimination.
+- Prefer typed `record.tb` access for table branching; do not use untyped casts like `(record as unknown as { tb: string }).tb`.
+
 ## SurrealDB SDK v2
 
 Reference: https://surrealdb.com/learn/fundamentals/schemafull/define-fields
