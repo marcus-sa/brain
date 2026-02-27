@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "d92787a17628",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/gh-issue-11",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "evals/scorers/relation-recall.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/d9/2787a17628/0/metadata.json",
+      "transcript": "/d9/2787a17628/0/full.jsonl",
+      "context": "/d9/2787a17628/0/context.md",
+      "content_hash": "/d9/2787a17628/0/content_hash.txt",
+      "prompt": "/d9/2787a17628/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 204,
+    "cache_creation_tokens": 158585,
+    "cache_read_tokens": 4146742,
+    "output_tokens": 17856,
+    "api_call_count": 52
+  }
+}

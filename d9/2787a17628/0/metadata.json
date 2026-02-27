@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "d92787a17628",
+  "session_id": "f76a52b4-3671-4a88-88a7-f059cb73cb1f",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-27T15:43:32.379164Z",
+  "branch": "marcus-sa/gh-issue-11",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "evals/scorers/relation-recall.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "708d1c110fdb",
+  "token_usage": {
+    "input_tokens": 204,
+    "cache_creation_tokens": 158585,
+    "cache_read_tokens": 4146742,
+    "output_tokens": 17856,
+    "api_call_count": 52
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-27T15:43:31.90883Z",
+    "agent_lines": 28,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 2,
+    "total_committed": 28,
+    "agent_percentage": 100
+  }
+}
