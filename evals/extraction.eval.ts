@@ -314,6 +314,7 @@ async function runCase(testCase: GoldenCase): Promise<ExtractionEvalOutput> {
     saveCache(cachePath, resultCache);
     return output;
   } finally {
+    await waitForWorkspaceEmbeddingWriteback(workspace.workspaceId).catch(() => undefined);
     await cleanupWorkspace(workspace.workspaceId).catch(() => undefined);
   }
 }
@@ -431,6 +432,54 @@ async function cleanupWorkspace(targetWorkspaceId: string): Promise<void> {
     ].join(" "),
     { workspace },
   );
+}
+
+async function waitForWorkspaceEmbeddingWriteback(targetWorkspaceId: string): Promise<void> {
+  const db = await getSurreal();
+  const workspace = new RecordId("workspace", targetWorkspaceId);
+  const startedAt = Date.now();
+  const timeoutMs = 2_500;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const [assistantRows] = await db
+      .query<[Array<{ id: RecordId<"message", string> }>]>(
+        "SELECT id FROM message WHERE conversation IN (SELECT VALUE id FROM conversation WHERE workspace = $workspace) AND role = 'assistant' AND embedding = NONE LIMIT 1;",
+        { workspace },
+      )
+      .collect<[Array<{ id: RecordId<"message", string> }>]>();
+
+    const [taskRows] = await db
+      .query<[Array<{ id: RecordId<"task", string> }>]>(
+        "SELECT id FROM task WHERE source_message IN (SELECT VALUE id FROM message WHERE conversation IN (SELECT VALUE id FROM conversation WHERE workspace = $workspace)) AND embedding = NONE LIMIT 1;",
+        { workspace },
+      )
+      .collect<[Array<{ id: RecordId<"task", string> }>]>();
+
+    const [decisionRows] = await db
+      .query<[Array<{ id: RecordId<"decision", string> }>]>(
+        "SELECT id FROM decision WHERE source_message IN (SELECT VALUE id FROM message WHERE conversation IN (SELECT VALUE id FROM conversation WHERE workspace = $workspace)) AND embedding = NONE LIMIT 1;",
+        { workspace },
+      )
+      .collect<[Array<{ id: RecordId<"decision", string> }>]>();
+
+    const [questionRows] = await db
+      .query<[Array<{ id: RecordId<"question", string> }>]>(
+        "SELECT id FROM question WHERE source_message IN (SELECT VALUE id FROM message WHERE conversation IN (SELECT VALUE id FROM conversation WHERE workspace = $workspace)) AND embedding = NONE LIMIT 1;",
+        { workspace },
+      )
+      .collect<[Array<{ id: RecordId<"question", string> }>]>();
+
+    if (
+      assistantRows.length === 0 &&
+      taskRows.length === 0 &&
+      decisionRows.length === 0 &&
+      questionRows.length === 0
+    ) {
+      return;
+    }
+
+    await sleep(50);
+  }
 }
 
 async function ensureEvalEnvironment(): Promise<void> {
