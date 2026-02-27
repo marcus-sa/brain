@@ -12,6 +12,8 @@ import { isRicherEntityName } from "./src/server/extraction/dedup";
 import { resolvePersonReferencePatch } from "./src/server/extraction/person";
 import { resolveValidatedResolvedFromMessageId } from "./src/server/extraction/provenance";
 import { extractionResultSchema, type ExtractionPromptEntity, type ExtractionPromptOutput, type ExtractionPromptRelationship } from "./src/server/extraction/schema";
+import { runGraphAwareChat } from "./src/server/chat/handler";
+import { getWorkspaceOwnerRecord } from "./src/server/graph/queries";
 import type {
   ChatMessageResponse,
   CreateWorkspaceRequest,
@@ -923,34 +925,90 @@ async function processChatMessage(input: {
       now,
     });
 
-    const assistantReply = await generateAssistantReply({
-      onboardingState: onboardingAfter,
-      contextRows: assistantContextRows,
-      latestUserText: input.userText,
-      workspaceRecord: input.workspaceRecord,
-      latestEntities: persistedEntities.map((entity) => ({
-        kind: entity.kind,
-        text: entity.text,
-        confidence: entity.confidence,
-      })),
-      latestTools: dedupedTools,
-    });
+    let assistantText = "";
+    let assistantSuggestions: string[] = [];
+
+    if (onboardingAfter === "complete") {
+      const workspaceOwnerRecord = await getWorkspaceOwnerRecord({
+        surreal,
+        workspaceRecord: input.workspaceRecord,
+      });
+
+      const graphAwareResponse = await runGraphAwareChat({
+        surreal,
+        model: assistantModel,
+        embeddingModel,
+        embeddingDimension,
+        extractionModelId: extractionModelIdValue,
+        conversationRecord,
+        workspaceRecord: input.workspaceRecord,
+        currentMessageRecord: input.userMessageRecord,
+        latestUserText: input.userText,
+        ...(workspaceOwnerRecord ? { workspaceOwnerRecord } : {}),
+        messages: assistantContextRows.map((row) => ({
+          role: row.role,
+          text: row.text,
+        })),
+        onToken: async (token) => {
+          emitEvent(input.messageId, {
+            type: "token",
+            messageId: input.messageId,
+            token,
+          });
+        },
+      });
+
+      assistantText = graphAwareResponse.text.trim();
+    } else {
+      const assistantReply = await generateAssistantReply({
+        onboardingState: onboardingAfter,
+        contextRows: assistantContextRows,
+        latestUserText: input.userText,
+        workspaceRecord: input.workspaceRecord,
+        latestEntities: persistedEntities.map((entity) => ({
+          kind: entity.kind,
+          text: entity.text,
+          confidence: entity.confidence,
+        })),
+        latestTools: dedupedTools,
+      });
+
+      assistantText = assistantReply.message.trim();
+      assistantSuggestions = assistantReply.suggestions;
+
+      for (const token of assistantText.split(" ")) {
+        emitEvent(input.messageId, {
+          type: "token",
+          messageId: input.messageId,
+          token: `${token} `,
+        });
+        await Bun.sleep(25);
+      }
+    }
+
     const summaryBlock = buildExtractionComponentBlock(
       persistedEntities,
       persistedRelationships,
       extractionDisplayThreshold,
     );
-    const assistantText = summaryBlock
-      ? `${assistantReply.message.trim()}\n\n${summaryBlock}`
-      : assistantReply.message.trim();
 
-    for (const token of assistantText.split(" ")) {
-      emitEvent(input.messageId, {
-        type: "token",
-        messageId: input.messageId,
-        token: `${token} `,
-      });
-      await Bun.sleep(25);
+    if (summaryBlock) {
+      if (onboardingAfter === "complete") {
+        const streamChunk = assistantText.length > 0 ? `\n\n${summaryBlock}` : summaryBlock;
+        for (const token of streamChunk.split(" ")) {
+          emitEvent(input.messageId, {
+            type: "token",
+            messageId: input.messageId,
+            token: `${token} `,
+          });
+        }
+      }
+
+      assistantText = assistantText.length > 0 ? `${assistantText}\n\n${summaryBlock}` : summaryBlock;
+    }
+
+    if (assistantText.trim().length === 0) {
+      assistantText = "I could not generate a response for that request.";
     }
 
     const assistantMessageRecord = new RecordId("message", input.messageId);
@@ -958,7 +1016,7 @@ async function processChatMessage(input: {
       conversation: conversationRecord,
       role: "assistant",
       text: assistantText,
-      ...(assistantReply.suggestions.length > 0 ? { suggestions: assistantReply.suggestions } : {}),
+      ...(assistantSuggestions.length > 0 ? { suggestions: assistantSuggestions } : {}),
       createdAt: now,
     });
 
@@ -995,7 +1053,7 @@ async function processChatMessage(input: {
       type: "assistant_message",
       messageId: input.messageId,
       text: assistantText,
-      ...(assistantReply.suggestions.length > 0 ? { suggestions: assistantReply.suggestions } : {}),
+      ...(assistantSuggestions.length > 0 ? { suggestions: assistantSuggestions } : {}),
     });
 
     emitEvent(input.messageId, {

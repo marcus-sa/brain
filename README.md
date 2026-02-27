@@ -244,30 +244,51 @@ This covers ~90% of use cases: "what did we decide about X?", "what tasks are op
 
 Cross-project intelligence surfaces naturally here: if the semantic search returns entities from other projects that relate to the current conversation, they're included in the context. The agent can say "By the way, this conflicts with a decision in Project B" — not because it ran a conflict detection tool, but because the conflicting entity was in its context window.
 
-**Phase 2 — Graph query tools:**
+**Phase 2 — Graph query + decision tools:**
 
-When the injected context doesn't cover the user's question — "find all decisions across every project that mention SurrealDB", "what depends on the auth migration?", "show me the full dependency chain" — the agent needs to query the graph dynamically.
+When the injected context doesn't cover the user's question — "find all decisions across every project that mention SurrealDB", "what depends on the auth migration?", "show me the full dependency chain" — the agent needs to query the graph dynamically. And when the user asks the agent to make or evaluate decisions — "should I use Postgres or SurrealDB?", "does this conflict with anything?" — the agent needs the same decision tools that coding agents use via MCP (section 3.4).
 
-Tools added to the chat agent:
+**Read tools** (graph queries):
 
 ```
 search_entities({ query, kinds?, project? })        → semantic search across graph
 get_entity_detail({ entityId })                       → full details + relationships for one entity
 get_project_status({ projectId })                     → active tasks, recent decisions, open questions
-find_conflicts({ proposedDecision, projectId? })      → check proposed decision against existing graph
 get_conversation_history({ query, projectId? })       → search past conversations about a topic
 ```
+
+**Reason tools** (decision inference):
+
+```
+resolve_decision({ question, options?, context })     → infer answer from graph context, return rationale + sources + confidence
+check_constraints({ proposed_action, project })       → check proposed action against existing decisions and constraints
+```
+
+**Write tools** (decision delegation):
+
+```
+create_provisional_decision({ name, rationale, context, options_considered })
+  → create provisional decision, surface in feed for human review
+confirm_decision({ decision_id })
+  → ONLY available to the chat agent (not MCP), because the human is present in the conversation
+     and can confirm inline: "Yes, go with that" → agent calls confirm_decision
+```
+
+The chat agent has a unique advantage over coding agents: the human is in the conversation. A coding agent creates provisional decisions and moves on; the human reviews later in the feed. The chat agent can present its reasoning, show sources, and ask "Should I confirm this?" — turning a provisional decision into a confirmed one in the same conversational turn. This makes the chat the primary decision governance surface, not just a thinking environment.
 
 The system prompt still provides ambient awareness (current conversation and project state). Tools let the agent go deeper when needed. The agent decides when to use tools based on whether the injected context contains the answer.
 
 **Phase 3 — Unified tool interface:**
 
-The same graph query tools the chat agent uses internally become the MCP tools exposed to coding agents externally. One tool interface, two consumers:
+The same graph query and decision tools the chat agent uses internally become the MCP tools exposed to coding agents externally. One tool interface, two consumers — with one key difference: coding agents via MCP can create `provisional` and `inferred` decisions but cannot confirm. The chat agent can call `confirm_decision` because the human is present to authorize it.
 
 ```
-Chat agent (Sonnet)  ─→ graph query tools ←─  Coding agents (via MCP)
-                              ↓
-                         SurrealDB graph
+Chat agent (Sonnet)  ─→ graph query + decision tools ←─  Coding agents (via MCP)
+                                    ↓
+                              SurrealDB graph
+                                    ↓
+                           Feed (review surface)
+```
 ```
 
 The `resolve_decision` and `create_provisional_decision` MCP tools (section 3.4) are also available to the chat agent, enabling it to answer questions like "should I use REST or tRPC?" by reasoning over the graph — the same way a coding agent would via MCP.
@@ -540,12 +561,12 @@ The MVP is structured as four two-week phases, designed for dogfooding from day 
 2. **Entity detail panels:** Click a node to see its full context: related conversations, decisions, tasks, open questions. Link back to the original chat message where it was created.
 3. **Chat → Graph navigation:** Clicking an inline annotation in chat navigates to that node in the graph. Clicking a conversation reference in the graph jumps to that chat message.
 4. **Search and filter:** Full-text and semantic search across the graph. Filter by entity type, project, person, date range.
-5. **Chat agent graph tools:** Upgrade the chat agent from system prompt injection only to dynamic graph query tools (`search_entities`, `get_entity_detail`, `get_project_status`, `find_conflicts`, `get_conversation_history`). The agent decides when to use tools based on whether the injected context contains the answer. Same tool interface later exposed via MCP in Phase 3.
+5. **Chat agent graph + decision tools:** Upgrade the chat agent from system prompt injection only to dynamic graph query tools (`search_entities`, `get_entity_detail`, `get_project_status`, `get_conversation_history`) plus decision tools (`resolve_decision`, `check_constraints`, `create_provisional_decision`, `confirm_decision`). The chat agent can infer decisions from graph context, create provisional decisions, and — uniquely — confirm decisions inline because the human is present in the conversation. Same tool interface later exposed via MCP in Phase 3 (minus `confirm_decision` for coding agents).
 5. **Extraction pipeline v2:** Iterate on extraction quality based on real dogfooding data. Tune confidence thresholds. Add relationship strength scoring.
 6. **Conversation branching:** Select a message range or click "branch from here" to create a focused sub-conversation. Creates a new Conversation with `BRANCHED_FROM` edge to parent. Branch carries forward relevant graph context (parent's extracted entities pre-loaded for high-confidence project/feature resolution). Branched conversations display as nested under their parent in the sidebar.
 7. **Conversation drift detection:** After each extraction, the system checks whether newly extracted entities share any `entity_relation` or project ancestry with the conversation's earlier entities. If the last 3–4 messages produce entities belonging to a different project cluster than the conversation's existing entities, the system surfaces a contextual suggestion: "This seems like a separate thread — branch into a new conversation about [detected topic]?" The suggestion names the new topic based on the most recent extracted entities. If ignored, the system doesn't nag — the entities still get extracted and linked to the correct projects regardless. This is a UX quality signal, not a functional gate. Reinforces the anti-bloat strategy: shorter, focused conversations that map cleanly to projects and produce better graph provenance.
 
-*Deliverable: Two connected views (chat + graph) with bidirectional navigation. Conversation branching enables focused sub-threads. Drift detection suggests branching when conversations become unfocused. The graph is useful for understanding project state at a glance.*
+*Deliverable: Two connected views (chat + graph) with bidirectional navigation. The chat agent has full graph query and decision tools — it can search the graph, infer decisions from context, create provisional decisions, and confirm them inline with human approval. Conversation branching enables focused sub-threads. Drift detection suggests branching when conversations become unfocused. The graph is useful for understanding project state at a glance.*
 
 ---
 
