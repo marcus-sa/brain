@@ -1,0 +1,31 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "5bd8db049700",
+  "session_id": "f76a52b4-3671-4a88-88a7-f059cb73cb1f",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-27T15:43:48.951396Z",
+  "branch": "marcus-sa/gh-issue-11",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".nwave/des-config.json",
+    ".nwave/des/logs/audit-2026-02-27.log"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "708d1c110fdb",
+  "token_usage": {
+    "input_tokens": 228,
+    "cache_creation_tokens": 159589,
+    "cache_read_tokens": 4450622,
+    "output_tokens": 18435,
+    "api_call_count": 55
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-27T15:43:48.529144Z",
+    "agent_lines": 27,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 27,
+    "agent_percentage": 100
+  }
+}
