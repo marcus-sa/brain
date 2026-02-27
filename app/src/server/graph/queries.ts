@@ -1502,7 +1502,7 @@ export async function getProjectGraphView(input: {
     addRecord(record as GraphEntityRecord);
   }
 
-  // Tasks via features' has_task
+  // Tasks via features' has_task + decisions/questions that belong_to features
   if (featureRows.length > 0) {
     const [featureTaskRows] = await input.surreal
       .query<[Array<RecordId<"task", string>>]>(
@@ -1512,6 +1512,35 @@ export async function getProjectGraphView(input: {
       .collect<[Array<RecordId<"task", string>>]>();
 
     for (const record of featureTaskRows) {
+      addRecord(record as GraphEntityRecord);
+    }
+
+    const [featureBelongsRows] = await input.surreal
+      .query<[Array<RecordId<"task" | "decision" | "question", string>>]>(
+        "SELECT VALUE `in` FROM belongs_to WHERE out IN $features;",
+        { features: featureRows },
+      )
+      .collect<[Array<RecordId<"task" | "decision" | "question", string>>]>();
+
+    for (const record of featureBelongsRows) {
+      addRecord(record as GraphEntityRecord);
+    }
+  }
+
+  // Entities extracted from workspace messages (catches decisions/questions/tasks without belongs_to edges)
+  const [provenanceRows] = await input.surreal
+    .query<[Array<GraphEntityRecord>]>(
+      [
+        "SELECT VALUE out FROM extraction_relation",
+        "WHERE `in` IN (SELECT VALUE id FROM message WHERE conversation IN (SELECT VALUE id FROM conversation WHERE workspace = $workspace));",
+      ].join(" "),
+      { workspace: input.workspaceRecord },
+    )
+    .collect<[Array<GraphEntityRecord>]>();
+
+  for (const record of provenanceRows) {
+    const table = record.table.name;
+    if (table === "task" || table === "decision" || table === "question" || table === "feature" || table === "person") {
       addRecord(record as GraphEntityRecord);
     }
   }

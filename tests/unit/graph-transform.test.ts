@@ -3,14 +3,14 @@ import { entityColor, transformToReagraph } from "../../app/src/server/graph/tra
 import type { GraphViewRawResult } from "../../app/src/server/graph/queries";
 
 describe("entityColor", () => {
-  it("returns correct CSS variable for each entity kind", () => {
-    expect(entityColor("project")).toBe("var(--entity-project)");
-    expect(entityColor("feature")).toBe("var(--entity-feature)");
-    expect(entityColor("task")).toBe("var(--entity-task)");
-    expect(entityColor("decision")).toBe("var(--entity-decision)");
-    expect(entityColor("question")).toBe("var(--entity-question)");
-    expect(entityColor("person")).toBe("var(--entity-person)");
-    expect(entityColor("workspace")).toBe("var(--entity-project)");
+  it("returns hex color for each entity kind", () => {
+    expect(entityColor("project")).toBe("#3b82f6");
+    expect(entityColor("feature")).toBe("#14b8a6");
+    expect(entityColor("task")).toBe("#22c55e");
+    expect(entityColor("decision")).toBe("#eab308");
+    expect(entityColor("question")).toBe("#a855f7");
+    expect(entityColor("person")).toBe("#f97316");
+    expect(entityColor("workspace")).toBe("#3b82f6");
   });
 });
 
@@ -37,7 +37,7 @@ describe("transformToReagraph", () => {
     expect(result.nodes[0]).toEqual({
       id: "abc123",
       label: "Build the login page",
-      fill: "var(--entity-task)",
+      fill: "#22c55e",
       data: {
         kind: "task",
         connectionCount: 0,
@@ -48,7 +48,7 @@ describe("transformToReagraph", () => {
     expect(result.nodes[1]).toEqual({
       id: "def456",
       label: "Use JWT for auth",
-      fill: "var(--entity-decision)",
+      fill: "#eab308",
       data: {
         kind: "decision",
         connectionCount: 0,
@@ -128,9 +128,9 @@ describe("transformToReagraph", () => {
     const result = transformToReagraph(raw);
     const countByNode = new Map(result.nodes.map((n) => [n.id, n.data.connectionCount]));
 
-    expect(countByNode.get("a")).toBe(2); // a→b, a→c
-    expect(countByNode.get("b")).toBe(2); // a→b, b→c
-    expect(countByNode.get("c")).toBe(2); // b→c, a→c
+    expect(countByNode.get("a")).toBe(22); // 2 edges + project kindBoost 20
+    expect(countByNode.get("b")).toBe(12); // 2 edges + feature kindBoost 10
+    expect(countByNode.get("c")).toBe(2);  // 2 edges + task kindBoost 0
   });
 
   it("handles edges referencing same entity in both source and target", () => {
@@ -150,6 +150,6 @@ describe("transformToReagraph", () => {
 
     const result = transformToReagraph(raw);
     const hubNode = result.nodes.find((n) => n.id === "hub");
-    expect(hubNode?.data.connectionCount).toBe(3);
+    expect(hubNode?.data.connectionCount).toBe(23); // 3 edges + project kindBoost 20
   });
 });

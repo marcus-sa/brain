@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import type { EntityDetailResponse, EntityKind } from "../../../shared/contracts";
 import { EntityBadge } from "./EntityBadge";
 import { RelationshipList } from "./RelationshipList";
@@ -24,6 +25,7 @@ export function EntityDetailPanel({
   const [error, setError] = useState<string | undefined>();
   const [actionPending, setActionPending] = useState(false);
   const navigateToChat = useViewState((s) => s.navigateToChat);
+  const navigate = useNavigate();
 
   useEffect(() => {
     setLoading(true);
@@ -49,8 +51,7 @@ export function EntityDetailPanel({
 
   function handleJumpToMessage(messageId: string) {
     navigateToChat(messageId);
-    window.location.hash = "";
-    window.location.pathname = "/";
+    void navigate({ to: "/" });
   }
 
   async function handleConfirm() {

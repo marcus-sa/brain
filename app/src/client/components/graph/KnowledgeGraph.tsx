@@ -95,12 +95,16 @@ export function KnowledgeGraph({
         ref={graphRef}
         nodes={data.nodes as any}
         edges={styledEdges as any}
-        selections={selectedId ? [selectedId] : []}
+        selections={selectedId ? [selectedId.includes(":") ? selectedId.slice(selectedId.indexOf(":") + 1) : selectedId] : []}
         layoutType="forceDirected2d"
         sizingType="attribute"
         sizingAttribute="connectionCount"
         labelType="auto"
-        onNodeClick={(node: { id: string }) => onNodeClick(node.id)}
+        onNodeClick={(node: { id: string }) => {
+          const match = data.nodes.find((n) => n.id === node.id);
+          const prefixed = match ? `${match.data.kind}:${node.id}` : node.id;
+          onNodeClick(prefixed);
+        }}
       />
     </div>
   );

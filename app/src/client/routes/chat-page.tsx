@@ -3,6 +3,7 @@ import {
   Chat,
   ChatSuggestions,
   ChatInput,
+  SessionMessage,
   SessionMessagePanel,
   SessionMessages,
   SessionMessagesHeader,
@@ -810,7 +811,18 @@ export function ChatPage() {
               <SessionMessagesHeader>
                 <div className="reachat-header">Workspace Chat + Extraction</div>
               </SessionMessagesHeader>
-              <SessionMessages />
+              <SessionMessages>
+                {(conversations) =>
+                  conversations.map((conversation, index) => (
+                    <div key={conversation.id} data-message-id={conversation.id}>
+                      <SessionMessage
+                        conversation={conversation}
+                        isLast={index === conversations.length - 1}
+                      />
+                    </div>
+                  ))
+                }
+              </SessionMessages>
               <ChatSuggestions
                 suggestions={suggestions}
                 onSuggestionClick={(suggestion) => {

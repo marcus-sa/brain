@@ -1,15 +1,16 @@
 import type { ReagraphNode, ReagraphEdge, GraphResponse, EntityKind } from "../../shared/contracts";
 import type { GraphViewRawResult } from "./queries";
 
+// Resolved hex values for OKLCH entity colors — Three.js/WebGL cannot parse CSS variables.
 export function entityColor(kind: EntityKind): string {
   switch (kind) {
-    case "project": return "var(--entity-project)";
-    case "feature": return "var(--entity-feature)";
-    case "task": return "var(--entity-task)";
-    case "decision": return "var(--entity-decision)";
-    case "question": return "var(--entity-question)";
-    case "person": return "var(--entity-person)";
-    case "workspace": return "var(--entity-project)";
+    case "project": return "#3b82f6";   // oklch(0.65 0.15 250)
+    case "feature": return "#14b8a6";   // oklch(0.65 0.15 170)
+    case "task": return "#22c55e";      // oklch(0.70 0.15 145)
+    case "decision": return "#eab308";  // oklch(0.70 0.15 55)
+    case "question": return "#a855f7";  // oklch(0.65 0.15 300)
+    case "person": return "#f97316";    // oklch(0.65 0.15 25)
+    case "workspace": return "#3b82f6";
   }
 }
 
@@ -26,13 +27,17 @@ export function transformToReagraph(raw: GraphViewRawResult): GraphResponse {
 
   const nodes: ReagraphNode[] = raw.entities.map((entity) => {
     const kind = entity.kind as EntityKind;
+    const kindBoost = kind === "project" ? 20
+      : kind === "feature" ? 10
+      : kind === "person" ? 8
+      : 0;
     return {
       id: entity.id,
       label: entity.name.length > 32 ? entity.name.slice(0, 32) + "\u2026" : entity.name,
       fill: entityColor(kind),
       data: {
         kind,
-        connectionCount: connectionCounts.get(entity.id) ?? 0,
+        connectionCount: (connectionCounts.get(entity.id) ?? 0) + kindBoost,
         status: undefined,
       },
     };

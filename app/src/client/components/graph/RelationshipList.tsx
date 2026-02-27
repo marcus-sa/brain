@@ -51,7 +51,7 @@ export function RelationshipList({
                 key={item.id}
                 type="button"
                 className="relationship-item"
-                onClick={() => onEntityClick(item.id)}
+                onClick={() => onEntityClick(`${item.kind}:${item.id}`)}
               >
                 <EntityBadge kind={item.kind} />
                 {item.name}
