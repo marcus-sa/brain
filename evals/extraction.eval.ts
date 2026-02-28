@@ -16,6 +16,7 @@ import { resolvedFromLineageScorer } from "./scorers/resolved-from-lineage";
 import { toolFilteringScorer } from "./scorers/tool-filtering";
 import { forbiddenKindsScorer } from "./scorers/forbidden-kinds";
 import { relationRecallScorer } from "./scorers/relation-recall";
+import { categoryAccuracyScorer } from "./scorers/category-accuracy";
 import type { ExtractionEvalOutput, GoldenCase, GoldenCaseIntent } from "./types";
 import { normalizeForSubstring } from "./scorers/shared";
 import { extractStructuredGraph } from "../app/src/server/extraction/extract-graph";
@@ -32,9 +33,10 @@ import {
   seedUserMessage,
   seedGraphEntities,
   loadWorkspacePeopleCount,
+  createDeterministicIdGenerator,
 } from "./eval-test-kit";
 
-const extractionModel = process.env.EXTRACTION_MODEL ?? "anthropic/claude-3.5-haiku";
+const extractionModel = requireEnv("EXTRACTION_MODEL");
 const autoevalModel = requireEnv("AUTOEVAL_MODEL");
 
 const cacheDir = process.env.EVAL_CACHE_DIR ?? "eval-results/cache";
@@ -59,37 +61,40 @@ const intentScoreWeights: Record<
     | "tool-filtering"
     | "forbidden-kinds"
     | "factuality"
-    | "relation-recall",
+    | "relation-recall"
+    | "category-accuracy",
     number
   >
 > = {
   strict_single: {
-    "entity-precision": 0.18,
-    "entity-recall": 0.18,
-    "no-extra-entities": 0.2,
-    "no-phantom-persons": 0.13,
-    "evidence-grounded": 0.09,
+    "entity-precision": 0.16,
+    "entity-recall": 0.16,
+    "no-extra-entities": 0.18,
+    "no-phantom-persons": 0.12,
+    "evidence-grounded": 0.08,
     "no-context-bleed": 0.05,
-    "evidence-source-current-message": 0.06,
+    "evidence-source-current-message": 0.05,
     "resolved-from-lineage": 0.04,
-    "tool-filtering": 0.08,
-    "forbidden-kinds": 0.1,
+    "tool-filtering": 0.06,
+    "forbidden-kinds": 0.08,
     factuality: 0.02,
     "relation-recall": 0,
+    "category-accuracy": 0.1,
   },
   multi_allowed: {
-    "entity-precision": 0.23,
-    "entity-recall": 0.23,
+    "entity-precision": 0.21,
+    "entity-recall": 0.21,
     "no-extra-entities": 0.05,
-    "no-phantom-persons": 0.12,
-    "evidence-grounded": 0.09,
-    "no-context-bleed": 0.05,
-    "evidence-source-current-message": 0.07,
+    "no-phantom-persons": 0.11,
+    "evidence-grounded": 0.08,
+    "no-context-bleed": 0.04,
+    "evidence-source-current-message": 0.06,
     "resolved-from-lineage": 0.04,
     "tool-filtering": 0.04,
     "forbidden-kinds": 0.06,
-    factuality: 0.03,
-    "relation-recall": 0.04,
+    factuality: 0.02,
+    "relation-recall": 0.03,
+    "category-accuracy": 0.1,
   },
 };
 
@@ -142,27 +147,16 @@ evalite<GoldenCase, ExtractionEvalOutput, GoldenCase>("Extraction Golden Cases",
     toolFilteringScorer,
     forbiddenKindsScorer,
     relationRecallScorer,
+    categoryAccuracyScorer,
     factualityScorer,
   ],
   columns: ({ input, output, scores }) => [
-    { label: "Model", value: extractionModel },
-    { label: "Precision", value: formatScoreCell(scoreByName(scores, "entity-precision")) },
-    { label: "Recall", value: formatScoreCell(scoreByName(scores, "entity-recall")) },
-    { label: "NoExtra", value: formatScoreCell(scoreByName(scores, "no-extra-entities")) },
-    { label: "NoPeople", value: formatScoreCell(scoreByName(scores, "no-phantom-persons")) },
-    { label: "Evidence", value: formatScoreCell(scoreByName(scores, "evidence-grounded")) },
-    { label: "NoCtxBleed", value: formatScoreCell(scoreByName(scores, "no-context-bleed")) },
-    { label: "EvSrc", value: formatScoreCell(scoreByName(scores, "evidence-source-current-message")) },
-    { label: "Lineage", value: formatScoreCell(scoreByName(scores, "resolved-from-lineage")) },
-    { label: "Tools", value: formatScoreCell(scoreByName(scores, "tool-filtering")) },
-    { label: "Kinds", value: formatScoreCell(scoreByName(scores, "forbidden-kinds")) },
-    { label: "RelRecall", value: formatScoreCell(scoreByName(scores, "relation-recall")) },
-    { label: "Factual", value: formatScoreCell(scoreByName(scores, "factuality")) },
-    { label: "Intent", value: input.intent },
     { label: "Case", value: input.id },
-    { label: "Expected", value: input.expectedEntities.length },
-    { label: "Extracted", value: output.extractedEntities.length },
-    { label: "People", value: `${output.personCount}/${output.ownerPersonCount}` },
+    { label: "Intent", value: input.intent },
+    { label: "Ent", value: `${output.extractedEntities.length}/${input.expectedEntities.length}` },
+    { label: "Prec", value: formatScoreCell(scoreByName(scores, "entity-precision")) },
+    { label: "Rec", value: formatScoreCell(scoreByName(scores, "entity-recall")) },
+    { label: "Cat", value: formatScoreCell(scoreByName(scores, "category-accuracy")) },
     {
       label: "Avg",
       value: computeWeightedAverage(input.intent, scores).toFixed(2),
@@ -235,18 +229,19 @@ async function runCase(testCase: GoldenCase): Promise<ExtractionEvalOutput> {
     };
   }
 
-  const { workspaceRecord, workspaceName, projectRecord, conversationRecord, ownerPersonCount } = await seedWorkspace(runtime.surreal, testCase.workspace_name);
+  const nextId = createDeterministicIdGenerator(testCase.id);
+  const { workspaceRecord, workspaceName, projectRecord, conversationRecord, ownerPersonCount } = await seedWorkspace(runtime.surreal, testCase.workspace_name, nextId);
   const conversationId = conversationRecord.id as string;
   const seededContext = testCase.context ?? [];
   const contextMessageIds = seededContext.length > 0
-    ? await seedConversationContext(runtime.surreal, conversationRecord, seededContext)
+    ? await seedConversationContext(runtime.surreal, conversationRecord, seededContext, nextId)
     : [];
 
   if (testCase.workspace_seed && testCase.workspace_seed.length > 0) {
-    await seedGraphEntities(runtime.surreal, workspaceRecord, projectRecord, conversationRecord, testCase.workspace_seed);
+    await seedGraphEntities(runtime.surreal, workspaceRecord, projectRecord, conversationRecord, testCase.workspace_seed, nextId);
   }
 
-  const userMessageRecord = await seedUserMessage(runtime.surreal, conversationRecord, testCase.input);
+  const userMessageRecord = await seedUserMessage(runtime.surreal, conversationRecord, testCase.input, nextId);
 
   const extractionConversationContext = await loadExtractionConversationContext({
     surreal: runtime.surreal,
@@ -347,6 +342,7 @@ async function runCase(testCase: GoldenCase): Promise<ExtractionEvalOutput> {
       kind: e.kind,
       text: e.text,
       confidence: e.confidence,
+      ...(e.category ? { category: e.category } : {}),
     })),
     extractedTools,
     personCount,
@@ -414,7 +410,7 @@ function hasEnv(name: string): boolean {
 }
 
 function buildCaseCacheKey(modelId: string, testCase: GoldenCase): string {
-  const cacheVersion = "classification-v3";
+  const cacheVersion = "classification-v16";
   const caseHash = createHash("sha256").update(JSON.stringify(testCase)).digest("hex").slice(0, 24);
   return `${cacheVersion}:${modelId}:${testCase.id}:${caseHash}`;
 }
