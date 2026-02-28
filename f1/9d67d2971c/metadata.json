@@ -3,7 +3,7 @@
   "checkpoint_id": "f19d67d2971c",
   "strategy": "manual-commit",
   "branch": "marcus-sa/entity-categories",
-  "checkpoints_count": 3,
+  "checkpoints_count": 4,
   "files_touched": [
     "app/src/server/extraction/prompt.ts",
     "evals/data/golden-cases.json",
@@ -16,13 +16,20 @@
       "context": "/f1/9d67d2971c/0/context.md",
       "content_hash": "/f1/9d67d2971c/0/content_hash.txt",
       "prompt": "/f1/9d67d2971c/0/prompt.txt"
+    },
+    {
+      "metadata": "/f1/9d67d2971c/1/metadata.json",
+      "transcript": "/f1/9d67d2971c/1/full.jsonl",
+      "context": "/f1/9d67d2971c/1/context.md",
+      "content_hash": "/f1/9d67d2971c/1/content_hash.txt",
+      "prompt": "/f1/9d67d2971c/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 469,
-    "cache_creation_tokens": 146632,
-    "cache_read_tokens": 7095151,
-    "output_tokens": 25515,
-    "api_call_count": 59
+    "input_tokens": 580,
+    "cache_creation_tokens": 374314,
+    "cache_read_tokens": 15253445,
+    "output_tokens": 62629,
+    "api_call_count": 144
   }
 }
