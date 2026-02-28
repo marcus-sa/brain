@@ -157,6 +157,20 @@ System prompt emphasis:
 - Track which questions have been answered vs still open
 - After several turns, summarize: "We've covered X, Y, Z.
   Still open: A, B, C. Want to tackle any of these now?"
+- PROACTIVE TASK GENERATION: When you identify gaps, unresolved
+  questions, or areas needing investigation, suggest concrete tasks.
+  Examples:
+  - User mentions pricing but hasn't researched it →
+    suggest "Research pricing models for [domain]" (category: research)
+  - User picks a technology but flags risk →
+    suggest "Evaluate fallback options for [tech]" (category: research)
+  - User describes a feature without implementation plan →
+    suggest "Design wireframes for [feature]" (category: design)
+  - User mentions needing to reach potential users →
+    suggest "Identify 10 target users for early feedback" (category: sales)
+  Tasks should be specific, actionable, and tagged with a category.
+  Present them as suggestions the user can accept, modify, or dismiss.
+  Accepted tasks become Task entities in the graph.
 
 Tool emphasis:
 - search_entities (find related prior art in graph)
@@ -307,9 +321,10 @@ For Phase 1 dogfooding: one Workspace, one Project ("AI-Native Business Manageme
 | **Meeting** | Workspace | A meeting with transcript (subtype of Conversation). Same scoping rules as Conversation. | title, attendees[], transcript_ref, calendar_event_ref, source_provider, recorded_at |
 | **Project** | Workspace | A bounded initiative or workstream within a workspace | name, status, description, created_at |
 | **Feature** | Project | A distinct capability or component within a project. Maps to a PRD. Natural grouping layer between Project and Task. | name, status, description, prd (progressive), owner |
-| **Task** | Project/Feature | An actionable commitment with an owner | title, owner, deadline, status, priority |
+| **Task** | Project/Feature | An actionable commitment with an owner | title, owner, deadline, status, priority, category |
 | **Decision** | Project/Feature | A ratified choice with context | summary, rationale, decided_by, decided_at, status (extracted / proposed / confirmed / superseded) |
 | **Question** | Project/Feature | An unanswered question or open item | text, assigned_to, status, context |
+| **Learning** | Workspace | A behavioral modification for an agent. Human-created learnings are active immediately. Agent-suggested learnings require human approval before activation. Active learnings are injected into the target agent's system prompt during context build. Analogous to CTX's "persistent memory" or Claude Code plugin "instincts," but stored as graph entities with provenance and approval flow. Introduced in Phase 4. | text, target_agent, suggested_by, status (active / pending_approval / dismissed), source_conversation |
 
 #### Relationship Types (Graph Edges)
 
@@ -371,6 +386,7 @@ The full conversation history enables **reference resolution**: when a user says
 - **Placeholder filtering.** The prompt includes negative examples of non-entities ("my project", "the thing", "this idea"). A server-side blocklist provides a deterministic safety net, dropping known placeholder phrases before persistence.
 - **Confidence-gated display.** Store entities at ≥0.6 confidence. Display inline EntityCards at ≥0.85 confidence only. Entities between 0.6–0.85 are stored silently for later corroboration or review.
 - **Actionability guard for Tasks.** The prompt distinguishes Tasks (actionable commitments with implicit owner and concrete action verb) from goals/descriptions ("transform conversations into a knowledge graph"). A server-side heuristic checks for action verb presence and reclassifies goal-like text to Feature.
+- **Task category classification.** Every Task entity gets a `category` field, LLM-inferred during extraction (not user-assigned). Categories: `engineering` (build, implement, fix, deploy), `research` (investigate, evaluate, compare, explore), `marketing` (outreach, content, positioning, launch), `operations` (setup, configure, process, admin), `design` (wireframe, prototype, UX, visual), `sales` (outreach, demo, pitch, negotiate). The category enables feed filtering ("show all research tasks"), graph clustering by business function, and priority views grouped by category.
 - **Adoption-only tool filtering.** Tools/technologies mentioned as competitors or references ("existing PM tools like Linear, Notion") are not extracted. Only tools with adoption signals in the evidence ("we use", "built with", "stored in") create entity nodes.
 
 **Evidence provenance model on `extraction_relation` edges:**
@@ -550,6 +566,64 @@ create_provisional_decision({
 - Architecture constraints and patterns established
 - Recent changes and their context
 - Open questions that might affect implementation
+
+**Distribution: Claude Code Plugin (not shell scripts)**
+
+Inspired by [ActiveMemory/ctx v0.6.0](https://ctx.ist/blog/2026-02-16-ctx-v0.6.0-the-integration-release/), the MCP server ships as a **Claude Code marketplace plugin** — not as standalone hook scripts or manual `.claude/hooks/` wiring. ctx's journey from six shell scripts to a two-command plugin install validates this approach: shell scripts are fine for prototyping but wrong for distribution.
+
+The plugin bundles hooks + skills together in a single installable package:
+
+```
+Install:
+/plugin marketplace add [our-org]/brain
+/plugin install brain@[our-org]-brain
+```
+
+The plugin's `hooks.json` wires into Claude Code's event system:
+
+```json
+{
+  "SessionStart": [
+    {"command": "brain system load-project-context"}
+  ],
+  "PreToolUse": [
+    {"matcher": ".*", "command": "brain system check-constraints"}
+  ],
+  "PostToolUse": [
+    {"matcher": "Write|Edit", "command": "brain system log-changes"}
+  ],
+  "UserPromptSubmit": [
+    {"command": "brain system inject-context"}
+  ],
+  "Stop": [
+    {
+      "type": "prompt",
+      "prompt": "Review the conversation for unlogged architecture decisions, unresolved questions, or constraints that should be captured in the knowledge graph. If items are missing, respond with {\"decision\": \"block\", \"reason\": \"Before stopping, log these to the knowledge graph: [list items]\"}. If everything is captured, respond with {\"decision\": \"approve\"}."
+    }
+  ],
+  "SessionEnd": [
+    {"command": "brain system capture-session-summary"}
+  ]
+}
+```
+
+Hook behavior:
+- `SessionStart` — calls `get_project_context`, injects full decision/constraint state as `additionalContext`
+- `PreToolUse` — before every tool call, checks for constraint conflicts via the graph
+- `PostToolUse` on `Write|Edit` — logs file changes back to the graph as implementation activity
+- `UserPromptSubmit` — enriches every user message with relevant graph context
+- `Stop` — prompt-based hook (runs on Haiku) that catches unlogged decisions before session ends
+- `SessionEnd` — captures session summary and any final state
+
+Skills ship alongside hooks in the plugin (e.g., `resolve-decision`, `check-constraints`, `create-provisional-decision`), versioned together so there's no drift between what the CLI expects and what the plugin provides.
+
+Key design principles (learned from ctx):
+- `brain init` is tool-agnostic — it sets up the graph connection, nothing else. No `.claude/` scaffolding.
+- The plugin gives you Claude Code integration. They compose; they don't depend.
+- Updates are automatic — pull the plugin, hooks and skills update together.
+- Hooks no-op gracefully when the graph connection isn't configured (no errors on fresh clones).
+
+**Complementary with ctx:** Users can run both plugins simultaneously — ctx for session-level memory and local file-based context, our plugin for cross-project business intelligence and decision governance. The `SessionStart` hook injects from both sources.
 
 ### 3.5 Slack Bot: Native Input Channel
 
@@ -749,7 +823,7 @@ The MVP is structured as four two-week phases, designed for dogfooding from day 
 4. **Cross-project reasoning engine:** When a new decision or change is added to any project, traverse the graph for related entities across all projects. Classify results into hard conflicts, soft tensions, and opportunities.
 5. **Action feed view (json-render):** The third core view: a daily-driver feed showing what changed, what needs attention, stale commitments, cross-project conflicts, and decisions awaiting input. Built using json-render: define a catalog of feed components (`ConflictCard`, `StaleCommitment`, `DecisionReview`, `QuestionPrompt`, `DependencyAlert`) with typed props via Zod schemas. The reasoning LLM queries the graph, then generates JSON that maps to these components — each feed item is dynamically composed from graph context but guardrailed to the catalog. Feed items stream and render progressively.
 6. **PRD questioning flow (Tiptap AI Toolkit):** AI asks structured questions to flesh out a Feature. Unanswered questions become tracked Question nodes linked to that Feature and assigned to relevant people. The PRD is rendered as a Tiptap document — a live projection of the Feature's subgraph with custom nodes for decisions, dependencies, constraints, and questions. As the graph updates (new decisions from chat, resolved dependencies from commits), the reasoning LLM edits the PRD via Tiptap AI Toolkit, showing tracked changes the user can accept or reject. User edits to the document are extracted back into the graph (bidirectional sync). Features can be created by branching from chat or explicitly via commands.
-7. **MCP server v1:** Expose Tier 1 read tools (`get_project_context`, `get_active_decisions`) plus Tier 2 reasoning tools (`resolve_decision`, `check_constraints`) that coding agents can call. Token-budgeted context packets from the graph. `resolve_decision` queries existing decisions and constraints to answer agent questions; `check_constraints` validates proposed actions against the graph before the agent proceeds. Test with Claude Code during dogfooding — use it while building the platform itself.
+7. **MCP server v1 + Claude Code plugin:** Expose Tier 1 read tools (`get_project_context`, `get_active_decisions`) plus Tier 2 reasoning tools (`resolve_decision`, `check_constraints`) that coding agents can call. Token-budgeted context packets from the graph. `resolve_decision` queries existing decisions and constraints to answer agent questions; `check_constraints` validates proposed actions against the graph before the agent proceeds. Ship as a Claude Code marketplace plugin (not shell scripts) — hooks + skills bundled, two-command install, automatic updates. `SessionStart` hook injects graph context, `Stop` hook (prompt-based, Haiku) catches unlogged decisions, `PostToolUse` on Write|Edit logs implementation activity back to graph. Test with Claude Code during dogfooding — use it while building the platform itself.
 
 *Deliverable: Three connected views (chat, graph, feed). GitHub activity enriches the graph. Cross-project conflicts are automatically surfaced. MCP server provides coding agents with live project context. IAM resolves identities across GitHub and the platform.*
 
@@ -761,13 +835,14 @@ The MVP is structured as four two-week phases, designed for dogfooding from day 
 
 1. **Slack bot:** Deploy bot that can be added to workspaces. DM conversations with full graph access. Channel monitoring with high-confidence extraction. Slash commands for explicit actions (`/brain decide`, `/brain task`, `/brain status`). Identity resolution linking Slack users to Person nodes via IAM.
 2. **Project branching UX:** Refine the flow from chat → project creation. Natural escalation: select a conversation chunk, AI suggests creating a project. Smooth transition without mode-switching.
-3. **MCP server v2:** Add Tier 3 write tools: `create_provisional_decision` for agents to make provisional decisions when the graph has no existing answer. Provisional decisions surface in the feed as `DecisionReview` cards for human confirmation. Expand Tier 1 read tools with `get_task_dependencies`, `get_architecture_constraints`, `get_recent_changes`. Add context scoping by repo/directory. Governance enforcement: agents can create `provisional` and `inferred` decisions but never `confirmed` — only humans confirm. Publish as an installable MCP server for Claude Code and Cursor.
+3. **MCP server v2 (plugin update):** Add Tier 3 write tools: `create_provisional_decision` for agents to make provisional decisions when the graph has no existing answer. Provisional decisions surface in the feed as `DecisionReview` cards for human confirmation. Expand Tier 1 read tools with `get_task_dependencies`, `get_architecture_constraints`, `get_recent_changes`. Add context scoping by repo/directory. Governance enforcement: agents can create `provisional` and `inferred` decisions but never `confirmed` — only humans confirm. Plugin update ships automatically to existing Claude Code users. Publish equivalent MCP server config for Cursor and other MCP-compatible agents.
 4. **Notification system:** Configurable alerts for hard conflicts (immediate), soft tensions (daily digest), and opportunities (weekly summary). Delivered via email, in-app feed, and Slack bot.
 5. **Onboarding flow:** First-run experience that guides users through a first conversation, shows the extraction working, and demonstrates the graph building in real time. Include GitHub OAuth and optional Slack bot installation.
 6. **Performance and reliability:** Load testing on SurrealDB with realistic graph sizes. Optimize extraction pipeline latency. Error handling and retry logic.
 7. **Early access deployment:** Cloud deployment, authentication, multi-tenant isolation. Waitlist and invite system.
+8. **Agent learnings and behavioral tuning:** Implement the Learning entity type for persistent agent behavior modifications. Two creation paths: (1) Human tells an agent to behave differently ("stop suggesting research tasks for things I've already decided") → Learning created with `status: "active"`, immediately injected into target agent's system prompt. (2) An agent suggests a learning for another agent ("Design Partner should check existing tasks before suggesting new ones") → Learning created with `status: "pending_approval"`, surfaces in the feed as a `LearningReview` card for human approval. Active learnings are queried during `buildChatContext` and appended as a "Learnings" section in the agent's system prompt. Dismissed learnings are never re-suggested. This closes the agent improvement loop — agents get better over time based on both human feedback and cross-agent observation.
 
-*Deliverable: A polished MVP with web chat, graph, feed, Slack bot, GitHub integration, and MCP server for coding agents. Ready for 10–20 early access users. Core loop proven through 6+ weeks of dogfooding.*
+*Deliverable: A polished MVP with web chat, graph, feed, Slack bot, GitHub integration, and MCP server for coding agents. Agent learnings enable persistent behavioral tuning from human feedback and cross-agent suggestions. Ready for 10–20 early access users. Core loop proven through 6+ weeks of dogfooding.*
 
 ---
 
@@ -784,6 +859,66 @@ The platform has three core views, each serving a distinct purpose in the user's
 | **Feed** | Act on what matters. Synthesized daily view of changes, conflicts, decisions needing input, stale commitments. | Acknowledge, delegate, resolve conflicts, jump to related chat/graph context. |
 
 > **Design principle:** Chat to think, graph to understand, feed to act.
+
+**UI Evolution: Tabs → OS Desktop**
+
+The view architecture evolves across phases from a tabbed layout to a spatial operating system:
+
+**Phase 1-2 (Tabs):** Three views behind tab navigation (Chat | Graph). Simple, familiar, validates core functionality. Chat is the primary view, graph is the second view. Components are built as self-contained, embeddable units — a chat component takes a `conversationId` and renders, a detail panel takes an `entityId` and renders. This is intentional: the components will be re-hosted inside floating windows later without rewriting logic.
+
+**Phase 3 (Tabs + Feed):** Third tab added (Feed). Three tabs start to feel cramped — the user wants to see the feed while chatting, or reference the graph while reviewing a task. The tab model begins to show its limits.
+
+**Phase 4-5 (OS Desktop):** The graph becomes the persistent desktop. Chat, tasks, entity details, and feed items become floating, draggable, resizable windows on top of it. The mental model shifts from "navigate between views" to "arrange your workspace."
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  [Graph / Desktop]                                            │
+│                                                               │
+│    ○ Auth System ──── ○ JWT Decision                         │
+│         \                  \                                  │
+│          ○ User Login ──── ○ Rate Limiting                   │
+│                                                               │
+│  ┌──────────────────┐  ┌──────────────────┐                  │
+│  │ 💬 Auth Design    │  │ 📋 Task: JWT Auth │                 │
+│  │ @design-partner   │  │ ⚙️ engineering    │                 │
+│  │                   │  │ ☐ Research libs   │                 │
+│  │ > should we use   │  │ ☐ Implement MW   │                 │
+│  │   JWT or sessions?│  │ ☐ Write tests    │                 │
+│  │                   │  │                   │                 │
+│  │ [_][□][✕]        │  │ [_][□][✕]        │                 │
+│  └──────────────────┘  └──────────────────┘                  │
+│                                                               │
+│           ┌──────────────────┐                                │
+│           │ 📢 Feed (3 items) │                               │
+│           │ 🔴 Conflict: rate │                               │
+│           │ 🟡 Review: JWT    │                               │
+│           │ 🟢 Agent done     │                               │
+│           │ [_][□][✕]        │                                │
+│           └──────────────────┘                                │
+│                                                               │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │ 💬 Auth │ 📋 JWT │ 💬 Billing │ 📢 Feed           [+]  │ │
+│  └─────────────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**OS Desktop concepts:**
+
+- **Graph as desktop:** The knowledge graph is always visible as the background workspace. Not a separate view — the environment everything lives in. Double-click a node to open a detail window, right-click for context menu.
+- **Floating windows:** Chat conversations, task lists, entity detail panels, feed — all render as draggable, resizable, minimizable windows. Multiple can be open simultaneously. Each window is a self-contained component (built in Phase 1-2).
+- **Taskbar / dock:** Bottom bar shows all open and minimized windows with icons and titles. Click to restore. [+] button spawns a new chat, task, or note.
+- **Window types:**
+  - 💬 Chat window — a conversation with an agent. Multiple can be open (Design Partner in one, Management Agent in another).
+  - 📋 Task/Entity window — detail view of any entity. Editable fields, relationships, provenance.
+  - 📢 Feed window — the governance surface. Can be pinned or floating.
+  - 📊 Status window — project status dashboard (Phase 5).
+- **Spatial persistence:** Window positions, sizes, and open/minimized state persist across sessions. Your workspace layout is remembered.
+- **Graph interaction opens windows:** Double-click a Decision node → Decision detail window opens. Double-click a Project node → Project status window opens. Right-click → context menu with "Open chat about this", "View dependencies", "Show provenance".
+- **The [+] floating action button** (visible in all phases) creates new items: new chat, new task, new note. In OS mode it spawns a new window at the cursor position.
+
+**Why this works for the agent-native vision:** In Phase 4-5, each chat window can be a different agent conversation. You see agents working in parallel — one window shows the Design Partner brainstorming billing, another shows the coding agent's task progress. The feed window surfaces cross-agent conflicts. @mention an agent in any chat window to delegate. The OS layout makes multi-agent coordination spatial and visible, not hidden behind tabs.
+
+**Architecture requirement for Phase 1-2:** All components must be self-contained and embeddable. A `<ChatWindow conversationId={id} />` renders a complete chat experience. A `<EntityDetail entityId={id} />` renders a complete entity view. A `<FeedPanel />` renders the feed. These components know nothing about whether they're in a tab, a floating window, or a modal. The window management layer (Phase 4) wraps them without changes.
 
 ### 5.2 Conversation Navigation & History
 
