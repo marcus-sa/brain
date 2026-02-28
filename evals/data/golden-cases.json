@@ -632,5 +632,18 @@
       }
     ],
     "forbiddenExtractedKinds": ["person"]
+  },
+  {
+    "id": "decision-not-feature-selection",
+    "input": "We decided on server-side rendering instead of client-side for the landing page.",
+    "intent": "strict_single",
+    "expectedEntities": [
+      {
+        "kind": "decision",
+        "text_contains": "server-side rendering",
+        "expectedCategory": "engineering"
+      }
+    ],
+    "forbiddenExtractedKinds": ["person", "feature"]
   }
 ]
