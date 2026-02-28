@@ -7,14 +7,16 @@
       "confidence": 0.91,
       "evidence": "I've decided to use TypeScript over Rust for the backend",
       "assignee_name": "Marcus",
-      "resolvedFromMessageId": "msg-root-context"
+      "resolvedFromMessageId": "msg-root-context",
+      "category": "engineering"
     },
     {
       "tempId": "e2",
       "kind": "task",
       "text": "Finalize schema migration",
       "confidence": 0.88,
-      "evidence": "Finalize schema migration this week"
+      "evidence": "Finalize schema migration this week",
+      "category": "engineering"
     }
   ],
   "relationships": [

@@ -12,6 +12,13 @@
 
 
 
+## Extraction Schema (Structured Output)
+
+- Azure/OpenRouter structured output requires every property in `properties` to be listed in `required`. Zod `.optional()` fields are excluded from `required` in the generated JSON schema, causing provider rejection.
+- Do NOT use `.optional()` in `extractionResultSchema` or its nested entity schemas (`app/src/server/extraction/schema.ts`).
+- To represent absence, add a `"none"` sentinel to the enum and strip it to `undefined` via `.transform()` after parsing. The transform is applied during Zod validation but does not affect the JSON schema sent to the provider.
+- Existing pattern: `assignee_name` and `resolvedFromMessageId` use union variants (each variant has the field as required) instead of optional fields.
+
 ## Failure Handling
 
 - Do NOT add fallback logic that masks invalid state, malformed payloads, or contract violations.

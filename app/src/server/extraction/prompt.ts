@@ -46,7 +46,7 @@ export function buildExtractionSystemPrompt(input: { onboarding: boolean }): str
     "- design: wireframes, prototypes, UX, visual design, user flows.",
     "- sales: prospect outreach, demos, pitching, qualifying leads.",
     "- Classify by what the entity affects, not where it came up. 'Use JWT' is engineering even if discussed during design.",
-    "- Do not set category on project or feature entities.",
+    "- Set category to 'none' for project and feature entities.",
     "",
     "Project vs feature scope rule:",
     "- Use the Workspace scope section to determine hierarchy level.",
