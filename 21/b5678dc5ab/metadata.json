@@ -1,0 +1,55 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "21b5678dc5ab",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/orchestrator-agents",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "app/src/client/chat-component-catalog.tsx",
+    "app/src/client/components/graph/EntityBadge.tsx",
+    "app/src/client/components/graph/graph-theme.ts",
+    "app/src/client/routes/chat-page.tsx",
+    "app/src/client/stores/workspace-state.ts",
+    "app/src/client/styles.css",
+    "app/src/server/agents/pm/prompt.ts",
+    "app/src/server/chat/chat-component-system-prompt.ts",
+    "app/src/server/chat/chat-processor.ts",
+    "app/src/server/chat/context.ts",
+    "app/src/server/chat/handler.ts",
+    "app/src/server/chat/tools/confirm-decision.ts",
+    "app/src/server/chat/tools/index.ts",
+    "app/src/server/chat/tools/types.ts",
+    "app/src/server/entities/work-item-accept-route.ts",
+    "app/src/server/extraction/components.ts",
+    "app/src/server/extraction/persist-extraction.ts",
+    "app/src/server/extraction/types.ts",
+    "app/src/server/graph/transform.ts",
+    "app/src/server/runtime/config.ts",
+    "app/src/server/runtime/dependencies.ts",
+    "app/src/server/runtime/start-server.ts",
+    "app/src/server/runtime/types.ts",
+    "app/src/shared/chat-component-definitions.ts",
+    "app/src/shared/contracts.ts",
+    "schema/surreal-schema.surql",
+    "tests/unit/chat-context.test.ts",
+    "tests/unit/confirm-decision-tool.test.ts",
+    "tests/unit/graph-theme.test.ts",
+    "tests/unit/graph-transform.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/21/b5678dc5ab/0/metadata.json",
+      "transcript": "/21/b5678dc5ab/0/full.jsonl",
+      "context": "/21/b5678dc5ab/0/context.md",
+      "content_hash": "/21/b5678dc5ab/0/content_hash.txt",
+      "prompt": "/21/b5678dc5ab/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 108,
+    "cache_creation_tokens": 247618,
+    "cache_read_tokens": 7300399,
+    "output_tokens": 27487,
+    "api_call_count": 76
+  }
+}
