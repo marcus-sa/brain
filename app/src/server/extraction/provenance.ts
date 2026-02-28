@@ -1,4 +1,5 @@
 import type { SourceKind } from "../../shared/contracts";
+import { logWarn } from "../http/observability";
 
 export function resolveValidatedResolvedFromMessageId(input: {
   resolvedFromMessageId?: string;
@@ -20,11 +21,18 @@ export function resolveValidatedResolvedFromMessageId(input: {
   }
 
   if (resolvedFromMessageId === input.sourceMessageId) {
-    throw new Error("resolvedFromMessageId cannot match the current source message id");
+    logWarn("extraction.provenance.self_reference", "LLM returned resolvedFromMessageId matching current source message; discarding", {
+      resolvedFromMessageId,
+      sourceMessageId: input.sourceMessageId,
+    });
+    return undefined;
   }
 
   if (!input.extractionHistoryMessageIds.has(resolvedFromMessageId)) {
-    throw new Error(`resolvedFromMessageId is not present in extraction conversation history: ${resolvedFromMessageId}`);
+    logWarn("extraction.provenance.unknown_message", "LLM returned resolvedFromMessageId not in conversation history; discarding", {
+      resolvedFromMessageId,
+    });
+    return undefined;
   }
 
   return resolvedFromMessageId;

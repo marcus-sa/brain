@@ -23,26 +23,26 @@ describe("resolved-from provenance validation", () => {
     expect(result).toBe("msg-a");
   });
 
-  it("rejects lineage ids that are not in extraction history", () => {
-    expect(() =>
-      resolveValidatedResolvedFromMessageId({
-        resolvedFromMessageId: "msg-x",
-        sourceKind: "message",
-        sourceMessageId: "msg-current",
-        extractionHistoryMessageIds: new Set(["msg-a", "msg-b"]),
-      }),
-    ).toThrow("resolvedFromMessageId is not present in extraction conversation history");
+  it("discards lineage ids that are not in extraction history", () => {
+    const result = resolveValidatedResolvedFromMessageId({
+      resolvedFromMessageId: "msg-x",
+      sourceKind: "message",
+      sourceMessageId: "msg-current",
+      extractionHistoryMessageIds: new Set(["msg-a", "msg-b"]),
+    });
+
+    expect(result).toBeUndefined();
   });
 
-  it("rejects lineage ids that match the current message", () => {
-    expect(() =>
-      resolveValidatedResolvedFromMessageId({
-        resolvedFromMessageId: "msg-current",
-        sourceKind: "message",
-        sourceMessageId: "msg-current",
-        extractionHistoryMessageIds: new Set(["msg-current", "msg-a"]),
-      }),
-    ).toThrow("resolvedFromMessageId cannot match the current source message id");
+  it("discards lineage ids that match the current message", () => {
+    const result = resolveValidatedResolvedFromMessageId({
+      resolvedFromMessageId: "msg-current",
+      sourceKind: "message",
+      sourceMessageId: "msg-current",
+      extractionHistoryMessageIds: new Set(["msg-current", "msg-a"]),
+    });
+
+    expect(result).toBeUndefined();
   });
 
   it("rejects lineage ids for non-message extraction sources", () => {

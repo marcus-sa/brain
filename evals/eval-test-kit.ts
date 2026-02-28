@@ -1,12 +1,20 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { RecordId, Surreal } from "surrealdb";
 import type { StreamEvent } from "../app/src/shared/contracts";
 import type { SseRegistry } from "../app/src/server/streaming/sse-registry";
 import type { ServerConfig } from "../app/src/server/runtime/config";
 import type { WorkspaceSeedItem } from "./types";
+
+export function createDeterministicIdGenerator(seed: string): () => string {
+  let counter = 0;
+  return () => {
+    const hash = createHash("sha256").update(`${seed}:${counter++}`).digest("hex");
+    return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-${hash.slice(12, 16)}-${hash.slice(16, 20)}-${hash.slice(20, 32)}`;
+  };
+}
 
 export type EvalRuntime = {
   surreal: Surreal;
@@ -47,8 +55,8 @@ export async function setupEvalRuntime(suiteName: string): Promise<EvalRuntime> 
   });
 
   const openRouterApiKey = requireEnv("OPENROUTER_API_KEY");
-  const extractionModelId = process.env.EXTRACTION_MODEL ?? "anthropic/claude-3.5-haiku";
-  const assistantModelId = process.env.ASSISTANT_MODEL ?? "anthropic/claude-3.5-haiku";
+  const extractionModelId = requireEnv("EXTRACTION_MODEL");
+  const assistantModelId = requireEnv("ASSISTANT_MODEL");
   const embeddingModelId = requireEnv("OPENROUTER_EMBEDDING_MODEL");
   const embeddingDimension = Number(requireEnv("EMBEDDING_DIMENSION"));
   const extractionStoreThreshold = Number(process.env.EXTRACTION_STORE_THRESHOLD ?? "0.3");
@@ -92,19 +100,20 @@ export async function teardownEvalRuntime(runtime: EvalRuntime): Promise<void> {
   await runtime.surreal.close().catch(() => undefined);
 }
 
-export async function seedWorkspace(surreal: Surreal, workspaceName?: string): Promise<{
+export async function seedWorkspace(surreal: Surreal, workspaceName?: string, nextId?: () => string): Promise<{
   workspaceRecord: RecordId<"workspace", string>;
   workspaceName: string;
   projectRecord: RecordId<"project", string>;
   conversationRecord: RecordId<"conversation", string>;
   ownerPersonCount: number;
 }> {
+  const id = nextId ?? randomUUID;
   const now = new Date();
   const resolvedWorkspaceName = workspaceName ?? `Eval ${Date.now()}`;
-  const workspaceRecord = new RecordId("workspace", randomUUID());
-  const projectRecord = new RecordId("project", randomUUID());
-  const conversationRecord = new RecordId("conversation", randomUUID());
-  const ownerRecord = new RecordId("person", randomUUID());
+  const workspaceRecord = new RecordId("workspace", id());
+  const projectRecord = new RecordId("project", id());
+  const conversationRecord = new RecordId("conversation", id());
+  const ownerRecord = new RecordId("person", id());
 
   await surreal.create(workspaceRecord).content({
     name: resolvedWorkspaceName,
@@ -134,7 +143,7 @@ export async function seedWorkspace(surreal: Surreal, workspaceName?: string): P
     updated_at: now,
   });
 
-  await surreal.relate(ownerRecord, new RecordId("member_of", randomUUID()), workspaceRecord, {
+  await surreal.relate(ownerRecord, new RecordId("member_of", id()), workspaceRecord, {
     role: "owner",
     added_at: now,
   }).output("after");
@@ -153,11 +162,13 @@ export async function seedConversationContext(
   surreal: Surreal,
   conversationRecord: RecordId<"conversation", string>,
   context: Array<{ role: "user" | "assistant"; text: string }>,
+  nextId?: () => string,
 ): Promise<string[]> {
+  const id = nextId ?? randomUUID;
   const now = Date.now();
   const messageIds: string[] = [];
   for (const [index, message] of context.entries()) {
-    const seededMessageRecord = new RecordId("message", randomUUID());
+    const seededMessageRecord = new RecordId("message", id());
     await surreal.create(seededMessageRecord).content({
       conversation: conversationRecord,
       role: message.role,
@@ -173,8 +184,9 @@ export async function seedUserMessage(
   surreal: Surreal,
   conversationRecord: RecordId<"conversation", string>,
   text: string,
+  nextId?: () => string,
 ): Promise<RecordId<"message", string>> {
-  const messageRecord = new RecordId("message", randomUUID());
+  const messageRecord = new RecordId("message", (nextId ?? randomUUID)());
   await surreal.create(messageRecord).content({
     conversation: conversationRecord,
     role: "user",
@@ -204,9 +216,11 @@ export async function seedGraphEntities(
   projectRecord: RecordId<"project", string>,
   conversationRecord: RecordId<"conversation", string>,
   seeds: WorkspaceSeedItem[],
+  nextId?: () => string,
 ): Promise<void> {
+  const id = nextId ?? randomUUID;
   const now = new Date();
-  const seedMessageRecord = new RecordId("message", randomUUID());
+  const seedMessageRecord = new RecordId("message", id());
   await surreal.create(seedMessageRecord).content({
     conversation: conversationRecord,
     role: "assistant",
@@ -215,10 +229,10 @@ export async function seedGraphEntities(
   });
 
   for (const seed of seeds) {
-    const entityRecord = new RecordId(seed.kind, randomUUID());
+    const entityRecord = new RecordId(seed.kind, id());
     await surreal.create(entityRecord).content(buildSeedEntityContent(seed.kind, seed.text, now));
 
-    await surreal.relate(seedMessageRecord, new RecordId("extraction_relation", randomUUID()), entityRecord, {
+    await surreal.relate(seedMessageRecord, new RecordId("extraction_relation", id()), entityRecord, {
       confidence: 0.95,
       extracted_at: now,
       created_at: now,
@@ -229,19 +243,19 @@ export async function seedGraphEntities(
     }).output("after");
 
     if (seed.kind === "feature") {
-      await surreal.relate(projectRecord, new RecordId("has_feature", randomUUID()), entityRecord as RecordId<"feature", string>, {
+      await surreal.relate(projectRecord, new RecordId("has_feature", id()), entityRecord as RecordId<"feature", string>, {
         added_at: now,
       }).output("after");
     }
 
     if (seed.kind === "task" || seed.kind === "decision" || seed.kind === "question") {
-      await surreal.relate(entityRecord, new RecordId("belongs_to", randomUUID()), projectRecord, {
+      await surreal.relate(entityRecord, new RecordId("belongs_to", id()), projectRecord, {
         added_at: now,
       }).output("after");
     }
 
     if (seed.kind === "project") {
-      await surreal.relate(workspaceRecord, new RecordId("has_project", randomUUID()), entityRecord as RecordId<"project", string>, {
+      await surreal.relate(workspaceRecord, new RecordId("has_project", id()), entityRecord as RecordId<"project", string>, {
         added_at: now,
       }).output("after");
     }

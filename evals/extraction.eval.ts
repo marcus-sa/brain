@@ -33,9 +33,10 @@ import {
   seedUserMessage,
   seedGraphEntities,
   loadWorkspacePeopleCount,
+  createDeterministicIdGenerator,
 } from "./eval-test-kit";
 
-const extractionModel = process.env.EXTRACTION_MODEL ?? "anthropic/claude-3.5-haiku";
+const extractionModel = requireEnv("EXTRACTION_MODEL");
 const autoevalModel = requireEnv("AUTOEVAL_MODEL");
 
 const cacheDir = process.env.EVAL_CACHE_DIR ?? "eval-results/cache";
@@ -228,18 +229,19 @@ async function runCase(testCase: GoldenCase): Promise<ExtractionEvalOutput> {
     };
   }
 
-  const { workspaceRecord, workspaceName, projectRecord, conversationRecord, ownerPersonCount } = await seedWorkspace(runtime.surreal, testCase.workspace_name);
+  const nextId = createDeterministicIdGenerator(testCase.id);
+  const { workspaceRecord, workspaceName, projectRecord, conversationRecord, ownerPersonCount } = await seedWorkspace(runtime.surreal, testCase.workspace_name, nextId);
   const conversationId = conversationRecord.id as string;
   const seededContext = testCase.context ?? [];
   const contextMessageIds = seededContext.length > 0
-    ? await seedConversationContext(runtime.surreal, conversationRecord, seededContext)
+    ? await seedConversationContext(runtime.surreal, conversationRecord, seededContext, nextId)
     : [];
 
   if (testCase.workspace_seed && testCase.workspace_seed.length > 0) {
-    await seedGraphEntities(runtime.surreal, workspaceRecord, projectRecord, conversationRecord, testCase.workspace_seed);
+    await seedGraphEntities(runtime.surreal, workspaceRecord, projectRecord, conversationRecord, testCase.workspace_seed, nextId);
   }
 
-  const userMessageRecord = await seedUserMessage(runtime.surreal, conversationRecord, testCase.input);
+  const userMessageRecord = await seedUserMessage(runtime.surreal, conversationRecord, testCase.input, nextId);
 
   const extractionConversationContext = await loadExtractionConversationContext({
     surreal: runtime.surreal,
@@ -408,7 +410,7 @@ function hasEnv(name: string): boolean {
 }
 
 function buildCaseCacheKey(modelId: string, testCase: GoldenCase): string {
-  const cacheVersion = "classification-v7";
+  const cacheVersion = "classification-v9";
   const caseHash = createHash("sha256").update(JSON.stringify(testCase)).digest("hex").slice(0, 24);
   return `${cacheVersion}:${modelId}:${testCase.id}:${caseHash}`;
 }
