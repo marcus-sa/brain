@@ -27,6 +27,7 @@ import type {
 } from "../../shared/contracts";
 import { chatComponentCatalog } from "../chat-component-catalog";
 import { useViewState } from "../stores/view-state";
+import { useWorkspaceState } from "../stores/workspace-state";
 
 type WorkspaceState = {
   id: string;
@@ -63,6 +64,7 @@ const COMMAND_ITEMS: SlashCommandItem[] = [
 const ACTIVE_WORKSPACE_STORAGE_KEY = "brain.activeWorkspaceId";
 
 export function ChatPage() {
+  const setGlobalWorkspaceId = useWorkspaceState((s) => s.setWorkspaceId);
   const [workspace, setWorkspace] = useState<WorkspaceState | undefined>();
   const [createWorkspaceName, setCreateWorkspaceName] = useState("");
   const [createOwnerName, setCreateOwnerName] = useState("");
@@ -291,6 +293,7 @@ export function ChatPage() {
     setBackendConversationId(payload.conversationId);
     setActiveConversationId(payload.conversationId);
     setSidebar(payload.sidebar);
+    setGlobalWorkspaceId(payload.workspaceId);
     setWorkspace({
       id: payload.workspaceId,
       name: payload.workspaceName,

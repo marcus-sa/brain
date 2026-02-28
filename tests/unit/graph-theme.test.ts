@@ -8,6 +8,7 @@ describe("entityColor", () => {
     expect(entityColor("task")).toBe("var(--entity-task)");
     expect(entityColor("decision")).toBe("var(--entity-decision)");
     expect(entityColor("question")).toBe("var(--entity-question)");
+    expect(entityColor("observation")).toBe("var(--entity-decision)");
     expect(entityColor("person")).toBe("var(--entity-person)");
     expect(entityColor("workspace")).toBe("var(--entity-project)");
   });
@@ -20,6 +21,7 @@ describe("entityMutedColor", () => {
     expect(entityMutedColor("task")).toBe("var(--entity-task-muted)");
     expect(entityMutedColor("decision")).toBe("var(--entity-decision-muted)");
     expect(entityMutedColor("question")).toBe("var(--entity-question-muted)");
+    expect(entityMutedColor("observation")).toBe("var(--entity-decision-muted)");
     expect(entityMutedColor("person")).toBe("var(--entity-person-muted)");
     expect(entityMutedColor("workspace")).toBe("var(--entity-project-muted)");
   });

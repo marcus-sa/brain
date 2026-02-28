@@ -9,6 +9,7 @@ describe("entityColor", () => {
     expect(entityColor("task")).toBe("#22c55e");
     expect(entityColor("decision")).toBe("#eab308");
     expect(entityColor("question")).toBe("#a855f7");
+    expect(entityColor("observation")).toBe("#ef4444");
     expect(entityColor("person")).toBe("#f97316");
     expect(entityColor("workspace")).toBe("#3b82f6");
   });

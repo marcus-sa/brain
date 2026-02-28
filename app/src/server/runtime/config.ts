@@ -11,6 +11,7 @@ export type ServerConfig = {
   openRouterApiKey: string;
   assistantModelId: string;
   extractionModelId: string;
+  pmModelId: string;
   embeddingModelId: string;
   embeddingDimension: number;
   extractionStoreThreshold: number;
@@ -43,6 +44,9 @@ export function loadServerConfig(): ServerConfig {
 
   const assistantModelId = requireEnv("ASSISTANT_MODEL");
   const extractionModelId = requireEnv("EXTRACTION_MODEL");
+  const pmModelId = Bun.env.PM_MODEL && Bun.env.PM_MODEL.trim().length > 0
+    ? Bun.env.PM_MODEL.trim()
+    : extractionModelId;
   const embeddingModelId = requireEnv("OPENROUTER_EMBEDDING_MODEL");
   const embeddingDimension = parsePositiveInteger(requireEnv("EMBEDDING_DIMENSION"), "EMBEDDING_DIMENSION");
 
@@ -58,6 +62,7 @@ export function loadServerConfig(): ServerConfig {
     openRouterApiKey,
     assistantModelId,
     extractionModelId,
+    pmModelId,
     embeddingModelId,
     embeddingDimension,
     extractionStoreThreshold,

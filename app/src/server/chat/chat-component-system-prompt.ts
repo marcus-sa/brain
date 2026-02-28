@@ -12,4 +12,12 @@ export const chatComponentSystemPrompt = componentCatalog({
     ...chatComponentDefinitions.ExtractionSummary,
     component: noopComponent,
   },
+  WorkItemSuggestion: {
+    ...chatComponentDefinitions.WorkItemSuggestion,
+    component: noopComponent,
+  },
+  WorkItemSuggestionList: {
+    ...chatComponentDefinitions.WorkItemSuggestionList,
+    component: noopComponent,
+  },
 }).systemPrompt();

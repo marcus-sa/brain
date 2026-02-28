@@ -13,6 +13,7 @@ describe("chat context", () => {
         listWorkspaceProjectSummaries: async () => [],
         listWorkspaceRecentDecisions: async () => [],
         listWorkspaceOpenQuestions: async () => [],
+        listWorkspaceOpenObservations: async () => [],
       },
     });
 
@@ -22,6 +23,7 @@ describe("chat context", () => {
         projects: [],
         recentDecisions: [],
         openQuestions: [],
+        openObservations: [],
       },
     });
 
@@ -69,6 +71,17 @@ describe("chat context", () => {
             project: "Brain",
           },
         ],
+        listWorkspaceOpenObservations: async () => [
+          {
+            id: "o-1",
+            text: "Auth implementation may delay launch by two weeks",
+            severity: "warning",
+            status: "open",
+            category: "engineering",
+            sourceAgent: "engineering_agent",
+            createdAt: "2026-01-01T00:00:00.000Z",
+          },
+        ],
       },
     });
 
@@ -76,10 +89,12 @@ describe("chat context", () => {
     expect(context.workspaceSummary.projects[0]?.activeTaskCount).toBe(7);
     expect(context.workspaceSummary.recentDecisions[0]?.status).toBe("provisional");
     expect(context.workspaceSummary.openQuestions[0]?.name).toContain("retries");
+    expect(context.workspaceSummary.openObservations[0]?.severity).toBe("warning");
 
     const systemPrompt = buildSystemPrompt(context);
     expect(systemPrompt.includes("Use token bucket for rate limiting")).toBe(true);
     expect(systemPrompt.includes("Projects:")).toBe(true);
+    expect(systemPrompt.includes("Active Observations")).toBe(true);
     expect(systemPrompt.includes("```component")).toBe(true);
   });
 });

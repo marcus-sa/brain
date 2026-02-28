@@ -7,6 +7,7 @@ const KIND_LABELS: Record<string, string> = {
   task: "Task",
   decision: "Decision",
   question: "Question",
+  observation: "Observation",
   person: "Person",
   workspace: "Workspace",
 };

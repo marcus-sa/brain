@@ -1,12 +1,16 @@
 import { componentCatalog } from "reachat";
+import { useState } from "react";
 import type { ExtractableKind } from "../shared/chat-component-definitions";
 import {
   chatComponentDefinitions,
   type EntityCardProps,
   type ExtractionSummaryProps,
+  type WorkItemSuggestionProps,
+  type WorkItemSuggestionListProps,
 } from "../shared/chat-component-definitions";
 import { CategoryBadge } from "./components/graph/CategoryBadge";
 import { useViewState } from "./stores/view-state";
+import { useWorkspaceState } from "./stores/workspace-state";
 
 const kindLabelByKind: Record<ExtractableKind, string> = {
   project: "Project",
@@ -87,6 +91,148 @@ function ExtractionSummary(props: ExtractionSummaryProps) {
   );
 }
 
+type WorkItemStatus = "pending" | "accepting" | "accepted" | "dismissed";
+
+async function acceptWorkItem(
+  workspaceId: string,
+  item: WorkItemSuggestionProps,
+): Promise<{ entityId: string }> {
+  const response = await fetch(`/api/workspaces/${workspaceId}/work-items/accept`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      kind: item.kind,
+      title: item.title,
+      rationale: item.rationale,
+      ...(item.project ? { project: item.project } : {}),
+      ...(item.priority ? { priority: item.priority } : {}),
+      ...(item.category ? { category: item.category } : {}),
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`accept failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+function WorkItemSuggestion(props: WorkItemSuggestionProps) {
+  const workspaceId = useWorkspaceState((s) => s.workspaceId);
+  const [status, setStatus] = useState<WorkItemStatus>("pending");
+
+  async function handleAccept() {
+    if (!workspaceId || status !== "pending") return;
+    setStatus("accepting");
+    try {
+      await acceptWorkItem(workspaceId, props);
+      setStatus("accepted");
+    } catch {
+      setStatus("pending");
+    }
+  }
+
+  function handleDismiss() {
+    setStatus("dismissed");
+  }
+
+  if (status === "dismissed") return undefined;
+
+  const isDuplicate = props.possibleDuplicateId !== undefined;
+
+  return (
+    <article className={`work-item-suggestion ${status === "accepted" ? "work-item-suggestion--accepted" : ""}`}>
+      <div className="work-item-suggestion-header">
+        <div style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+          <span className="entity-kind">{props.kind === "task" ? "Task" : "Feature"}</span>
+          {props.category ? <CategoryBadge category={props.category} /> : undefined}
+          {props.priority ? <span className="work-item-priority">{props.priority}</span> : undefined}
+        </div>
+        {status === "accepted" ? (
+          <span className="work-item-accepted-badge">Accepted</span>
+        ) : (
+          <div className="work-item-actions">
+            <button
+              type="button"
+              className="work-item-btn work-item-btn--accept"
+              onClick={handleAccept}
+              disabled={status === "accepting"}
+            >
+              {status === "accepting" ? "..." : "Accept"}
+            </button>
+            <button
+              type="button"
+              className="work-item-btn work-item-btn--dismiss"
+              onClick={handleDismiss}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+      </div>
+      <p className="entity-name">{props.title}</p>
+      <p className="work-item-rationale">{props.rationale}</p>
+      {isDuplicate ? (
+        <p className="work-item-duplicate-hint">
+          Similar to existing: {props.possibleDuplicateName} ({((props.possibleDuplicateSimilarity ?? 0) * 100).toFixed(0)}% match)
+        </p>
+      ) : undefined}
+      {props.project ? <p className="work-item-project">Project: {props.project}</p> : undefined}
+    </article>
+  );
+}
+
+function WorkItemSuggestionList(props: WorkItemSuggestionListProps) {
+  const workspaceId = useWorkspaceState((s) => s.workspaceId);
+  const [allStatus, setAllStatus] = useState<"idle" | "accepting">("idle");
+  const [dismissedAll, setDismissedAll] = useState(false);
+
+  async function handleAcceptAll() {
+    if (!workspaceId || allStatus === "accepting") return;
+    setAllStatus("accepting");
+    try {
+      await Promise.all(props.items.map((item) => acceptWorkItem(workspaceId, item)));
+    } catch {
+      // individual items handle their own state
+    }
+    setAllStatus("idle");
+  }
+
+  function handleDismissAll() {
+    setDismissedAll(true);
+  }
+
+  if (dismissedAll) return undefined;
+
+  return (
+    <section className="work-item-suggestion-list">
+      <div className="work-item-suggestion-list-header">
+        <p className="extraction-summary-title">{props.title}</p>
+        <div className="work-item-actions">
+          <button
+            type="button"
+            className="work-item-btn work-item-btn--accept"
+            onClick={handleAcceptAll}
+            disabled={allStatus === "accepting"}
+          >
+            {allStatus === "accepting" ? "Accepting..." : "Accept All"}
+          </button>
+          <button
+            type="button"
+            className="work-item-btn work-item-btn--dismiss"
+            onClick={handleDismissAll}
+          >
+            Dismiss All
+          </button>
+        </div>
+      </div>
+      <div className="extraction-summary-grid">
+        {props.items.map((item) => (
+          <WorkItemSuggestion key={`${item.kind}:${item.title}`} {...item} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export const chatComponentCatalog = componentCatalog({
   EntityCard: {
     ...chatComponentDefinitions.EntityCard,
@@ -95,5 +241,13 @@ export const chatComponentCatalog = componentCatalog({
   ExtractionSummary: {
     ...chatComponentDefinitions.ExtractionSummary,
     component: ExtractionSummary as any,
+  },
+  WorkItemSuggestion: {
+    ...chatComponentDefinitions.WorkItemSuggestion,
+    component: WorkItemSuggestion as any,
+  },
+  WorkItemSuggestionList: {
+    ...chatComponentDefinitions.WorkItemSuggestionList,
+    component: WorkItemSuggestionList as any,
   },
 });

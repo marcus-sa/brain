@@ -2,7 +2,7 @@ import type { EntityCategory, EntityKind, ExtractedEntity, ExtractedRelationship
 import { normalizeName } from "./normalize";
 import { shouldDisplayExtraction } from "./validation";
 
-type ExtractableEntityKind = Exclude<EntityKind, "workspace">;
+type ExtractableEntityKind = Exclude<EntityKind, "workspace" | "observation">;
 
 type CardEntity = {
   kind: ExtractableEntityKind;
@@ -20,7 +20,7 @@ export function buildExtractionComponentBlock(
   const summaryEntities = new Map<string, CardEntity>();
 
   for (const entity of [...entities].sort((a, b) => b.confidence - a.confidence)) {
-    if (entity.kind === "workspace" || !shouldDisplayExtraction(entity.confidence, displayThreshold)) {
+    if (entity.kind === "workspace" || entity.kind === "observation" || !shouldDisplayExtraction(entity.confidence, displayThreshold)) {
       continue;
     }
 

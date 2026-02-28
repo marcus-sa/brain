@@ -1,4 +1,4 @@
-export type EntityKind = "workspace" | "project" | "person" | "feature" | "task" | "decision" | "question";
+export type EntityKind = "workspace" | "project" | "person" | "feature" | "task" | "decision" | "question" | "observation";
 
 export type SourceKind = "message" | "document_chunk";
 
@@ -35,6 +35,18 @@ export type ChatMessageResponse = {
 
 export type OnboardingState = "active" | "summary_pending" | "complete";
 export type OnboardingAction = "finalize_onboarding" | "continue_onboarding";
+export type ObservationSeverity = "info" | "warning" | "conflict";
+export type ObservationStatus = "open" | "acknowledged" | "resolved";
+
+export type ObservationSummary = {
+  id: string;
+  text: string;
+  severity: ObservationSeverity;
+  status: ObservationStatus;
+  category?: EntityCategory;
+  sourceAgent: string;
+  createdAt: string;
+};
 
 export type ExtractedEntity = {
   id: string;
@@ -150,6 +162,13 @@ export type OnboardingStateEvent = {
   onboardingState: OnboardingState;
 };
 
+export type ObservationEvent = {
+  type: "observation";
+  messageId: string;
+  action: "created" | "acknowledged" | "resolved";
+  observation: ObservationSummary;
+};
+
 export type DoneEvent = {
   type: "done";
   messageId: string;
@@ -167,6 +186,7 @@ export type StreamEvent =
   | ExtractionEvent
   | OnboardingSeedEvent
   | OnboardingStateEvent
+  | ObservationEvent
   | DoneEvent
   | ErrorEvent;
 
