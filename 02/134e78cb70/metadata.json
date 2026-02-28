@@ -1,0 +1,41 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "02134e78cb70",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/entity-categories",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "app/src/client/chat-component-catalog.tsx",
+    "app/src/client/components/graph/CategoryBadge.tsx",
+    "app/src/client/components/graph/EntityDetailPanel.tsx",
+    "app/src/client/styles.css",
+    "app/src/server/extraction/components.ts",
+    "app/src/server/extraction/entity-upsert.ts",
+    "app/src/server/extraction/persist-extraction.ts",
+    "app/src/server/extraction/prompt.ts",
+    "app/src/server/extraction/schema.ts",
+    "app/src/shared/chat-component-definitions.ts",
+    "app/src/shared/contracts.ts",
+    "evals/data/golden-cases.json",
+    "evals/extraction.eval.ts",
+    "evals/scorers/category-accuracy.ts",
+    "evals/types.ts",
+    "schema/surreal-schema.surql"
+  ],
+  "sessions": [
+    {
+      "metadata": "/02/134e78cb70/0/metadata.json",
+      "transcript": "/02/134e78cb70/0/full.jsonl",
+      "context": "/02/134e78cb70/0/context.md",
+      "content_hash": "/02/134e78cb70/0/content_hash.txt",
+      "prompt": "/02/134e78cb70/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 1244,
+    "cache_creation_tokens": 231339,
+    "cache_read_tokens": 7777485,
+    "output_tokens": 26287,
+    "api_call_count": 87
+  }
+}

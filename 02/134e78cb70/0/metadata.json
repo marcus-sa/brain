@@ -1,0 +1,45 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "02134e78cb70",
+  "session_id": "7c94e08d-c64a-4658-8938-ba4bc8aab78d",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-28T04:51:59.148088Z",
+  "branch": "marcus-sa/entity-categories",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "app/src/client/chat-component-catalog.tsx",
+    "app/src/client/components/graph/CategoryBadge.tsx",
+    "app/src/client/components/graph/EntityDetailPanel.tsx",
+    "app/src/client/styles.css",
+    "app/src/server/extraction/components.ts",
+    "app/src/server/extraction/entity-upsert.ts",
+    "app/src/server/extraction/persist-extraction.ts",
+    "app/src/server/extraction/prompt.ts",
+    "app/src/server/extraction/schema.ts",
+    "app/src/shared/chat-component-definitions.ts",
+    "app/src/shared/contracts.ts",
+    "evals/data/golden-cases.json",
+    "evals/extraction.eval.ts",
+    "evals/scorers/category-accuracy.ts",
+    "evals/types.ts",
+    "schema/surreal-schema.surql"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "789e581d95f0",
+  "token_usage": {
+    "input_tokens": 1244,
+    "cache_creation_tokens": 231339,
+    "cache_read_tokens": 7777485,
+    "output_tokens": 26287,
+    "api_call_count": 87
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-28T04:51:58.491301Z",
+    "agent_lines": 291,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 291,
+    "agent_percentage": 100
+  }
+}
