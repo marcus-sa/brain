@@ -1,16 +1,17 @@
 import { stepCountIs, streamText, type ModelMessage } from "ai";
 import { RecordId, Surreal } from "surrealdb";
 import { buildChatContext, buildSystemPrompt } from "./context";
-import { createChatTools } from "./tools";
+import { createOrchestratorTools } from "./tools";
 
 type ConversationMessage = {
   role: "user" | "assistant";
   text: string;
 };
 
-export async function runGraphAwareChat(input: {
+export async function runOrchestrator(input: {
   surreal: Surreal;
   model: any;
+  pmModel: any;
   embeddingModel: any;
   embeddingDimension: number;
   extractionModelId: string;
@@ -38,14 +39,15 @@ export async function runGraphAwareChat(input: {
     model: input.model,
     system,
     messages: modelMessages,
-    tools: createChatTools({
+    tools: createOrchestratorTools({
       surreal: input.surreal,
+      pmModel: input.pmModel,
       embeddingModel: input.embeddingModel,
       embeddingDimension: input.embeddingDimension,
       extractionModelId: input.extractionModelId,
     }),
     experimental_context: {
-      actor: "chat_agent",
+      actor: "orchestrator",
       workspaceRecord: input.workspaceRecord,
       conversationRecord: input.conversationRecord,
       currentMessageRecord: input.currentMessageRecord,
@@ -73,3 +75,5 @@ export async function runGraphAwareChat(input: {
     text: text.trim(),
   };
 }
+
+export const runGraphAwareChat = runOrchestrator;

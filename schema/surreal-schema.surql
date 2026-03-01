@@ -138,6 +138,25 @@ DEFINE INDEX question_status ON question FIELDS status;
 DEFINE INDEX question_source_message ON question FIELDS source_message;
 DEFINE INDEX idx_question_embedding ON question FIELDS embedding HNSW DIMENSION 1536 DIST COSINE;
 
+DEFINE TABLE observation SCHEMAFULL;
+DEFINE FIELD text ON observation TYPE string;
+DEFINE FIELD severity ON observation TYPE string ASSERT $value IN ["info", "warning", "conflict"];
+DEFINE FIELD status ON observation TYPE string ASSERT $value IN ["open", "acknowledged", "resolved"];
+DEFINE FIELD category ON observation TYPE option<string>
+  ASSERT $value IN ["engineering", "research", "marketing", "operations", "design", "sales"] OR $value IS NONE;
+DEFINE FIELD source_agent ON observation TYPE string;
+DEFINE FIELD workspace ON observation TYPE record<workspace>;
+DEFINE FIELD source_message ON observation TYPE option<record<message>>;
+DEFINE FIELD resolved_at ON observation TYPE option<datetime>;
+DEFINE FIELD resolved_by ON observation TYPE option<record<person>>;
+DEFINE FIELD created_at ON observation TYPE datetime;
+DEFINE FIELD updated_at ON observation TYPE option<datetime>;
+DEFINE FIELD embedding ON observation TYPE option<array<float>>;
+DEFINE INDEX observation_workspace_status ON observation FIELDS workspace, status;
+DEFINE INDEX observation_severity ON observation FIELDS severity;
+DEFINE INDEX observation_created_at ON observation FIELDS created_at;
+DEFINE INDEX idx_observation_embedding ON observation FIELDS embedding HNSW DIMENSION 1536 DIST COSINE;
+
 DEFINE TABLE person SCHEMAFULL;
 DEFINE FIELD name ON person TYPE string;
 DEFINE FIELD role ON person TYPE option<string>;
@@ -261,6 +280,9 @@ DEFINE FIELD added_at ON decided_in TYPE option<datetime>;
 
 DEFINE TABLE belongs_to TYPE RELATION IN task | decision | question OUT feature | project SCHEMAFULL;
 DEFINE FIELD added_at ON belongs_to TYPE datetime;
+
+DEFINE TABLE observes TYPE RELATION IN observation OUT project | feature | task | decision | question SCHEMAFULL;
+DEFINE FIELD added_at ON observes TYPE option<datetime>;
 
 DEFINE TABLE touched_by TYPE RELATION IN project OUT conversation SCHEMAFULL;
 DEFINE FIELD first_mention_at ON touched_by TYPE datetime;

@@ -6,6 +6,7 @@ export async function createRuntimeDependencies(config: ServerConfig): Promise<{
   surreal: Surreal;
   assistantModel: any;
   extractionModel: any;
+  pmModel: any;
   embeddingModel: any;
 }> {
   const surreal = new Surreal();
@@ -22,12 +23,17 @@ export async function createRuntimeDependencies(config: ServerConfig): Promise<{
     plugins: [{ id: "response-healing" }],
     ...(config.openRouterReasoning ? { extraBody: { reasoning: config.openRouterReasoning } } : {}),
   });
+  const pmModel = openrouter(config.pmModelId, {
+    plugins: [{ id: "response-healing" }],
+    ...(config.openRouterReasoning ? { extraBody: { reasoning: config.openRouterReasoning } } : {}),
+  });
   const embeddingModel = openrouter.textEmbeddingModel(config.embeddingModelId);
 
   return {
     surreal,
     assistantModel,
     extractionModel,
+    pmModel,
     embeddingModel,
   };
 }

@@ -13,6 +13,7 @@ import { createEntitySearchHandler } from "../entities/entity-search-route";
 import { createGraphRouteHandler } from "../graph/graph-route";
 import { createEntityDetailHandler } from "../entities/entity-detail-route";
 import { createEntityActionsHandler } from "../entities/entity-actions-route";
+import { createWorkItemAcceptHandler } from "../entities/work-item-accept-route";
 
 export async function startServer(): Promise<void> {
   const config = loadServerConfig();
@@ -24,6 +25,7 @@ export async function startServer(): Promise<void> {
     surreal: runtime.surreal,
     assistantModel: runtime.assistantModel,
     extractionModel: runtime.extractionModel,
+    pmModel: runtime.pmModel,
     embeddingModel: runtime.embeddingModel,
     sse: createSseRegistry(),
   };
@@ -34,6 +36,7 @@ export async function startServer(): Promise<void> {
   const graphHandler = createGraphRouteHandler(deps);
   const entityDetailHandler = createEntityDetailHandler(deps);
   const entityActionsHandler = createEntityActionsHandler(deps);
+  const workItemAcceptHandler = createWorkItemAcceptHandler(deps);
 
   const server = Bun.serve({
     port: config.port,
@@ -96,6 +99,13 @@ export async function startServer(): Promise<void> {
           entityActionsHandler(request.params.entityId, request),
         ),
       },
+      "/api/workspaces/:workspaceId/work-items/accept": {
+        POST: withRequestLogging(
+          "POST /api/workspaces/:workspaceId/work-items/accept",
+          "POST",
+          (request) => workItemAcceptHandler(request.params.workspaceId, request),
+        ),
+      },
       "/": appHtml,
       "/*": appHtml,
     },
@@ -106,6 +116,7 @@ export async function startServer(): Promise<void> {
     host: "127.0.0.1",
     assistantModelId: config.assistantModelId,
     extractionModelId: config.extractionModelId,
+    pmModelId: config.pmModelId,
     embeddingModelId: config.embeddingModelId,
     embeddingDimension: config.embeddingDimension,
     extractionStoreThreshold: config.extractionStoreThreshold,

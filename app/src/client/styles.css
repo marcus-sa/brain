@@ -562,6 +562,117 @@ body {
   color: #476482;
 }
 
+/* --- Work item suggestions --- */
+
+.work-item-suggestion-list {
+  margin-top: 0.7rem;
+  border: 1px solid #c8daf0;
+  border-radius: 12px;
+  background: #f5f9ff;
+  padding: 0.65rem;
+}
+
+.work-item-suggestion-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.45rem;
+}
+
+.work-item-suggestion {
+  border: 1px solid #c8daf0;
+  border-radius: 10px;
+  background: #fff;
+  padding: 0.5rem 0.55rem;
+  transition: opacity 0.2s;
+}
+
+.work-item-suggestion--accepted {
+  border-color: #9dd49d;
+  background: #f5fbf5;
+}
+
+.work-item-suggestion-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.work-item-actions {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.work-item-btn {
+  border: none;
+  border-radius: 6px;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.work-item-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.work-item-btn--accept {
+  background: #0057cc;
+  color: #fff;
+}
+
+.work-item-btn--accept:hover:not(:disabled) {
+  background: #004ab3;
+}
+
+.work-item-btn--dismiss {
+  background: #e8ecf1;
+  color: #4a5568;
+}
+
+.work-item-btn--dismiss:hover:not(:disabled) {
+  background: #d8dce3;
+}
+
+.work-item-rationale {
+  margin: 0.15rem 0;
+  font-size: 0.76rem;
+  color: #476482;
+}
+
+.work-item-duplicate-hint {
+  margin: 0.15rem 0 0;
+  font-size: 0.7rem;
+  color: #a0522d;
+  font-style: italic;
+}
+
+.work-item-project {
+  margin: 0.15rem 0 0;
+  font-size: 0.7rem;
+  color: #476482;
+}
+
+.work-item-priority {
+  font-size: 0.6rem;
+  font-weight: 600;
+  padding: 0.1rem 0.3rem;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  text-transform: uppercase;
+}
+
+.work-item-accepted-badge {
+  font-size: 0.67rem;
+  font-weight: 700;
+  color: #2f6b2e;
+  text-transform: uppercase;
+}
+
 @media (max-width: 700px) {
   .app-shell {
     padding: 0.8rem 0.6rem 1.2rem;

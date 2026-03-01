@@ -6,9 +6,9 @@ import type {
   OnboardingSeedItem,
 } from "../../shared/contracts";
 
-export type ExtractableEntityKind = Exclude<EntityKind, "workspace">;
+export type ExtractableEntityKind = Exclude<EntityKind, "workspace" | "observation">;
 export type PersistableExtractableEntityKind = Exclude<ExtractableEntityKind, "person">;
-export type GraphEntityTable = "workspace" | "project" | "person" | "feature" | "task" | "decision" | "question";
+export type GraphEntityTable = "workspace" | "project" | "person" | "feature" | "task" | "decision" | "question" | "observation";
 type TbRecordId<Tb extends string> = RecordId<Tb, string> & { tb: Tb };
 export type GraphEntityRecord = TbRecordId<GraphEntityTable>;
 export type SourceRecord = TbRecordId<"message" | "document_chunk">;

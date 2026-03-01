@@ -11,7 +11,7 @@ import { elapsedMs, logError, logInfo, userFacingError } from "../http/observabi
 import { transitionOnboardingState } from "../onboarding/onboarding-state";
 import { generateOnboardingAssistantReply } from "../onboarding/onboarding-reply";
 import type { ServerDependencies } from "../runtime/types";
-import { runGraphAwareChat } from "./handler";
+import { runOrchestrator } from "./handler";
 import { getWorkspaceOwnerRecord } from "../graph/queries";
 import { refreshConversationTouchedBy, maybeUpgradeConversationTitle } from "../workspace/conversation-sidebar";
 import { loadWorkspaceProjects } from "../workspace/workspace-scope";
@@ -176,9 +176,10 @@ export async function processChatMessage(input: {
         workspaceRecord: input.workspaceRecord,
       });
 
-      const graphAwareResponse = await runGraphAwareChat({
+      const graphAwareResponse = await runOrchestrator({
         surreal: input.deps.surreal,
         model: input.deps.assistantModel,
+        pmModel: input.deps.pmModel,
         embeddingModel: input.deps.embeddingModel,
         embeddingDimension: input.deps.config.embeddingDimension,
         extractionModelId: input.deps.config.extractionModelId,

@@ -94,7 +94,7 @@ export async function persistExtractionOutput(input: {
         sourceRecord: input.sourceRecord,
         sourceKind: input.sourceKind,
         promptText: input.promptText,
-        extracted: extracted as ExtractionPromptEntity & { kind: Exclude<EntityKind, "workspace" | "person"> },
+        extracted: extracted as ExtractionPromptEntity & { kind: Exclude<EntityKind, "workspace" | "person" | "observation"> },
         sourceMessageRecord: input.sourceMessageRecord,
         sourceChunkRecord: input.sourceChunkRecord,
         resolvedFromMessageRecord,
@@ -223,7 +223,7 @@ async function applyAssigneeReference(input: {
   surreal: Surreal;
   workspaceRecord: RecordId<"workspace", string>;
   entityRecord: GraphEntityRecord;
-  entityKind: Exclude<EntityKind, "workspace" | "person">;
+  entityKind: Exclude<EntityKind, "workspace" | "person" | "observation">;
   assigneeName: string;
   now: Date;
 }): Promise<{ resolved: boolean; assigneeName: string }> {

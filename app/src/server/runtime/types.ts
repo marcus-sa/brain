@@ -7,6 +7,7 @@ export type ServerDependencies = {
   surreal: Surreal;
   assistantModel: any;
   extractionModel: any;
+  pmModel: any;
   embeddingModel: any;
   sse: SseRegistry;
 };
