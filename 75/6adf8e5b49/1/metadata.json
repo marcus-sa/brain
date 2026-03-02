@@ -1,0 +1,40 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "756adf8e5b49",
+  "session_id": "3795144a-47cc-4514-be6d-9bd348d5f646",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-02T11:50:25.137758Z",
+  "branch": "marcus-sa/add-priority-field",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "app/src/client/components/graph/EntityDetailPanel.tsx",
+    "app/src/client/graph/actions.ts",
+    "app/src/server/entities/entity-actions-route.ts",
+    "app/src/server/extraction/entity-upsert.ts",
+    "app/src/server/extraction/prompt.ts",
+    "app/src/server/extraction/schema.ts",
+    "app/src/server/graph/queries.ts",
+    "app/src/shared/contracts.ts",
+    "schema/surreal-schema.surql",
+    "tests/fixtures/extraction-outputs/valid.json",
+    "tests/smoke/priority.test.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "3125ce8f8fc5",
+  "token_usage": {
+    "input_tokens": 95,
+    "cache_creation_tokens": 119251,
+    "cache_read_tokens": 9275658,
+    "output_tokens": 29382,
+    "api_call_count": 90
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-02T11:50:24.454175Z",
+    "agent_lines": 273,
+    "human_added": 169,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 442,
+    "agent_percentage": 61.76470588235294
+  }
+}
