@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "8e4dff1d27c3",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/git-commit-evidence",
+  "checkpoints_count": 5,
+  "files_touched": [
+    "app/src/server/agents/pm/agent.ts",
+    "app/src/server/extraction/context-loaders.ts",
+    "app/src/server/extraction/entity-upsert.ts",
+    "app/src/server/extraction/persist-extraction.ts",
+    "app/src/server/extraction/types.ts",
+    "app/src/server/graph/queries.ts",
+    "app/src/server/runtime/config.ts",
+    "app/src/server/runtime/start-server.ts",
+    "app/src/server/webhook/github-commit-processor.ts",
+    "app/src/server/webhook/github-webhook-route.ts",
+    "app/src/server/webhook/types.ts",
+    "app/src/shared/contracts.ts",
+    "schema/surreal-schema.surql"
+  ],
+  "sessions": [
+    {
+      "metadata": "/8e/4dff1d27c3/0/metadata.json",
+      "transcript": "/8e/4dff1d27c3/0/full.jsonl",
+      "context": "/8e/4dff1d27c3/0/context.md",
+      "content_hash": "/8e/4dff1d27c3/0/content_hash.txt",
+      "prompt": "/8e/4dff1d27c3/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 5794,
+    "cache_creation_tokens": 302219,
+    "cache_read_tokens": 13623817,
+    "output_tokens": 39897,
+    "api_call_count": 123
+  }
+}
