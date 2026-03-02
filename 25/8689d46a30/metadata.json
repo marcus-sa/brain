@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "258689d46a30",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/add-priority-field",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "evals/data/golden-cases.json"
+  ],
+  "sessions": [
+    {
+      "metadata": "/25/8689d46a30/0/metadata.json",
+      "transcript": "/25/8689d46a30/0/full.jsonl",
+      "context": "/25/8689d46a30/0/context.md",
+      "content_hash": "/25/8689d46a30/0/content_hash.txt",
+      "prompt": "/25/8689d46a30/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 8,
+    "cache_creation_tokens": 13757,
+    "cache_read_tokens": 315637,
+    "output_tokens": 4010,
+    "api_call_count": 4
+  }
+}
