@@ -11,6 +11,7 @@ import {
   parseRecordIdString,
   type GraphEntityTable,
 } from "../graph/queries";
+import { fireDescriptionUpdates } from "../descriptions/triggers";
 
 export function createEntityActionsHandler(
   deps: ServerDependencies,
@@ -63,12 +64,31 @@ async function handleEntityAction(
     const now = new Date();
 
     if (body.action === "confirm" && table === "decision") {
+      const [decisionRows] = await deps.surreal
+        .query<[Array<{ summary: string }>]>(
+          "SELECT summary FROM $record LIMIT 1;",
+          { record: entityRecord },
+        )
+        .collect<[Array<{ summary: string }>]>();
+      const decisionSummary = decisionRows[0]?.summary ?? entityId;
+
       await confirmDecisionRecord({
         surreal: deps.surreal,
         decisionRecord: entityRecord as RecordId<"decision", string>,
         confirmedAt: now,
         notes: body.notes,
       });
+
+      void fireDescriptionUpdates({
+        surreal: deps.surreal,
+        extractionModel: deps.extractionModel,
+        trigger: {
+          kind: "decision_confirmed",
+          entity: entityRecord,
+          summary: `Decision confirmed: ${decisionSummary}`,
+        },
+      }).catch(() => undefined);
+
       logInfo("entity.action.confirm", "Decision confirmed", { workspaceId, entityId });
       return jsonResponse({ status: "confirmed" }, 200);
     }
@@ -87,12 +107,59 @@ async function handleEntityAction(
       return jsonResponse({ status: "overridden" }, 200);
     }
 
+    if (body.action === "complete" && table === "feature") {
+      const [featureRows] = await deps.surreal
+        .query<[Array<{ name: string }>]>(
+          "SELECT name FROM $record LIMIT 1;",
+          { record: entityRecord },
+        )
+        .collect<[Array<{ name: string }>]>();
+      const featureName = featureRows[0]?.name ?? entityId;
+
+      await deps.surreal.update(entityRecord as RecordId<"feature", string>).merge({
+        status: "done",
+        updated_at: now,
+      });
+
+      void fireDescriptionUpdates({
+        surreal: deps.surreal,
+        extractionModel: deps.extractionModel,
+        trigger: {
+          kind: "feature_completed",
+          entity: entityRecord,
+          summary: `Feature completed: ${featureName}`,
+        },
+      }).catch(() => undefined);
+
+      logInfo("entity.action.complete", "Feature completed", { workspaceId, entityId });
+      return jsonResponse({ status: "completed" }, 200);
+    }
+
     if (body.action === "complete" && table === "task") {
+      const [taskRows] = await deps.surreal
+        .query<[Array<{ title: string }>]>(
+          "SELECT title FROM $record LIMIT 1;",
+          { record: entityRecord },
+        )
+        .collect<[Array<{ title: string }>]>();
+      const taskTitle = taskRows[0]?.title ?? entityId;
+
       await deps.surreal.update(entityRecord as RecordId<"task", string>).merge({
         status: "done",
         completed_at: now,
         updated_at: now,
       });
+
+      void fireDescriptionUpdates({
+        surreal: deps.surreal,
+        extractionModel: deps.extractionModel,
+        trigger: {
+          kind: "task_completed",
+          entity: entityRecord,
+          summary: `Task completed: ${taskTitle}`,
+        },
+      }).catch(() => undefined);
+
       logInfo("entity.action.complete", "Task completed", { workspaceId, entityId });
       return jsonResponse({ status: "completed" }, 200);
     }

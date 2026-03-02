@@ -906,6 +906,82 @@ body {
   border-color: #c2d4ea;
 }
 
+/* Description section */
+
+.entity-detail-description {
+  font-size: 0.82rem;
+  color: #2a4a6b;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.description-timeline-toggle {
+  border: none;
+  background: transparent;
+  font-size: 0.7rem;
+  color: #6f88a6;
+  cursor: pointer;
+  padding: 0.2rem 0;
+  text-align: left;
+}
+
+.description-timeline-toggle:hover {
+  color: #2a4a6b;
+}
+
+.description-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border-left: 2px solid #c7daf2;
+  padding-left: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.description-timeline-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.description-timeline-date {
+  font-size: 0.65rem;
+  color: #8ba0b8;
+  font-weight: 600;
+}
+
+.description-timeline-text {
+  font-size: 0.76rem;
+  color: #2a4a6b;
+}
+
+.description-timeline-reasoning {
+  font-size: 0.65rem;
+  color: #8ba0b8;
+  font-style: italic;
+}
+
+.description-timeline-triggers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.description-timeline-trigger {
+  border: none;
+  background: transparent;
+  font-size: 0.65rem;
+  color: #4a8ad4;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+.description-timeline-trigger:hover {
+  color: #2a5fa0;
+  text-decoration: underline;
+}
+
 /* Entity badge (inline kind indicator) */
 
 .entity-badge-inline {

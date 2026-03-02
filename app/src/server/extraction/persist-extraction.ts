@@ -16,11 +16,15 @@ import type {
   TempEntityReference,
 } from "./types";
 import { elapsedMs, logError, logInfo } from "../http/observability";
+import { seedDescriptionEntry } from "../descriptions/persist";
+import { fireDescriptionUpdates } from "../descriptions/triggers";
+import type { DescriptionTarget } from "../descriptions/types";
 import { loadWorkspaceProjects } from "../workspace/workspace-scope";
 import { postValidateEntities, postValidateRelationships } from "./validation";
 
 export async function persistExtractionOutput(input: {
   surreal: Surreal;
+  extractionModel: any;
   embeddingModel: any;
   embeddingDimension: number;
   extractionModelId: string;
@@ -138,6 +142,29 @@ export async function persistExtractionOutput(input: {
           record: persisted.record,
           text: persisted.text,
         });
+
+        const descriptionTargets: DescriptionTarget[] = ["project", "feature", "task"];
+        if (descriptionTargets.includes(persisted.kind as DescriptionTarget)) {
+          void seedDescriptionEntry({
+            surreal: input.surreal,
+            targetRecord: persisted.record,
+            text: extracted.evidence,
+            reasoning: "Extracted from conversation",
+            triggeredBy: input.sourceMessageRecord ? [input.sourceMessageRecord] : [],
+          }).catch(() => undefined);
+        }
+
+        if (persisted.kind === "feature") {
+          void fireDescriptionUpdates({
+            surreal: input.surreal,
+            extractionModel: input.extractionModel,
+            trigger: {
+              kind: "feature_created",
+              entity: persisted.record,
+              summary: `Feature added: ${persisted.text}`,
+            },
+          }).catch(() => undefined);
+        }
       }
 
       const assigneeName = "assignee_name" in extracted ? extracted.assignee_name : undefined;

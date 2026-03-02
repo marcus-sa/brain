@@ -162,6 +162,7 @@ export async function processChatMessage(input: {
 
     const textPersistence = await persistExtractionOutput({
       surreal: input.deps.surreal,
+      extractionModel: input.deps.extractionModel,
       embeddingModel: input.deps.embeddingModel,
       embeddingDimension: input.deps.config.embeddingDimension,
       extractionModelId: input.deps.config.extractionModelId,
