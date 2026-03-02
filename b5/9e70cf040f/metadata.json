@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "b59e70cf040f",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/option-f-ui",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "app/src/server/chat/tools/show-relationship-graph.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/b5/9e70cf040f/0/metadata.json",
+      "transcript": "/b5/9e70cf040f/0/full.jsonl",
+      "context": "/b5/9e70cf040f/0/context.md",
+      "content_hash": "/b5/9e70cf040f/0/content_hash.txt",
+      "prompt": "/b5/9e70cf040f/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 13091,
+    "cache_creation_tokens": 360608,
+    "cache_read_tokens": 3061670,
+    "output_tokens": 18641,
+    "api_call_count": 42
+  }
+}
