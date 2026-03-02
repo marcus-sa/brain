@@ -94,6 +94,8 @@ export type ConversationSidebarItem = {
   id: string;
   title: string;
   updatedAt: string;
+  parentId?: string;
+  branches?: ConversationSidebarItem[];
 };
 
 export type ProjectFeatureActivity = {
@@ -253,6 +255,15 @@ export type EntityDetailResponse = {
     resolvedFrom?: string;
     fromText?: string;
   }>;
+};
+
+export type BranchConversationRequest = {
+  contextEntityIds?: string[];
+};
+
+export type BranchConversationResponse = {
+  conversationId: string;
+  parentConversationId: string;
 };
 
 export type EntityActionRequest = {

@@ -47,13 +47,27 @@ export async function processChatMessage(input: {
       throw new Error("conversation not found");
     }
 
+    // Check if this conversation is a branch and load inherited context
+    const [branchRows] = await input.deps.surreal
+      .query<[Array<{ context_entities: RecordId[] }>]>(
+        "SELECT context_entities FROM branched_from WHERE `in` = $conversation LIMIT 1;",
+        { conversation: conversationRecord },
+      )
+      .collect<[Array<{ context_entities: RecordId[] }>]>();
+    const inheritedEntityIds = branchRows[0]?.context_entities;
+
     const assistantContextRows = await loadAssistantConversationContext(input.deps.surreal, input.conversationId);
     const extractionConversationContext = await loadExtractionConversationContext({
       surreal: input.deps.surreal,
       conversationId: input.conversationId,
       currentMessageRecord: input.userMessageRecord,
     });
-    const extractionGraphContext = await loadConversationGraphContext(input.deps.surreal, input.conversationId, 60);
+    const extractionGraphContext = await loadConversationGraphContext(
+      input.deps.surreal,
+      input.conversationId,
+      60,
+      inheritedEntityIds && inheritedEntityIds.length > 0 ? { inheritedEntityIds } : undefined,
+    );
     const workspaceProjects = await loadWorkspaceProjects(input.deps.surreal, input.workspaceRecord);
     const workspaceProjectNames = workspaceProjects.map((project) => project.name);
     const persistedEntities: ExtractedEntity[] = [];
@@ -188,6 +202,7 @@ export async function processChatMessage(input: {
         currentMessageRecord: input.userMessageRecord,
         latestUserText: input.userText,
         ...(workspaceOwnerRecord ? { workspaceOwnerRecord } : {}),
+        ...(inheritedEntityIds && inheritedEntityIds.length > 0 ? { inheritedEntityIds } : {}),
         messages: assistantContextRows.map((row) => ({
           role: row.role,
           text: row.text,
