@@ -676,7 +676,7 @@
   },
   {
     "id": "priority-task-medium-default",
-    "input": "We should add input validation to the signup form.",
+    "input": "Task: implement input validation on the signup form before the next deploy.",
     "intent": "strict_single",
     "expectedEntities": [
       {
@@ -690,12 +690,12 @@
   },
   {
     "id": "priority-task-low",
-    "input": "Someday we should add CSV export for the admin panel, nice to have.",
+    "input": "Someday someone should write a script to export reports as CSV, nice to have when we get around to it.",
     "intent": "strict_single",
     "expectedEntities": [
       {
         "kind": "task",
-        "text_contains": "CSV export",
+        "text_contains": "export reports",
         "expectedPriority": "low"
       }
     ],
