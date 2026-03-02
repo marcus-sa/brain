@@ -10,6 +10,7 @@ import { resolveWorkspaceProjectRecord } from "../graph/queries";
 import { ensureProjectFeatureEdge } from "../workspace/workspace-scope";
 import { resolveWorkspaceRecord } from "../workspace/workspace-scope";
 import type { ServerDependencies } from "../runtime/types";
+import { seedDescriptionEntry } from "../descriptions/persist";
 
 const acceptWorkItemSchema = z.object({
   kind: z.enum(["task", "feature"]),
@@ -96,6 +97,14 @@ async function handleAcceptWorkItem(
         }
       }
 
+      void seedDescriptionEntry({
+        surreal: deps.surreal,
+        targetRecord: taskRecord,
+        text: item.rationale,
+        reasoning: "Created from work item suggestion",
+        triggeredBy: [],
+      }).catch(() => undefined);
+
       logInfo("work-item.accept.task.created", "Task created from work item suggestion", {
         workspaceId,
         entityId,
@@ -128,6 +137,14 @@ async function handleAcceptWorkItem(
         // project resolution is best-effort; feature still created
       }
     }
+
+    void seedDescriptionEntry({
+      surreal: deps.surreal,
+      targetRecord: featureRecord,
+      text: item.rationale,
+      reasoning: "Created from work item suggestion",
+      triggeredBy: [],
+    }).catch(() => undefined);
 
     logInfo("work-item.accept.feature.created", "Feature created from work item suggestion", {
       workspaceId,

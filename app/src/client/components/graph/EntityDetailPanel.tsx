@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import type { EntityCategory, EntityDetailResponse, EntityKind } from "../../../shared/contracts";
 import { ENTITY_CATEGORIES } from "../../../shared/contracts";
 import { CategoryBadge } from "./CategoryBadge";
+import { DescriptionSection } from "./DescriptionSection";
 import { EntityBadge } from "./EntityBadge";
 import { RelationshipList } from "./RelationshipList";
 import { ProvenanceSection } from "./ProvenanceSection";
@@ -188,6 +189,8 @@ export function EntityDetailPanel({
           ) : undefined}
         </dl>
       </div>
+
+      <DescriptionSection data={detail.entity.data} kind={kind} />
 
       {rationale ? (
         <div className="entity-detail-section">
