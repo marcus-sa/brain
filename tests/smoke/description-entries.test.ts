@@ -1,264 +1,304 @@
-import { describe, expect, it } from "bun:test";
+import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { randomUUID } from "node:crypto";
-import { RecordId } from "surrealdb";
-import { collectSseEvents, fetchJson, setupSmokeSuite } from "./smoke-test-kit";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { RecordId, Surreal } from "surrealdb";
+import { getDescriptionEntries } from "../../app/src/server/descriptions/queries";
+import { seedDescriptionEntry } from "../../app/src/server/descriptions/persist";
+import { fireDescriptionUpdates } from "../../app/src/server/descriptions/triggers";
 
-type ChatMessageResponse = {
-  messageId: string;
-  userMessageId: string;
-  conversationId: string;
-  workspaceId: string;
-  streamUrl: string;
-};
+const surrealUrl = process.env.SURREAL_URL ?? "ws://127.0.0.1:8000/rpc";
+const surrealUsername = process.env.SURREAL_USERNAME ?? "root";
+const surrealPassword = process.env.SURREAL_PASSWORD ?? "root";
 
-type StreamEvent =
-  | {
-      type: "extraction";
-      messageId: string;
-      entities: Array<{ id: string; kind: string; text: string; confidence: number }>;
-    }
-  | { type: "done"; messageId: string }
-  | { type: "error"; messageId: string; error: string }
-  | { type: string; messageId: string };
+let surreal: Surreal;
+let namespace: string;
+let database: string;
 
-type DescriptionEntryRow = {
-  text: string;
-  reasoning: string;
-  triggered_by: RecordId[];
-  created_at: string;
-};
+beforeAll(async () => {
+  const runId = `${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+  namespace = `desc_test_${runId}`;
+  database = `desc_${Math.floor(Math.random() * 100000)}`;
 
-type EntityWithDescription = {
-  id: RecordId;
-  description?: string;
-  description_entries?: DescriptionEntryRow[];
-};
+  surreal = new Surreal();
+  await surreal.connect(surrealUrl);
+  await surreal.signin({ username: surrealUsername, password: surrealPassword });
+  await surreal.query(`DEFINE NAMESPACE ${namespace};`);
+  await surreal.use({ namespace });
+  await surreal.query(`DEFINE DATABASE ${database};`);
+  await surreal.use({ namespace, database });
 
-const getRuntime = setupSmokeSuite("description-entries");
+  const schema = readFileSync(join(process.cwd(), "schema", "surreal-schema.surql"), "utf8");
+  await surreal.query(schema);
+}, 30_000);
 
-async function createWorkspaceAndSendMessage(
-  baseUrl: string,
-  text: string,
-): Promise<{ workspaceId: string; conversationId: string; events: StreamEvent[] }> {
-  const workspace = await fetchJson<{ workspaceId: string; conversationId: string }>(`${baseUrl}/api/workspaces`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name: `Description Smoke ${Date.now()}`,
-      ownerDisplayName: "Marcus",
-    }),
+afterAll(async () => {
+  try { await surreal.query(`REMOVE DATABASE ${database};`); } catch {}
+  try { await surreal.query(`REMOVE NAMESPACE ${namespace};`); } catch {}
+  await surreal.close().catch(() => {});
+}, 10_000);
+
+// ── Helpers ──
+
+async function createProject(name: string): Promise<RecordId> {
+  const id = randomUUID();
+  const record = new RecordId("project", id);
+  await surreal.query("CREATE $record CONTENT $content;", {
+    record,
+    content: { name, status: "active", created_at: new Date() },
   });
-
-  const message = await fetchJson<ChatMessageResponse>(`${baseUrl}/api/chat/messages`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      clientMessageId: randomUUID(),
-      workspaceId: workspace.workspaceId,
-      conversationId: workspace.conversationId,
-      text,
-    }),
-  });
-
-  const events = await collectSseEvents<StreamEvent>(`${baseUrl}${message.streamUrl}`, 30_000);
-
-  return { workspaceId: workspace.workspaceId, conversationId: workspace.conversationId, events };
+  return record;
 }
 
-describe("description entries smoke", () => {
-  it("seeds description_entries on extracted entities", async () => {
-    const { baseUrl, surreal } = getRuntime();
+async function createFeature(name: string): Promise<RecordId> {
+  const id = randomUUID();
+  const record = new RecordId("feature", id);
+  await surreal.query("CREATE $record CONTENT $content;", {
+    record,
+    content: { name, status: "open", created_at: new Date() },
+  });
+  return record;
+}
 
-    const { events } = await createWorkspaceAndSendMessage(
-      baseUrl,
-      "We need to build a user authentication feature. Task: implement login endpoint with JWT tokens.",
-    );
+async function createTask(title: string): Promise<RecordId> {
+  const id = randomUUID();
+  const record = new RecordId("task", id);
+  await surreal.query("CREATE $record CONTENT $content;", {
+    record,
+    content: { title, status: "open", created_at: new Date() },
+  });
+  return record;
+}
 
-    const extractionEvent = events.find((e) => e.type === "extraction");
-    expect(extractionEvent).toBeDefined();
-    if (!extractionEvent || extractionEvent.type !== "extraction") {
-      throw new Error("Expected extraction event");
-    }
+async function createDecision(summary: string): Promise<RecordId> {
+  const id = randomUUID();
+  const record = new RecordId("decision", id);
+  await surreal.query("CREATE $record CONTENT $content;", {
+    record,
+    content: { summary, status: "extracted", created_at: new Date() },
+  });
+  return record;
+}
 
-    // Find a task or feature entity from extraction
-    const describableEntity = extractionEvent.entities.find(
-      (e) => e.kind === "task" || e.kind === "feature",
-    );
-    expect(describableEntity).toBeDefined();
-    if (!describableEntity) {
-      throw new Error("Expected a task or feature entity from extraction");
-    }
+async function linkBelongsTo(child: RecordId, parent: RecordId): Promise<void> {
+  await surreal.query(
+    "RELATE $child->belongs_to->$parent SET added_at = time::now();",
+    { child, parent },
+  );
+}
 
-    // Wait briefly for fire-and-forget seed to complete
-    await Bun.sleep(1_000);
+async function linkHasFeature(project: RecordId, feature: RecordId): Promise<void> {
+  await surreal.query(
+    "RELATE $project->has_feature->$feature SET added_at = time::now();",
+    { project, feature },
+  );
+}
 
-    const [idParts] = describableEntity.id.split(":").slice(1);
-    const entityRecord = new RecordId(describableEntity.kind, idParts ?? describableEntity.id.split(":")[1]);
-    const tableName = describableEntity.kind;
+type EntityRow = {
+  id: RecordId;
+  description?: string;
+  description_entries?: Array<{
+    text: string;
+    reasoning: string;
+    triggered_by: RecordId[];
+    created_at: string;
+  }>;
+};
 
-    const [rows] = await surreal
-      .query<[EntityWithDescription[]]>(
-        `SELECT id, description, description_entries FROM ${tableName} WHERE id = $record LIMIT 1;`,
-        { record: entityRecord },
-      )
-      .collect<[EntityWithDescription[]]>();
+async function fetchEntity(record: RecordId, table: string): Promise<EntityRow> {
+  const [rows] = await surreal
+    .query<[EntityRow[]]>(
+      `SELECT id, description, description_entries FROM ${table} WHERE id = $record LIMIT 1;`,
+      { record },
+    )
+    .collect<[EntityRow[]]>();
+  if (rows.length === 0) throw new Error(`Entity not found: ${table}:${record.id}`);
+  return rows[0]!;
+}
 
-    expect(rows.length).toBe(1);
-    const entity = rows[0]!;
+// ── Tests ──
 
-    expect(entity.description).toBeDefined();
-    expect(typeof entity.description).toBe("string");
-    expect(entity.description!.length).toBeGreaterThan(0);
+describe("description entries", () => {
+  it("seedDescriptionEntry sets description and creates a single entry", async () => {
+    const taskRecord = await createTask("Implement login endpoint");
 
-    expect(Array.isArray(entity.description_entries)).toBe(true);
-    expect(entity.description_entries!.length).toBe(1);
-
-    const entry = entity.description_entries![0]!;
-    expect(entry.text.length).toBeGreaterThan(0);
-    expect(entry.reasoning).toBe("Extracted from conversation");
-    expect(Array.isArray(entry.triggered_by)).toBe(true);
-
-    // description should equal the single entry's text (no LLM synthesis for single entry)
-    expect(entity.description).toBe(entry.text);
-  }, 60_000);
-
-  it("seeds description from work-item-accept rationale", async () => {
-    const { baseUrl, surreal } = getRuntime();
-
-    const workspace = await fetchJson<{ workspaceId: string; conversationId: string }>(`${baseUrl}/api/workspaces`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: `WorkItem Desc Smoke ${Date.now()}`,
-        ownerDisplayName: "Marcus",
-      }),
+    await seedDescriptionEntry({
+      surreal,
+      targetRecord: taskRecord,
+      text: "JWT-based authentication endpoint",
+      reasoning: "Extracted from conversation",
+      triggeredBy: [],
     });
 
-    const rationale = "Implement rate limiting middleware to prevent API abuse";
-    const result = await fetchJson<{ entityId: string }>(
-      `${baseUrl}/api/workspaces/${workspace.workspaceId}/work-items/accept`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          kind: "task",
-          title: "Add rate limiting",
-          rationale,
-        }),
-      },
-    );
+    const task = await fetchEntity(taskRecord, "task");
 
-    expect(result.entityId).toBeDefined();
-
-    // Wait briefly for fire-and-forget seed
-    await Bun.sleep(1_000);
-
-    const entityIdPart = result.entityId.split(":")[1]!;
-    const taskRecord = new RecordId("task", entityIdPart);
-
-    const [rows] = await surreal
-      .query<[EntityWithDescription[]]>(
-        "SELECT id, description, description_entries FROM task WHERE id = $record LIMIT 1;",
-        { record: taskRecord },
-      )
-      .collect<[EntityWithDescription[]]>();
-
-    expect(rows.length).toBe(1);
-    const task = rows[0]!;
-
-    expect(task.description).toBe(rationale);
+    expect(task.description).toBe("JWT-based authentication endpoint");
     expect(task.description_entries).toHaveLength(1);
-    expect(task.description_entries![0]!.text).toBe(rationale);
-    expect(task.description_entries![0]!.reasoning).toBe("Created from work item suggestion");
-  }, 30_000);
 
-  it("appends description entry and regenerates description on decision confirm", async () => {
-    const { baseUrl, surreal } = getRuntime();
+    const entry = task.description_entries![0]!;
+    expect(entry.text).toBe("JWT-based authentication endpoint");
+    expect(entry.reasoning).toBe("Extracted from conversation");
+    expect(entry.triggered_by).toEqual([]);
+  });
 
-    // Create workspace and extract a decision + related entities
-    const { workspaceId, events } = await createWorkspaceAndSendMessage(
-      baseUrl,
-      "For the billing system project, I've decided we should use Stripe for payment processing. Task: integrate Stripe SDK into the backend.",
-    );
+  it("getDescriptionEntries returns seeded entries", async () => {
+    const featureRecord = await createFeature("User authentication");
 
-    const extractionEvent = events.find((e) => e.type === "extraction");
-    expect(extractionEvent).toBeDefined();
-    if (!extractionEvent || extractionEvent.type !== "extraction") {
-      throw new Error("Expected extraction event");
-    }
+    await seedDescriptionEntry({
+      surreal,
+      targetRecord: featureRecord,
+      text: "Login and registration flows",
+      reasoning: "Created from work item suggestion",
+      triggeredBy: [],
+    });
 
-    const decisionEntity = extractionEvent.entities.find((e) => e.kind === "decision");
-    if (!decisionEntity) {
-      // Decision extraction is not guaranteed — skip the rest
-      console.warn("No decision entity extracted, skipping confirm test");
-      return;
-    }
+    const entries = await getDescriptionEntries(surreal, featureRecord);
 
-    // Wait for initial seeds to complete
-    await Bun.sleep(1_500);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]!.text).toBe("Login and registration flows");
+    expect(entries[0]!.reasoning).toBe("Created from work item suggestion");
+  });
 
-    // Confirm the decision
-    await fetchJson<{ status: string }>(
-      `${baseUrl}/api/entities/${decisionEntity.id}/actions?workspaceId=${workspaceId}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "confirm",
-          notes: "Approved by team",
-        }),
+  it("getDescriptionEntries returns empty array for entity with no entries", async () => {
+    const projectRecord = await createProject("Empty project");
+    const entries = await getDescriptionEntries(surreal, projectRecord);
+    expect(entries).toEqual([]);
+  });
+
+  it("fireDescriptionUpdates propagates decision_confirmed to related project and feature", async () => {
+    const projectRecord = await createProject("Billing system");
+    const featureRecord = await createFeature("Payment processing");
+    const decisionRecord = await createDecision("Use Stripe for payments");
+
+    await linkHasFeature(projectRecord, featureRecord);
+    await linkBelongsTo(decisionRecord, projectRecord);
+    await linkBelongsTo(decisionRecord, featureRecord);
+
+    // Target entities have no prior entries, so append writes entry #1 → raw text, no LLM needed
+    await fireDescriptionUpdates({
+      surreal,
+      extractionModel: undefined as any, // not needed when appending first entry
+      trigger: {
+        kind: "decision_confirmed",
+        entity: decisionRecord,
+        summary: "Decision confirmed: Use Stripe for payments",
       },
-    );
+    });
 
-    // Wait for fire-and-forget description updates to propagate
-    await Bun.sleep(3_000);
+    const project = await fetchEntity(projectRecord, "project");
+    expect(project.description_entries).toHaveLength(1);
+    expect(project.description_entries![0]!.text).toBe("Decision confirmed: Use Stripe for payments");
+    expect(project.description_entries![0]!.reasoning).toBe("decision confirmed");
+    expect(project.description).toBe("Decision confirmed: Use Stripe for payments");
 
-    // Check that related entities (project/feature/task) got a description entry from the decision
-    const decisionIdPart = decisionEntity.id.split(":")[1]!;
-    const decisionRecord = new RecordId("decision", decisionIdPart);
+    const feature = await fetchEntity(featureRecord, "feature");
+    expect(feature.description_entries).toHaveLength(1);
+    expect(feature.description_entries![0]!.text).toBe("Decision confirmed: Use Stripe for payments");
+    expect(feature.description).toBe("Decision confirmed: Use Stripe for payments");
+  });
 
-    // Find entities related to this decision via belongs_to
-    const [relatedRows] = await surreal
-      .query<[Array<{ out: RecordId }>]>(
-        "SELECT out FROM belongs_to WHERE `in` = $decision;",
-        { decision: decisionRecord },
-      )
-      .collect<[Array<{ out: RecordId }>]>();
+  it("fireDescriptionUpdates propagates decision_confirmed to tasks belonging to related project", async () => {
+    const projectRecord = await createProject("Auth system");
+    const taskRecord = await createTask("Implement OAuth flow");
+    const decisionRecord = await createDecision("Use OAuth2 with PKCE");
 
-    if (relatedRows.length === 0) {
-      console.warn("Decision has no belongs_to edges, skipping propagation check");
-      return;
-    }
+    await linkBelongsTo(decisionRecord, projectRecord);
+    await linkBelongsTo(taskRecord, projectRecord);
 
-    // Check at least one related entity got a description entry from the decision confirmation
-    let foundPropagatedEntry = false;
-    for (const row of relatedRows) {
-      const table = row.out.table.name;
-      if (table !== "project" && table !== "feature" && table !== "task") continue;
+    await fireDescriptionUpdates({
+      surreal,
+      extractionModel: undefined as any,
+      trigger: {
+        kind: "decision_confirmed",
+        entity: decisionRecord,
+        summary: "Decision confirmed: Use OAuth2 with PKCE",
+      },
+    });
 
-      const [entityRows] = await surreal
-        .query<[EntityWithDescription[]]>(
-          `SELECT id, description, description_entries FROM ${table} WHERE id = $record LIMIT 1;`,
-          { record: row.out },
-        )
-        .collect<[EntityWithDescription[]]>();
+    // Project gets the entry
+    const project = await fetchEntity(projectRecord, "project");
+    expect(project.description_entries).toHaveLength(1);
 
-      const entity = entityRows[0];
-      if (!entity?.description_entries) continue;
+    // Task also gets the entry (belongs_to same project)
+    const task = await fetchEntity(taskRecord, "task");
+    expect(task.description_entries).toHaveLength(1);
+    expect(task.description_entries![0]!.text).toBe("Decision confirmed: Use OAuth2 with PKCE");
+    expect(task.description_entries![0]!.reasoning).toBe("decision confirmed");
+  });
 
-      const confirmEntry = entity.description_entries.find(
-        (e) => e.reasoning === "decision confirmed",
-      );
-      if (confirmEntry) {
-        foundPropagatedEntry = true;
-        expect(confirmEntry.text).toContain("Decision confirmed:");
-        // With 2+ entries, description should have been LLM-synthesized (different from any single entry)
-        expect(entity.description).toBeDefined();
-        expect(entity.description!.length).toBeGreaterThan(0);
-        break;
-      }
-    }
+  it("fireDescriptionUpdates propagates task_completed to parent feature and project", async () => {
+    const projectRecord = await createProject("Platform project");
+    const featureRecord = await createFeature("API endpoints");
+    const taskRecord = await createTask("Build REST routes");
 
-    expect(foundPropagatedEntry).toBe(true);
-  }, 90_000);
+    await linkHasFeature(projectRecord, featureRecord);
+    await linkBelongsTo(taskRecord, featureRecord);
+    await linkBelongsTo(taskRecord, projectRecord);
+
+    await fireDescriptionUpdates({
+      surreal,
+      extractionModel: undefined as any,
+      trigger: {
+        kind: "task_completed",
+        entity: taskRecord,
+        summary: "Task completed: Build REST routes",
+      },
+    });
+
+    const feature = await fetchEntity(featureRecord, "feature");
+    expect(feature.description_entries).toHaveLength(1);
+    expect(feature.description_entries![0]!.text).toBe("Task completed: Build REST routes");
+
+    const project = await fetchEntity(projectRecord, "project");
+    expect(project.description_entries).toHaveLength(1);
+    expect(project.description_entries![0]!.text).toBe("Task completed: Build REST routes");
+  });
+
+  it("fireDescriptionUpdates propagates feature_created to parent project", async () => {
+    const projectRecord = await createProject("Main project");
+    const featureRecord = await createFeature("Notifications");
+
+    await linkHasFeature(projectRecord, featureRecord);
+
+    await fireDescriptionUpdates({
+      surreal,
+      extractionModel: undefined as any,
+      trigger: {
+        kind: "feature_created",
+        entity: featureRecord,
+        summary: "New feature added: Notifications",
+      },
+    });
+
+    const project = await fetchEntity(projectRecord, "project");
+    expect(project.description_entries).toHaveLength(1);
+    expect(project.description_entries![0]!.text).toBe("New feature added: Notifications");
+    expect(project.description_entries![0]!.reasoning).toBe("feature created");
+    expect(project.description).toBe("New feature added: Notifications");
+  });
+
+  it("triggered_by contains the trigger entity reference", async () => {
+    const projectRecord = await createProject("Trigger ref project");
+    const decisionRecord = await createDecision("Pick PostgreSQL");
+
+    await linkBelongsTo(decisionRecord, projectRecord);
+
+    await fireDescriptionUpdates({
+      surreal,
+      extractionModel: undefined as any,
+      trigger: {
+        kind: "decision_confirmed",
+        entity: decisionRecord,
+        summary: "Decision confirmed: Pick PostgreSQL",
+      },
+    });
+
+    const project = await fetchEntity(projectRecord, "project");
+    const entry = project.description_entries![0]!;
+    expect(entry.triggered_by).toHaveLength(1);
+
+    const ref = entry.triggered_by[0]! as RecordId;
+    expect(ref.table.name).toBe("decision");
+    expect(ref.id).toBe(decisionRecord.id);
+  });
 });
