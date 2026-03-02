@@ -1,4 +1,4 @@
-import { generateText } from "ai";
+import { generateText, stepCountIs } from "ai";
 import { RecordId, Surreal } from "surrealdb";
 import { z } from "zod";
 import { ENTITY_CATEGORIES, type EntityCategory } from "../../../shared/contracts";
@@ -133,7 +133,7 @@ export async function runPmAgent(input: PmAgentInput): Promise<PmAgentResult> {
       latestUserText: input.latestUserText,
       ...(input.workspaceOwnerRecord ? { workspaceOwnerRecord: input.workspaceOwnerRecord } : {}),
     },
-    maxSteps: 5,
+    stopWhen: stepCountIs(5),
   });
 
   const parsed = pmAgentResultSchema.safeParse(parseJsonPayload(result.text));
