@@ -151,8 +151,7 @@ export async function persistExtractionOutput(input: {
             surreal: input.surreal,
             targetRecord: persisted.record,
             text: extracted.evidence,
-            reasoning: "Extracted from conversation",
-            triggeredBy: input.sourceMessageRecord ? [input.sourceMessageRecord] : [],
+            source: input.sourceMessageRecord ?? input.sourceCommitRecord ?? input.sourceChunkRecord,
           }).catch(() => undefined);
         }
 
