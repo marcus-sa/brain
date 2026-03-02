@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "a874dc5ccdda",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/living-descriptions",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "app/src/client/components/graph/DescriptionSection.tsx",
+    "app/src/client/components/graph/EntityDetailPanel.tsx",
+    "app/src/client/styles.css",
+    "app/src/server/descriptions/generate.ts",
+    "app/src/server/descriptions/persist.ts",
+    "app/src/server/descriptions/queries.ts",
+    "app/src/server/descriptions/triggers.ts",
+    "app/src/server/descriptions/types.ts",
+    "app/src/server/entities/entity-actions-route.ts",
+    "app/src/server/entities/work-item-accept-route.ts",
+    "app/src/server/extraction/persist-extraction.ts",
+    "schema/surreal-schema.surql",
+    "tests/smoke/description-entries.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/a8/74dc5ccdda/0/metadata.json",
+      "transcript": "/a8/74dc5ccdda/0/full.jsonl",
+      "context": "/a8/74dc5ccdda/0/context.md",
+      "content_hash": "/a8/74dc5ccdda/0/content_hash.txt",
+      "prompt": "/a8/74dc5ccdda/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 2725,
+    "cache_creation_tokens": 32043,
+    "cache_read_tokens": 338778,
+    "output_tokens": 1635,
+    "api_call_count": 8
+  }
+}

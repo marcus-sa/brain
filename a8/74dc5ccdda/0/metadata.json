@@ -1,0 +1,42 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "a874dc5ccdda",
+  "session_id": "822659a8-7ef8-4e2e-98cd-34de32f2fcd0",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-02T13:47:43.226383Z",
+  "branch": "marcus-sa/living-descriptions",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "app/src/client/components/graph/DescriptionSection.tsx",
+    "app/src/server/descriptions/generate.ts",
+    "app/src/server/descriptions/persist.ts",
+    "app/src/server/descriptions/queries.ts",
+    "app/src/server/descriptions/triggers.ts",
+    "app/src/server/descriptions/types.ts",
+    "app/src/server/entities/entity-actions-route.ts",
+    "app/src/server/entities/work-item-accept-route.ts",
+    "app/src/client/components/graph/EntityDetailPanel.tsx",
+    "app/src/client/styles.css",
+    "app/src/server/extraction/persist-extraction.ts",
+    "schema/surreal-schema.surql",
+    "tests/smoke/description-entries.test.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "4cfb7cf62af2",
+  "token_usage": {
+    "input_tokens": 2725,
+    "cache_creation_tokens": 32043,
+    "cache_read_tokens": 338778,
+    "output_tokens": 1635,
+    "api_call_count": 8
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-02T13:47:43.163934Z",
+    "agent_lines": 793,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 793,
+    "agent_percentage": 100
+  }
+}
