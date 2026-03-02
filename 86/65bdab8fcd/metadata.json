@@ -1,0 +1,55 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "8665bdab8fcd",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/option-f-ui",
+  "checkpoints_count": 3,
+  "files_touched": [
+    "app/src/client/chat-component-catalog.tsx",
+    "app/src/client/components/chat/InlineRelationshipGraph.tsx",
+    "app/src/client/components/feed/FeedItem.tsx",
+    "app/src/client/components/feed/FeedSection.tsx",
+    "app/src/client/components/feed/GovernanceFeed.tsx",
+    "app/src/client/components/layout/ViewTabs.tsx",
+    "app/src/client/components/layout/WorkspaceGuard.tsx",
+    "app/src/client/components/layout/WorkspaceSidebar.tsx",
+    "app/src/client/components/search/SearchFilters.tsx",
+    "app/src/client/components/search/SearchOverlay.tsx",
+    "app/src/client/components/search/SearchResultCard.tsx",
+    "app/src/client/hooks/use-chat-session.ts",
+    "app/src/client/hooks/use-entity-search.ts",
+    "app/src/client/hooks/use-governance-feed.ts",
+    "app/src/client/hooks/use-workspace.ts",
+    "app/src/client/router.tsx",
+    "app/src/client/routes/chat-page.tsx",
+    "app/src/client/routes/home-page.tsx",
+    "app/src/client/stores/workspace-state.ts",
+    "app/src/client/styles.css",
+    "app/src/server/chat/chat-component-system-prompt.ts",
+    "app/src/server/chat/context.ts",
+    "app/src/server/chat/tools/index.ts",
+    "app/src/server/chat/tools/show-relationship-graph.ts",
+    "app/src/server/entities/entity-actions-route.ts",
+    "app/src/server/feed/feed-queries.ts",
+    "app/src/server/feed/feed-route.ts",
+    "app/src/server/runtime/start-server.ts",
+    "app/src/shared/chat-component-definitions.ts",
+    "app/src/shared/contracts.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/86/65bdab8fcd/0/metadata.json",
+      "transcript": "/86/65bdab8fcd/0/full.jsonl",
+      "context": "/86/65bdab8fcd/0/context.md",
+      "content_hash": "/86/65bdab8fcd/0/content_hash.txt",
+      "prompt": "/86/65bdab8fcd/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 13057,
+    "cache_creation_tokens": 89892,
+    "cache_read_tokens": 2310081,
+    "output_tokens": 17404,
+    "api_call_count": 30
+  }
+}
