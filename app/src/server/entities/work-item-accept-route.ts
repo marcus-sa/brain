@@ -11,6 +11,7 @@ import { ensureProjectFeatureEdge } from "../workspace/workspace-scope";
 import { resolveWorkspaceRecord } from "../workspace/workspace-scope";
 import type { ServerDependencies } from "../runtime/types";
 import { seedDescriptionEntry } from "../descriptions/persist";
+import { fireDescriptionUpdates } from "../descriptions/triggers";
 
 const acceptWorkItemSchema = z.object({
   kind: z.enum(["task", "feature"]),
@@ -133,6 +134,16 @@ async function handleAcceptWorkItem(
           projectInput: item.project,
         });
         await ensureProjectFeatureEdge(deps.surreal, projectRecord, featureRecord, now);
+
+        void fireDescriptionUpdates({
+          surreal: deps.surreal,
+          extractionModel: deps.extractionModel,
+          trigger: {
+            kind: "feature_created",
+            entity: featureRecord,
+            summary: `Feature added: ${item.title}`,
+          },
+        }).catch(() => undefined);
       } catch {
         // project resolution is best-effort; feature still created
       }

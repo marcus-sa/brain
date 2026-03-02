@@ -1,20 +1,32 @@
 import { useState } from "react";
 import type { EntityKind } from "../../../shared/contracts";
 
+type TriggeredByRef = {
+  tb: string;
+  id: string;
+};
+
 type DescriptionEntryData = {
   text: string;
   reasoning: string;
+  triggered_by?: TriggeredByRef[];
   created_at: string;
 };
 
 const DESCRIBABLE_KINDS = new Set<EntityKind>(["project", "feature", "task"]);
 
+function formatEntityRef(ref: TriggeredByRef): string {
+  return `${ref.tb}:${ref.id}`;
+}
+
 export function DescriptionSection({
   data,
   kind,
+  onEntityClick,
 }: {
   data: Record<string, unknown>;
   kind: EntityKind;
+  onEntityClick: (entityId: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -55,6 +67,20 @@ export function DescriptionSection({
                   </span>
                   <span className="description-timeline-text">{entry.text}</span>
                   <span className="description-timeline-reasoning">{entry.reasoning}</span>
+                  {entry.triggered_by && entry.triggered_by.length > 0 ? (
+                    <span className="description-timeline-triggers">
+                      {entry.triggered_by.map((ref, refIndex) => (
+                        <button
+                          key={`trigger-${refIndex}`}
+                          type="button"
+                          className="description-timeline-trigger"
+                          onClick={() => onEntityClick(formatEntityRef(ref))}
+                        >
+                          &rarr; {formatEntityRef(ref)}
+                        </button>
+                      ))}
+                    </span>
+                  ) : undefined}
                 </div>
               ))}
             </div>

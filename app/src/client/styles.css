@@ -961,6 +961,27 @@ body {
   font-style: italic;
 }
 
+.description-timeline-triggers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.description-timeline-trigger {
+  border: none;
+  background: transparent;
+  font-size: 0.65rem;
+  color: #4a8ad4;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+.description-timeline-trigger:hover {
+  color: #2a5fa0;
+  text-decoration: underline;
+}
+
 /* Entity badge (inline kind indicator) */
 
 .entity-badge-inline {

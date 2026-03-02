@@ -190,7 +190,7 @@ export function EntityDetailPanel({
         </dl>
       </div>
 
-      <DescriptionSection data={detail.entity.data} kind={kind} />
+      <DescriptionSection data={detail.entity.data} kind={kind} onEntityClick={onEntityClick} />
 
       {rationale ? (
         <div className="entity-detail-section">

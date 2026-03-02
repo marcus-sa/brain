@@ -266,6 +266,7 @@ async function runCase(testCase: GoldenCase): Promise<ExtractionEvalOutput> {
   const now = new Date();
   const persistence = await persistExtractionOutput({
     surreal: runtime.surreal,
+    extractionModel: runtime.extractionModel,
     embeddingModel: runtime.embeddingModel,
     embeddingDimension: runtime.config.embeddingDimension,
     extractionModelId: runtime.config.extractionModelId,

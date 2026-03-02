@@ -79,6 +79,7 @@ export async function ingestAttachment(input: {
 
       const result = await persistExtractionOutput({
         surreal: input.surreal,
+        extractionModel: input.extractionModel,
         embeddingModel: input.embeddingModel,
         embeddingDimension: input.embeddingDimension,
         extractionModelId: input.extractionModelId,

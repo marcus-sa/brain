@@ -107,6 +107,34 @@ async function handleEntityAction(
       return jsonResponse({ status: "overridden" }, 200);
     }
 
+    if (body.action === "complete" && table === "feature") {
+      const [featureRows] = await deps.surreal
+        .query<[Array<{ name: string }>]>(
+          "SELECT name FROM $record LIMIT 1;",
+          { record: entityRecord },
+        )
+        .collect<[Array<{ name: string }>]>();
+      const featureName = featureRows[0]?.name ?? entityId;
+
+      await deps.surreal.update(entityRecord as RecordId<"feature", string>).merge({
+        status: "done",
+        updated_at: now,
+      });
+
+      void fireDescriptionUpdates({
+        surreal: deps.surreal,
+        extractionModel: deps.extractionModel,
+        trigger: {
+          kind: "feature_completed",
+          entity: entityRecord,
+          summary: `Feature completed: ${featureName}`,
+        },
+      }).catch(() => undefined);
+
+      logInfo("entity.action.complete", "Feature completed", { workspaceId, entityId });
+      return jsonResponse({ status: "completed" }, 200);
+    }
+
     if (body.action === "complete" && table === "task") {
       const [taskRows] = await deps.surreal
         .query<[Array<{ title: string }>]>(
