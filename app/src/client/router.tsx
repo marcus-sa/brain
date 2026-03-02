@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Outlet, createRootRoute, createRoute, createRouter, useNavigate } from "@tanstack/react-router";
-import { ViewTabs } from "./components/layout/ViewTabs";
 import { WorkspaceGuard } from "./components/layout/WorkspaceGuard";
 import { WorkspaceSidebar } from "./components/layout/WorkspaceSidebar";
 import { SearchOverlay } from "./components/search/SearchOverlay";
@@ -14,7 +13,7 @@ function AppShell() {
   const workspace = useWorkspace();
   const sidebar = useWorkspaceState((s) => s.sidebar);
   const sidebarHandlers = useWorkspaceState((s) => s.sidebarHandlers);
-  const workspaceId = useWorkspaceState((s) => s.workspaceId);
+  const workspaceName = useWorkspaceState((s) => s.workspaceName);
   const navigate = useNavigate();
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -33,12 +32,29 @@ function AppShell() {
   }
 
   return (
-    <div className="app-shell">
-      <header className="app-header">
-        <h1>Brain</h1>
-        <div className="app-header-right">
-          <ViewTabs />
-          {workspaceId ? (
+    <WorkspaceGuard
+      isReady={workspace.isReady}
+      isBootstrapping={workspace.isBootstrapping}
+      isCreatingWorkspace={workspace.isCreatingWorkspace}
+      canCreateWorkspace={workspace.canCreateWorkspace}
+      createWorkspaceName={workspace.createWorkspaceName}
+      createOwnerName={workspace.createOwnerName}
+      errorMessage={workspace.errorMessage}
+      setCreateWorkspaceName={workspace.setCreateWorkspaceName}
+      setCreateOwnerName={workspace.setCreateOwnerName}
+      onCreateWorkspace={workspace.onCreateWorkspace}
+    >
+      <div className="app-shell">
+        <WorkspaceSidebar
+          sidebar={sidebar}
+          activeConversationId={sidebarHandlers?.activeConversationId}
+          isLoading={sidebarHandlers?.isLoading ?? false}
+          onNewConversation={handleNewConversation}
+          onSelectConversation={handleSelectConversation}
+        />
+        <div className="app-main">
+          <div className="content-header">
+            <span className="content-header-title">{workspaceName}</span>
             <button
               type="button"
               className="search-trigger"
@@ -46,40 +62,14 @@ function AppShell() {
             >
               Search...
             </button>
-          ) : undefined}
-        </div>
-      </header>
-      <main className="app-main">
-        <WorkspaceGuard
-          isReady={workspace.isReady}
-          isBootstrapping={workspace.isBootstrapping}
-          isCreatingWorkspace={workspace.isCreatingWorkspace}
-          canCreateWorkspace={workspace.canCreateWorkspace}
-          createWorkspaceName={workspace.createWorkspaceName}
-          createOwnerName={workspace.createOwnerName}
-          errorMessage={workspace.errorMessage}
-          setCreateWorkspaceName={workspace.setCreateWorkspaceName}
-          setCreateOwnerName={workspace.setCreateOwnerName}
-          onCreateWorkspace={workspace.onCreateWorkspace}
-        >
-          <div className="app-body">
-            {workspaceId ? (
-              <WorkspaceSidebar
-                sidebar={sidebar}
-                activeConversationId={sidebarHandlers?.activeConversationId}
-                isLoading={sidebarHandlers?.isLoading ?? false}
-                onNewConversation={handleNewConversation}
-                onSelectConversation={handleSelectConversation}
-              />
-            ) : undefined}
-            <div className="app-content">
-              <Outlet />
-            </div>
           </div>
-        </WorkspaceGuard>
-      </main>
+          <div className="app-content">
+            <Outlet />
+          </div>
+        </div>
+      </div>
       {searchOpen ? <SearchOverlay onClose={() => setSearchOpen(false)} /> : undefined}
-    </div>
+    </WorkspaceGuard>
   );
 }
 

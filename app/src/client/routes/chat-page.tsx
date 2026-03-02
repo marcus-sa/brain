@@ -10,6 +10,7 @@ import {
   type SlashCommandItem,
 } from "reachat";
 import { chatComponentCatalog } from "../chat-component-catalog";
+import { darkChatTheme } from "../chat-theme";
 import { useWorkspaceState } from "../stores/workspace-state";
 import { useChatSession } from "../hooks/use-chat-session";
 
@@ -93,6 +94,7 @@ export function ChatPage() {
       <div className={`chat-main${isSeedPanelOpen ? " chat-main--with-seeds" : ""}`}>
         <Chat
           viewType="chat"
+          theme={darkChatTheme}
           sessions={chat.sessions}
           activeSessionId={chat.activeSession.id}
           components={chatComponentCatalog}

@@ -1,3 +1,4 @@
+import { Link, useMatchRoute } from "@tanstack/react-router";
 import type { ConversationSidebarItem, WorkspaceConversationSidebarResponse } from "../../../shared/contracts";
 
 type WorkspaceSidebarProps = {
@@ -15,19 +16,23 @@ export function WorkspaceSidebar({
   onNewConversation,
   onSelectConversation,
 }: WorkspaceSidebarProps) {
+  const matchRoute = useMatchRoute();
+  const isHome = matchRoute({ to: "/" });
+  const isGraph = matchRoute({ to: "/graph" });
+
   function renderConversationItem(conv: ConversationSidebarItem, depth: number = 0) {
     return (
       <li key={conv.id}>
         <button
           type="button"
-          className={`sidebar-conversation-item${conv.id === activeConversationId ? " sidebar-conversation-item--active" : ""}${depth > 0 ? " sidebar-conversation-item--branch" : ""}`}
+          className={`sidebar-item sidebar-conversation-item${conv.id === activeConversationId ? " sidebar-item--active" : ""}${depth > 0 ? " sidebar-conversation-item--branch" : ""}`}
           style={depth > 0 ? { paddingLeft: `${8 + depth * 12}px` } : undefined}
           onClick={() => onSelectConversation(conv.id)}
         >
           {depth > 0 ? "\u21b3 " : ""}{conv.title}
         </button>
         {conv.branches && conv.branches.length > 0 ? (
-          <ul className="sidebar-conversation-list sidebar-branch-list">
+          <ul className="sidebar-list sidebar-branch-list">
             {conv.branches.map((branch) => renderConversationItem(branch, depth + 1))}
           </ul>
         ) : undefined}
@@ -36,48 +41,63 @@ export function WorkspaceSidebar({
   }
 
   return (
-    <aside className="conversation-sidebar">
-      <button
-        type="button"
-        className="sidebar-new-conversation"
-        onClick={onNewConversation}
-        disabled={isLoading}
-      >
-        New conversation
-      </button>
+    <aside className="workspace-sidebar">
+      {/* Projects section */}
+      <div className="sidebar-section">
+        <div className="sidebar-section-label">Projects</div>
+        {sidebar?.groups.map((group) => (
+          <Link
+            key={group.projectId}
+            to="/"
+            className={`sidebar-item sidebar-project-item${isHome ? " sidebar-item--active" : ""}`}
+          >
+            #{group.projectName}
+          </Link>
+        ))}
+      </div>
 
-      {sidebar?.groups.map((group) => (
-        <div key={group.projectId} className="sidebar-project-group">
-          <div className="sidebar-project-header">
-            <span className="sidebar-project-name">{group.projectName}</span>
-            <span className="sidebar-project-count">{group.conversations.length}</span>
-          </div>
-          {group.featureActivity.length > 0 ? (
-            <div className="sidebar-feature-activity">
-              {group.featureActivity.map((feature) => (
-                <span key={feature.featureId} className="sidebar-feature-chip">
-                  {feature.featureName}
-                </span>
-              ))}
-            </div>
-          ) : undefined}
-          <ul className="sidebar-conversation-list">
-            {group.conversations.map((conv) => renderConversationItem(conv))}
-          </ul>
+      {/* Agents section */}
+      <div className="sidebar-section">
+        <div className="sidebar-section-label">Agents</div>
+        <span className="sidebar-item sidebar-agent-item">@pm</span>
+      </div>
+
+      <div className="sidebar-divider" />
+
+      {/* Chats section */}
+      <div className="sidebar-section sidebar-section--chats">
+        <div className="sidebar-section-label">
+          Chats
+          <button
+            type="button"
+            className="sidebar-new-chat-btn"
+            onClick={onNewConversation}
+            disabled={isLoading}
+            title="New conversation"
+          >
+            +
+          </button>
         </div>
-      ))}
-
-      {sidebar && sidebar.unlinked.length > 0 ? (
-        <div className="sidebar-project-group">
-          <div className="sidebar-project-header">
-            <span className="sidebar-project-name sidebar-unlinked-label">Unlinked</span>
-            <span className="sidebar-project-count">{sidebar.unlinked.length}</span>
-          </div>
-          <ul className="sidebar-conversation-list">
+        {sidebar?.groups.map((group) =>
+          group.conversations.length > 0 ? (
+            <ul key={group.projectId} className="sidebar-list">
+              {group.conversations.map((conv) => renderConversationItem(conv))}
+            </ul>
+          ) : undefined,
+        )}
+        {sidebar && sidebar.unlinked.length > 0 ? (
+          <ul className="sidebar-list">
             {sidebar.unlinked.map((conv) => renderConversationItem(conv))}
           </ul>
-        </div>
-      ) : undefined}
+        ) : undefined}
+      </div>
+
+      <div className="sidebar-divider" />
+
+      {/* Graph link */}
+      <Link to="/graph" className={`sidebar-item sidebar-nav-item${isGraph ? " sidebar-item--active" : ""}`}>
+        Graph
+      </Link>
     </aside>
   );
 }
