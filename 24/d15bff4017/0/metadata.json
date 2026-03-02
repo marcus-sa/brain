@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "24d15bff4017",
+  "session_id": "b6aa8d41-2111-4c23-98a9-973bd30dca7e",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-02T15:38:33.225762Z",
+  "branch": "marcus-sa/git-commit-evidence",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "app/src/server/agents/pm/agent.ts",
+    "app/src/server/agents/pm/prompt.ts",
+    "app/src/server/chat/tools/invoke-pm-agent.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "83c7811c8c84",
+  "token_usage": {
+    "input_tokens": 1627,
+    "cache_creation_tokens": 48337,
+    "cache_read_tokens": 1275466,
+    "output_tokens": 8284,
+    "api_call_count": 25
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-02T15:38:33.080915Z",
+    "agent_lines": 29,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 29,
+    "agent_percentage": 100
+  }
+}

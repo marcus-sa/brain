@@ -1,0 +1,28 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "24d15bff4017",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/git-commit-evidence",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "app/src/server/agents/pm/agent.ts",
+    "app/src/server/agents/pm/prompt.ts",
+    "app/src/server/chat/tools/invoke-pm-agent.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/24/d15bff4017/0/metadata.json",
+      "transcript": "/24/d15bff4017/0/full.jsonl",
+      "context": "/24/d15bff4017/0/context.md",
+      "content_hash": "/24/d15bff4017/0/content_hash.txt",
+      "prompt": "/24/d15bff4017/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 1627,
+    "cache_creation_tokens": 48337,
+    "cache_read_tokens": 1275466,
+    "output_tokens": 8284,
+    "api_call_count": 25
+  }
+}
