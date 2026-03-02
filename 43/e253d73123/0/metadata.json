@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "43e253d73123",
+  "session_id": "db7e48c3-8464-492e-97ae-8fb36f0c5a37",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-02T19:18:23.323412Z",
+  "branch": "marcus-sa/option-f-ui",
+  "checkpoints_count": 3,
+  "files_touched": [
+    "AGENTS.md",
+    "app/src/server/chat/context.ts",
+    "app/src/server/chat/tools/acknowledge-observation.ts",
+    "app/src/server/chat/tools/create-observation.ts",
+    "app/src/server/chat/tools/invoke-pm-agent.ts",
+    "app/src/server/chat/tools/resolve-observation.ts",
+    "app/src/server/chat/tools/show-relationship-graph.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "1f2d19d6df30",
+  "checkpoint_transcript_start": 32,
+  "transcript_lines_at_start": 32,
+  "token_usage": {
+    "input_tokens": 1342,
+    "cache_creation_tokens": 111991,
+    "cache_read_tokens": 1984542,
+    "output_tokens": 8776,
+    "api_call_count": 36
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-02T19:18:22.985441Z",
+    "agent_lines": 27,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 27,
+    "agent_percentage": 100
+  }
+}

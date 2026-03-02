@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "43e253d73123",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/option-f-ui",
+  "checkpoints_count": 3,
+  "files_touched": [
+    "AGENTS.md",
+    "app/src/server/chat/context.ts",
+    "app/src/server/chat/tools/acknowledge-observation.ts",
+    "app/src/server/chat/tools/create-observation.ts",
+    "app/src/server/chat/tools/invoke-pm-agent.ts",
+    "app/src/server/chat/tools/resolve-observation.ts",
+    "app/src/server/chat/tools/show-relationship-graph.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/43/e253d73123/0/metadata.json",
+      "transcript": "/43/e253d73123/0/full.jsonl",
+      "context": "/43/e253d73123/0/context.md",
+      "content_hash": "/43/e253d73123/0/content_hash.txt",
+      "prompt": "/43/e253d73123/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 1342,
+    "cache_creation_tokens": 111991,
+    "cache_read_tokens": 1984542,
+    "output_tokens": 8776,
+    "api_call_count": 36
+  }
+}
