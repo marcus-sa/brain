@@ -91,6 +91,7 @@ export function ChatPage() {
   const [isSeedPanelOpen, setIsSeedPanelOpen] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [branchingFromId, setBranchingFromId] = useState<string | undefined>();
+  const [inheritedMessageIds, setInheritedMessageIds] = useState<Set<string>>(new Set());
   const [pendingFile, setPendingFile] = useState<File | undefined>();
   const streamRef = useRef<EventSource | undefined>(undefined);
   const chatInputRef = useRef<ChatInputRef | null>(null);
@@ -162,6 +163,7 @@ export function ChatPage() {
       const payload = (await response.json()) as WorkspaceConversationResponse;
       const conversations: Session["conversations"] = [];
       let latestSuggestions: string[] = [];
+      const inheritedIds = new Set<string>();
 
       for (const message of payload.messages) {
         if (message.role === "user") {
@@ -170,6 +172,9 @@ export function ChatPage() {
             question: message.text,
             createdAt: new Date(message.createdAt),
           });
+          if (message.inherited) {
+            inheritedIds.add(message.id);
+          }
           continue;
         }
 
@@ -178,6 +183,9 @@ export function ChatPage() {
           last.response = message.text;
           last.updatedAt = new Date(message.createdAt);
           latestSuggestions = message.suggestions && message.suggestions.length > 0 ? message.suggestions : [];
+          if (message.inherited) {
+            inheritedIds.add(last.id);
+          }
           continue;
         }
 
@@ -187,9 +195,13 @@ export function ChatPage() {
           response: message.text,
           createdAt: new Date(message.createdAt),
         });
+        if (message.inherited) {
+          inheritedIds.add(`assistant-${message.id}`);
+        }
         latestSuggestions = message.suggestions && message.suggestions.length > 0 ? message.suggestions : [];
       }
 
+      setInheritedMessageIds(inheritedIds);
       setSessions([
         {
           id: "main",
@@ -248,6 +260,7 @@ export function ChatPage() {
   function applyBootstrapPayload(payload: WorkspaceBootstrapResponse) {
     const conversations: Session["conversations"] = [];
     let latestSuggestions: string[] = [];
+    const inheritedIds = new Set<string>();
 
     for (const message of payload.messages) {
       if (message.role === "user") {
@@ -256,6 +269,9 @@ export function ChatPage() {
           question: message.text,
           createdAt: new Date(message.createdAt),
         });
+        if (message.inherited) {
+          inheritedIds.add(message.id);
+        }
         continue;
       }
 
@@ -264,6 +280,9 @@ export function ChatPage() {
         last.response = message.text;
         last.updatedAt = new Date(message.createdAt);
         latestSuggestions = message.suggestions && message.suggestions.length > 0 ? message.suggestions : [];
+        if (message.inherited) {
+          inheritedIds.add(last.id);
+        }
         continue;
       }
 
@@ -273,9 +292,13 @@ export function ChatPage() {
         response: message.text,
         createdAt: new Date(message.createdAt),
       });
+      if (message.inherited) {
+        inheritedIds.add(`assistant-${message.id}`);
+      }
       latestSuggestions = message.suggestions && message.suggestions.length > 0 ? message.suggestions : [];
     }
 
+    setInheritedMessageIds(inheritedIds);
     setSessions([
       {
         id: "main",
@@ -330,17 +353,17 @@ export function ChatPage() {
     void loadConversation(workspace.id, conversationId);
   }
 
-  async function onBranchConversation() {
+  async function onBranchFromMessage(messageId: string) {
     if (!workspace || !activeConversationId || isLoading) return;
 
-    setBranchingFromId(activeConversationId);
+    setBranchingFromId(messageId);
     try {
       const response = await fetch(
         `/api/workspaces/${encodeURIComponent(workspace.id)}/conversations/${encodeURIComponent(activeConversationId)}/branch`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contextEntityIds: [] }),
+          body: JSON.stringify({ messageId }),
         },
       );
 
@@ -869,28 +892,44 @@ export function ChatPage() {
               <SessionMessagesHeader>
                 <div className="reachat-header">
                   Workspace Chat + Extraction
-                  {activeConversationId && workspace.onboardingState === "complete" ? (
-                    <button
-                      type="button"
-                      className="branch-conversation-btn"
-                      onClick={() => void onBranchConversation()}
-                      disabled={isLoading || branchingFromId !== undefined}
-                    >
-                      {branchingFromId ? "Branching..." : "Branch"}
-                    </button>
-                  ) : undefined}
                 </div>
               </SessionMessagesHeader>
               <SessionMessages>
                 {(conversations) =>
-                  conversations.map((conversation, index) => (
-                    <div key={conversation.id} data-message-id={conversation.id}>
-                      <SessionMessage
-                        conversation={conversation}
-                        isLast={index === conversations.length - 1}
-                      />
-                    </div>
-                  ))
+                  conversations.map((conversation, index) => {
+                    const isInherited = inheritedMessageIds.has(conversation.id);
+                    const isLastInherited = isInherited
+                      && index < conversations.length - 1
+                      && !inheritedMessageIds.has(conversations[index + 1].id);
+                    return (
+                      <div
+                        key={conversation.id}
+                        data-message-id={conversation.id}
+                        className={isInherited ? "message-inherited" : undefined}
+                      >
+                        <SessionMessage
+                          conversation={conversation}
+                          isLast={index === conversations.length - 1}
+                        />
+                        {!isInherited && conversation.response && workspace.onboardingState === "complete" ? (
+                          <button
+                            type="button"
+                            className="branch-message-btn"
+                            onClick={() => void onBranchFromMessage(conversation.id)}
+                            disabled={isLoading || branchingFromId !== undefined}
+                            title="Branch from here"
+                          >
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                              <path d="M5 3v4.5c0 1.1.9 2 2 2h2.5M5 3L3 5M5 3l2 2M11 5v4.5c0 1.1-.9 2-2 2H6.5M11 5l-2-2M11 5l2-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </button>
+                        ) : undefined}
+                        {isLastInherited ? (
+                          <div className="branch-divider">Branch point</div>
+                        ) : undefined}
+                      </div>
+                    );
+                  })
                 }
               </SessionMessages>
               <ChatSuggestions

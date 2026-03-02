@@ -3,7 +3,6 @@ import { RecordId } from "surrealdb";
 import { z } from "zod";
 import type { BranchConversationResponse } from "../../shared/contracts";
 import type { ConversationRow } from "../extraction/types";
-import { loadConversationGraphContext } from "../extraction/context-loaders";
 import { HttpError } from "../http/errors";
 import { logError, logInfo, logWarn } from "../http/observability";
 import { jsonError, jsonResponse } from "../http/response";
@@ -11,10 +10,8 @@ import { resolveWorkspaceRecord } from "../workspace/workspace-scope";
 import { deriveMessageTitle } from "../workspace/conversation-sidebar";
 import type { ServerDependencies } from "../runtime/types";
 
-const ENTITY_TABLES = ["task", "decision", "question", "feature", "project", "person"] as const;
-
 const branchRequestSchema = z.object({
-  contextEntityIds: z.array(z.string()).default([]),
+  messageId: z.string().min(1),
 });
 
 export function createBranchConversationHandler(
@@ -64,26 +61,17 @@ async function handleBranchConversation(
       throw new HttpError(400, "conversation does not belong to workspace");
     }
 
-    // Resolve context entity records
-    let contextEntityRecords: RecordId[] = [];
+    // Validate branch point message belongs to the parent conversation
+    const branchPointMessageRecord = new RecordId("message", parsed.data.messageId);
+    const [msgRows] = await deps.surreal
+      .query<[Array<{ id: RecordId<"message", string> }>]>(
+        "SELECT id FROM message WHERE id = $msg AND conversation = $parent LIMIT 1;",
+        { msg: branchPointMessageRecord, parent: parentRecord },
+      )
+      .collect<[Array<{ id: RecordId<"message", string> }>]>();
 
-    if (parsed.data.contextEntityIds.length > 0) {
-      // Parse provided entity IDs, skip invalid ones
-      for (const idString of parsed.data.contextEntityIds) {
-        const normalized = idString.trim();
-        const separatorIndex = normalized.indexOf(":");
-        if (separatorIndex === -1) continue;
-
-        const table = normalized.slice(0, separatorIndex);
-        const id = normalized.slice(separatorIndex + 1);
-        if (!(ENTITY_TABLES as readonly string[]).includes(table) || id.length === 0) continue;
-
-        contextEntityRecords.push(new RecordId(table, id));
-      }
-    } else {
-      // Auto-populate from parent conversation's extracted entities
-      const parentEntities = await loadConversationGraphContext(deps.surreal, parentConversationId, 30);
-      contextEntityRecords = parentEntities.map((row) => row.id as RecordId);
+    if (msgRows.length === 0) {
+      throw new HttpError(400, "message does not belong to parent conversation");
     }
 
     const now = new Date();
@@ -108,7 +96,7 @@ async function handleBranchConversation(
       await transaction
         .relate(branchRecord, edgeRecord, parentRecord, {
           branched_at: now,
-          context_entities: contextEntityRecords,
+          branch_point_message: branchPointMessageRecord,
         })
         .output("after");
 
@@ -122,12 +110,13 @@ async function handleBranchConversation(
       workspaceId,
       parentConversationId,
       branchId,
-      contextEntityCount: contextEntityRecords.length,
+      branchPointMessageId: parsed.data.messageId,
     });
 
     const response: BranchConversationResponse = {
       conversationId: branchId,
       parentConversationId,
+      branchPointMessageId: parsed.data.messageId,
     };
 
     return jsonResponse(response, 201);

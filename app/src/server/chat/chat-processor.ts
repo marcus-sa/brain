@@ -2,6 +2,7 @@ import { RecordId } from "surrealdb";
 import type { ExtractedEntity, ExtractedRelationship, OnboardingAction, OnboardingSeedItem } from "../../shared/contracts";
 import { buildExtractionComponentBlock } from "../extraction/components";
 import { loadAssistantConversationContext, loadConversationGraphContext, loadExtractionConversationContext } from "../extraction/context-loaders";
+import { loadBranchChain, loadMessagesWithInheritance } from "./branch-chain";
 import { ingestAttachment } from "../extraction/document-ingestion";
 import { persistEmbeddings } from "../extraction/embedding-writeback";
 import { extractStructuredGraph } from "../extraction/extract-graph";
@@ -48,15 +49,42 @@ export async function processChatMessage(input: {
     }
 
     // Check if this conversation is a branch and load inherited context
-    const [branchRows] = await input.deps.surreal
-      .query<[Array<{ context_entities: RecordId[] }>]>(
-        "SELECT context_entities FROM branched_from WHERE `in` = $conversation LIMIT 1;",
-        { conversation: conversationRecord },
-      )
-      .collect<[Array<{ context_entities: RecordId[] }>]>();
-    const inheritedEntityIds = branchRows[0]?.context_entities;
+    const branchChain = await loadBranchChain(input.deps.surreal, input.conversationId);
+    const isBranch = branchChain.length > 0;
 
-    const assistantContextRows = await loadAssistantConversationContext(input.deps.surreal, input.conversationId);
+    let inheritedEntityIds: RecordId[] | undefined;
+    let assistantContextRows: Array<{ id: RecordId<"message", string>; role: "user" | "assistant"; text: string; createdAt: Date | string }>;
+
+    if (isBranch) {
+      // For branches, load full message history including inherited messages
+      const allMessages = await loadMessagesWithInheritance(input.deps.surreal, input.conversationId, 30);
+      assistantContextRows = allMessages
+        .map((m) => ({
+          id: new RecordId("message", m.id),
+          role: m.role,
+          text: m.text,
+          createdAt: m.createdAt,
+        }))
+        .slice(-10);
+
+      // Derive inherited entity IDs from extraction_relations on inherited messages
+      const inheritedMsgIds = allMessages
+        .filter((m) => m.inherited)
+        .map((m) => new RecordId("message", m.id));
+
+      if (inheritedMsgIds.length > 0) {
+        const [entityRows] = await input.deps.surreal
+          .query<[Array<{ out: RecordId }>]>(
+            "SELECT DISTINCT out FROM extraction_relation WHERE `in` IN $msgIds LIMIT 30;",
+            { msgIds: inheritedMsgIds },
+          )
+          .collect<[Array<{ out: RecordId }>]>();
+        inheritedEntityIds = entityRows.map((r) => r.out);
+      }
+    } else {
+      assistantContextRows = await loadAssistantConversationContext(input.deps.surreal, input.conversationId);
+    }
+
     const extractionConversationContext = await loadExtractionConversationContext({
       surreal: input.deps.surreal,
       conversationId: input.conversationId,

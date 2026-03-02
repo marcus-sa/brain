@@ -306,8 +306,7 @@ DEFINE FIELD superseded_at ON superseded_by TYPE datetime;
 
 DEFINE TABLE branched_from TYPE RELATION IN conversation OUT conversation SCHEMAFULL;
 DEFINE FIELD branched_at ON branched_from TYPE datetime;
-DEFINE FIELD context_entities ON branched_from TYPE array<record>;
-DEFINE FIELD context_entities[*] ON branched_from TYPE record;
+DEFINE FIELD branch_point_message ON branched_from TYPE record<message>;
 DEFINE INDEX branched_from_out ON branched_from FIELDS out;
 DEFINE INDEX branched_from_in ON branched_from FIELDS `in`;
 
