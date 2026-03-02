@@ -1,0 +1,34 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "822ffe93cc1a",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/living-descriptions",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "app/src/client/components/graph/DescriptionSection.tsx",
+    "app/src/client/components/graph/EntityDetailPanel.tsx",
+    "app/src/client/styles.css",
+    "app/src/server/chat/chat-processor.ts",
+    "app/src/server/entities/entity-actions-route.ts",
+    "app/src/server/entities/work-item-accept-route.ts",
+    "app/src/server/extraction/document-ingestion.ts",
+    "app/src/server/extraction/persist-extraction.ts",
+    "evals/extraction.eval.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/82/2ffe93cc1a/0/metadata.json",
+      "transcript": "/82/2ffe93cc1a/0/full.jsonl",
+      "context": "/82/2ffe93cc1a/0/context.md",
+      "content_hash": "/82/2ffe93cc1a/0/content_hash.txt",
+      "prompt": "/82/2ffe93cc1a/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 7336,
+    "cache_creation_tokens": 351453,
+    "cache_read_tokens": 16277776,
+    "output_tokens": 49010,
+    "api_call_count": 154
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "822ffe93cc1a",
+  "session_id": "8619b0bf-94e8-4702-834d-4209dd770466",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-02T14:02:00.365024Z",
+  "branch": "marcus-sa/living-descriptions",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "app/src/client/components/graph/DescriptionSection.tsx",
+    "app/src/client/components/graph/EntityDetailPanel.tsx",
+    "app/src/client/styles.css",
+    "app/src/server/chat/chat-processor.ts",
+    "app/src/server/entities/entity-actions-route.ts",
+    "app/src/server/entities/work-item-accept-route.ts",
+    "app/src/server/extraction/document-ingestion.ts",
+    "app/src/server/extraction/persist-extraction.ts",
+    "evals/extraction.eval.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "2030229d7581",
+  "token_usage": {
+    "input_tokens": 7336,
+    "cache_creation_tokens": 351453,
+    "cache_read_tokens": 16277776,
+    "output_tokens": 49010,
+    "api_call_count": 154
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-02T14:01:59.209924Z",
+    "agent_lines": 104,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 104,
+    "agent_percentage": 100
+  }
+}
