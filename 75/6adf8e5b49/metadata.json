@@ -1,0 +1,40 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "756adf8e5b49",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/add-priority-field",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "app/src/client/components/graph/EntityDetailPanel.tsx",
+    "app/src/client/graph/actions.ts",
+    "app/src/server/entities/entity-actions-route.ts",
+    "app/src/server/extraction/entity-upsert.ts",
+    "app/src/server/extraction/persist-extraction.ts",
+    "app/src/server/extraction/prompt.ts",
+    "app/src/server/extraction/schema.ts",
+    "app/src/server/graph/queries.ts",
+    "app/src/shared/contracts.ts",
+    "evals/data/golden-cases.json",
+    "evals/extraction.eval.ts",
+    "evals/scorers/priority-accuracy.ts",
+    "evals/types.ts",
+    "schema/surreal-schema.surql",
+    "tests/fixtures/extraction-outputs/valid.json"
+  ],
+  "sessions": [
+    {
+      "metadata": "/75/6adf8e5b49/0/metadata.json",
+      "transcript": "/75/6adf8e5b49/0/full.jsonl",
+      "context": "/75/6adf8e5b49/0/context.md",
+      "content_hash": "/75/6adf8e5b49/0/content_hash.txt",
+      "prompt": "/75/6adf8e5b49/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 1806,
+    "cache_creation_tokens": 50927,
+    "cache_read_tokens": 1359396,
+    "output_tokens": 9309,
+    "api_call_count": 23
+  }
+}
