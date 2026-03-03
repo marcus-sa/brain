@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "9ab81d188224",
+  "session_id": "3b4420c1-e3af-48e0-b8d5-50c3374d20be",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-03T14:46:08.195042Z",
+  "branch": "marcus-sa/analytics-agent",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "app/src/server/chat/context.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "27c1e78bf1bd",
+  "token_usage": {
+    "input_tokens": 3750,
+    "cache_creation_tokens": 608622,
+    "cache_read_tokens": 22762384,
+    "output_tokens": 71194,
+    "api_call_count": 255
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-03T14:46:05.656554Z",
+    "agent_lines": 0,
+    "human_added": 88,
+    "human_modified": 55,
+    "human_removed": 0,
+    "total_committed": 88,
+    "agent_percentage": 0
+  }
+}
