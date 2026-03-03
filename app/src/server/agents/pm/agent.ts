@@ -1,6 +1,6 @@
 import { generateText, Output, stepCountIs } from "ai";
 import { z } from "zod";
-import { ENTITY_CATEGORIES, type ExtractedEntity, type ExtractedRelationship } from "../../../shared/contracts";
+import { ENTITY_CATEGORIES, ENTITY_PRIORITIES, type ExtractedEntity, type ExtractedRelationship } from "../../../shared/contracts";
 import type { ChatToolDeps, ChatToolExecutionContext } from "../../chat/tools/types";
 import { buildPmSystemPrompt } from "./prompt";
 import { createPmTools } from "./tools";
@@ -11,7 +11,7 @@ const workItemSuggestionSchema = z.object({
   rationale: z.string().min(1),
   category: z.enum(ENTITY_CATEGORIES).optional(),
   project: z.string().optional(),
-  priority: z.string().optional(),
+  priority: z.enum(ENTITY_PRIORITIES).optional(),
   possible_duplicate: z
     .object({
       id: z.string().min(1),

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { RecordId } from "surrealdb";
 import { z } from "zod";
-import { ENTITY_CATEGORIES } from "../../shared/contracts";
+import { ENTITY_CATEGORIES, ENTITY_PRIORITIES } from "../../shared/contracts";
 import { HttpError } from "../http/errors";
 import { logError, logInfo } from "../http/observability";
 import { jsonError, jsonResponse } from "../http/response";
@@ -18,7 +18,7 @@ const acceptWorkItemSchema = z.object({
   title: z.string().min(1),
   rationale: z.string().min(1),
   project: z.string().optional(),
-  priority: z.string().optional(),
+  priority: z.enum(ENTITY_PRIORITIES).optional(),
   category: z.enum(ENTITY_CATEGORIES).optional(),
 });
 

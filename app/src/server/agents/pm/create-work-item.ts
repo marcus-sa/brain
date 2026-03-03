@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { RecordId } from "surrealdb";
 import { tool } from "ai";
 import { z } from "zod";
-import { ENTITY_CATEGORIES } from "../../../shared/contracts";
+import { ENTITY_CATEGORIES, ENTITY_PRIORITIES } from "../../../shared/contracts";
 import { createEmbeddingVector } from "../../graph/embeddings";
 import {
   createExtractionProvenanceEdge,
@@ -26,7 +26,7 @@ export function createCreateWorkItemTool(deps: ChatToolDeps & { extractionModel:
       title: z.string().min(1).describe("Concise entity title"),
       rationale: z.string().min(1).describe("Why this entity is needed — seeds the description"),
       category: z.enum(ENTITY_CATEGORIES).optional().describe("Category classification"),
-      priority: z.string().optional().describe("Priority: critical, high, medium, low"),
+      priority: z.enum(ENTITY_PRIORITIES).optional().describe("critical: blocking/urgent. high: important, needs attention soon. medium: normal priority. low: nice-to-have, deferred."),
       project: z.string().optional().describe("Project name to scope the entity under"),
     }),
     execute: async (input, options) => {

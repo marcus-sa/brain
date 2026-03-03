@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { ENTITY_CATEGORIES } from "../../../shared/contracts";
+import { ENTITY_CATEGORIES, ENTITY_PRIORITIES } from "../../../shared/contracts";
 import {
   createExtractionProvenanceEdge,
   createQuestionRecord,
@@ -17,7 +17,7 @@ export function createCreateQuestionTool(deps: ChatToolDeps) {
     inputSchema: z.object({
       text: z.string().min(1).describe("The question text"),
       category: z.enum(ENTITY_CATEGORIES).optional().describe("Question category"),
-      priority: z.string().optional().describe("Priority: critical, high, medium, low"),
+      priority: z.enum(ENTITY_PRIORITIES).optional().describe("critical: blocking/urgent. high: important, needs attention soon. medium: normal priority. low: nice-to-have, deferred."),
       context: z
         .object({
           project: z.string().optional(),
