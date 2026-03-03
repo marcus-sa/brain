@@ -81,6 +81,7 @@ DEFINE FIELD description_entries[*].created_at ON feature TYPE datetime;
 DEFINE FIELD prd ON feature TYPE option<string>;
 DEFINE FIELD owner ON feature TYPE option<record<person>>;
 DEFINE FIELD owner_name ON feature TYPE option<string>;
+DEFINE FIELD category ON feature TYPE option<string>;
 DEFINE FIELD embedding ON feature TYPE option<array<float>>;
 DEFINE FIELD created_at ON feature TYPE datetime;
 DEFINE FIELD updated_at ON feature TYPE option<datetime>;

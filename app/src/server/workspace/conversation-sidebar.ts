@@ -549,7 +549,7 @@ async function loadProjectFeatureActivity(
   const [rows] = await surreal
     .query<[FeatureActivityRow[]]>(
       [
-        "SELECT out.id AS featureId, out.name AS featureName, math::max(extracted_at) AS latestActivityAt",
+        "SELECT out, out.id AS featureId, out.name AS featureName, math::max(extracted_at) AS latestActivityAt",
         "FROM extraction_relation",
         "WHERE out IN (SELECT VALUE out FROM has_feature WHERE `in` = $project)",
         "GROUP BY out",
