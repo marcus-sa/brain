@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { GraphCanvas, type GraphCanvasRef } from "reagraph";
+import { GraphCanvas, type GraphCanvasRef, darkTheme } from "reagraph";
 import type { GraphResponse, ReagraphEdge } from "../../../shared/contracts";
 import { edgeStyle } from "./graph-theme";
 
@@ -93,6 +93,7 @@ export function KnowledgeGraph({
     <div className="graph-canvas">
       <GraphCanvas
         ref={graphRef}
+        theme={darkTheme}
         nodes={data.nodes as any}
         edges={styledEdges as any}
         selections={selectedId ? [selectedId.includes(":") ? selectedId.slice(selectedId.indexOf(":") + 1) : selectedId] : []}

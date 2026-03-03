@@ -42,6 +42,16 @@ export function WorkspaceSidebar({
 
   return (
     <aside className="workspace-sidebar">
+      {/* Navigation links */}
+      <Link to="/" className={`sidebar-item sidebar-nav-item${isHome ? " sidebar-item--active" : ""}`}>
+        Feed
+      </Link>
+      <Link to="/graph" className={`sidebar-item sidebar-nav-item${isGraph ? " sidebar-item--active" : ""}`}>
+        Graph
+      </Link>
+
+      <div className="sidebar-divider" />
+
       {/* Projects section */}
       <div className="sidebar-section">
         <div className="sidebar-section-label">Projects</div>
@@ -91,13 +101,6 @@ export function WorkspaceSidebar({
           </ul>
         ) : undefined}
       </div>
-
-      <div className="sidebar-divider" />
-
-      {/* Graph link */}
-      <Link to="/graph" className={`sidebar-item sidebar-nav-item${isGraph ? " sidebar-item--active" : ""}`}>
-        Graph
-      </Link>
     </aside>
   );
 }
