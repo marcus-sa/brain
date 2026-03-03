@@ -19,6 +19,7 @@ The market for AI-powered business management and knowledge tools is fragmented 
 | **Agent Task Tracking** | Beads | Git-backed graph issue tracker for coding agents | Agent-optimized task management, dependency graphs | We provide cross-project intelligence, decision governance, and business context above the repo level. Beads handles per-repo agent task coordination. Complementary — bidirectional sync integration target. |
 | **Enterprise Knowledge** | Atlassian Rovo, Glean | AI search across enterprise tools | Cross-tool integration | We're graph-native, not search-bolted-on; built for small teams, not enterprises |
 | **Autonomous AI Operations** | Polsia | Full-autonomy AI that runs your company: codes, markets, handles inbox 24/7 | AI-run business operations, solo founder target | We provide the governance layer autonomous agents need: decision provenance, conflict detection, authority scoping, reviewable feed. Same ambition, opposite trust model. |
+| **Multi-Agent Runtimes** | Strands (AWS), LangGraph, CrewAI, Agent Relay | Agent orchestration frameworks: DAG execution, swarm coordination, message passing | Multi-agent coordination | We're the persistent intelligence layer above runtimes. They execute tasks; we persist, connect, and govern what agents produce across time and projects. Complementary — could use Strands as execution engine underneath. |
 
 ---
 
@@ -290,6 +291,46 @@ Not a competitor — a potential integration target. Beads solves agent task tra
 
 **Strategic takeaway:** Polsia proves the market for AI-run businesses exists and is growing fast. But their "full autonomy, zero governance" model creates the exact problems our platform solves. As AI agents become more capable and take on higher-stakes tasks, the governance gap becomes existential — one bad autonomous decision at 3am can undo weeks of work. Our positioning: same ambition (AI runs your business), opposite trust model (every decision is traceable, reviewable, and overridable). Polsia is the "move fast" version. We're the "move fast with a graph that makes guardrails invisible" version.
 
+### 10. Strands Agents — AWS Multi-Agent Runtime (Different Layer)
+
+**What it is:** AWS's open-source agent framework (Python + TypeScript SDKs) with two multi-agent orchestration patterns: Graph (deterministic DAG execution) and Swarm (autonomous agent collaboration with shared context). Part of the broader AWS agent ecosystem alongside Bedrock AgentCore.
+
+**Graph pattern:** Deterministic directed graph where agents are nodes, edges define dependencies, and output from one node flows as input to the next. Supports conditional edges, cyclic patterns with execution limits, parallel branches, nested graphs, remote agents via A2A protocol, and custom node types for deterministic business logic. Well-engineered execution engine.
+
+**Swarm pattern:** Self-organizing agent teams with shared working memory. Agents coordinate via a `handoff_to_agent` tool, passing messages and context. Each agent sees the full task context, history of which agents have worked on the task, and shared knowledge contributed by other agents. Includes safety mechanisms: max handoffs, execution timeouts, repetitive handoff detection.
+
+**What Strands gets right:**
+- Swarm shared context is better than pure message buses — agents see structured knowledge from previous agents, not just chat logs
+- Graph conditional edges enable dynamic workflows (route based on intermediate results)
+- Custom node types allow mixing deterministic logic with LLM agents
+- Streaming events provide real-time visibility into multi-agent execution
+- Production-ready safety: timeouts, execution limits, ping-pong detection
+
+**What Strands doesn't do (our gap):**
+- **Session-scoped only.** Both Graph and Swarm execute a single task and terminate. Shared context disappears when execution completes. No persistence across sessions, days, or projects.
+- **No typed entities.** Shared knowledge is key-value string pairs (`{"issue_location": "line 42"}`), not a knowledge graph with Decision, Task, Feature entities and typed relationships.
+- **No cross-execution awareness.** Two separate Swarm runs have zero shared context. A decision made in one execution is invisible to the next.
+- **No conflict detection.** No mechanism to detect that agents across different executions (or within the same swarm) made contradictory decisions.
+- **No governance.** Agents act autonomously within the swarm. No approval flow, no feed of decisions for human review, no authority scoping. The human starts the swarm and gets results.
+- **No knowledge accumulation.** Each execution starts from scratch (or from whatever the developer manually passes as invocation_state). No living descriptions, no decision provenance chains, no dependency tracking across time.
+
+**Comparison:**
+
+| Dimension | Strands Graph | Strands Swarm | Our Platform |
+|-----------|--------------|---------------|-------------|
+| Orchestration | Deterministic DAG | Autonomous handoffs | Graph-routed reactive events |
+| Shared state | `invocation_state` dict (session-scoped) | Shared knowledge strings (session-scoped) | Knowledge graph (persistent, typed, relational) |
+| Persistence | None — execution completes, state gone | None — same | Permanent — entities survive across sessions, agents, projects |
+| Cross-task awareness | None | None | Full graph traversal across all projects in workspace |
+| Conflict detection | None | None | Automatic via graph traversal on entity creation |
+| Human oversight | Start/stop only | Start/stop only | Configurable: auto / provisional / approve per agent per action |
+| Entity model | None — raw text/dicts | Key-value pairs | Typed: Decision, Task, Feature, Question with status lifecycles |
+| Agent memory | Context window only | Shared knowledge within single execution | Graph persists indefinitely + behavioral learnings |
+
+**Category distinction:** Strands is an agent **runtime** — it executes multi-agent workflows. Our platform is an agent **coordination layer** — it persists, connects, and governs what agents produce across time and projects. These are complementary, not competitive. We could use Strands as an execution engine underneath our coordinator — the Architect agent could be a Strands agent, but coordination happens in our graph, not in Strands' shared context.
+
+**Strategic takeaway:** Strands validates that AWS sees multi-agent orchestration as a core infrastructure problem worth investing in. Their Graph and Swarm patterns are the best-in-class execution primitives. But they solve the "how do agents talk during one task" problem, not the "how do agents stay coordinated across weeks of work" problem. Our platform sits above runtimes like Strands — we're the persistent intelligence layer that makes individual executions aware of everything that came before. The analogy: Strands is the CPU executing instructions. We're the filesystem that remembers what happened.
+
 ## White Space Analysis
 
 ### What Nobody Does Well
@@ -365,3 +406,4 @@ The knowledge graph as shared memory for autonomous agents, with decision status
 9. **Beads as integration onramp** — 17k stars means thousands of developers already use agent task tracking. Offering Beads integration (bidirectional sync via Claude Code hooks) gives existing Beads users cross-project intelligence without changing their workflow. Lower friction adoption path than requiring a full platform switch.
 10. **Three-layer complementary stack** — Position the platform as the business intelligence layer in a stack: Beads (per-repo task tracking) → Our platform (cross-project decisions, constraints, governance) → Entire (code-level traceability). Each layer is independently valuable; together they provide full-stack agent coordination from business intent to code artifact.
 11. **CTX validates the plugin distribution model** — ActiveMemory/ctx (27 stars, growing) proved that Claude Code plugins are the right distribution path for agent context tools. Their journey from six shell scripts to a two-command plugin install is the exact path to follow. Ship the Claude Code integration as a marketplace plugin from Phase 3, not as hook scripts or CLAUDE.md instructions. CTX provides session-level memory (local, file-based); our plugin provides cross-project intelligence (graph-based, API-backed). Users can run both simultaneously — complementary, not competitive.
+12. **Strands validates the layer above runtimes** — AWS investing in multi-agent orchestration (Graph + Swarm patterns) proves agent coordination is a core infrastructure problem. But Strands is session-scoped — shared context disappears when execution completes. Position our platform as the persistent intelligence layer that makes individual Strands/LangGraph/CrewAI executions aware of everything that came before. Don't compete with runtimes; sit above them. The pitch: "Your agents already coordinate within tasks. We make them coordinate across tasks, projects, and time."
