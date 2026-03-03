@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "9c904f783e1d",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/recordid-table-access",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "AGENTS.md",
+    "app/src/server/extraction/context-loaders.ts",
+    "app/src/server/extraction/embedding-writeback.ts",
+    "app/src/server/extraction/entity-text.ts",
+    "app/src/server/extraction/extract-graph.ts",
+    "app/src/server/extraction/types.ts",
+    "app/src/server/workspace/conversation-sidebar.ts",
+    "app/src/server/workspace/workspace-routes.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/9c/904f783e1d/0/metadata.json",
+      "transcript": "/9c/904f783e1d/0/full.jsonl",
+      "context": "/9c/904f783e1d/0/context.md",
+      "content_hash": "/9c/904f783e1d/0/content_hash.txt",
+      "prompt": "/9c/904f783e1d/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 42,
+    "cache_creation_tokens": 23904,
+    "cache_read_tokens": 177353,
+    "output_tokens": 739,
+    "api_call_count": 5
+  }
+}
