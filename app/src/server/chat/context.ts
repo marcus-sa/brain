@@ -302,6 +302,11 @@ export function buildSystemPrompt(context: ChatContext, options?: SystemPromptOp
     "The tool result contains component and props fields -- pass the props as-is to the component.",
     '```component InlineRelationshipGraph { "title": "Relationships: ...", "nodes": [...], "edges": [...], "focusNodeIds": [...] }```',
     "",
+    "### Rendering Analytics Results",
+    "When invoke_analytics_agent returns referenced_entities, render each as an EntityCard AFTER the text answer.",
+    "Use confidence: 1 since these are deterministic extractions from query results.",
+    '```component EntityCard { "kind": "task", "name": "Build invoice generator", "entityId": "task:abc", "confidence": 1, "status": "open" }```',
+    "",
   );
 
   return sections.join("\n");

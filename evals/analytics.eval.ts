@@ -29,6 +29,7 @@ type AnalyticsEvalOutput = {
   answer: string;
   query_executed: string;
   result_summary: string;
+  referenced_entities: Array<{ entityId: string; kind: string; name: string; status?: string }>;
   success: boolean;
   error?: string;
 };
@@ -200,6 +201,7 @@ async function runAnalyticsCase(testCase: AnalyticsTestCase): Promise<AnalyticsE
       answer: result.answer,
       query_executed: result.query_executed,
       result_summary: result.result_summary,
+      referenced_entities: result.referenced_entities,
       success: true,
     };
   } catch (error) {
@@ -209,6 +211,7 @@ async function runAnalyticsCase(testCase: AnalyticsTestCase): Promise<AnalyticsE
       answer: "",
       query_executed: "",
       result_summary: "",
+      referenced_entities: [],
       success: false,
       error: error instanceof Error ? error.message : String(error),
     };

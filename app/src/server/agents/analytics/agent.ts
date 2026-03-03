@@ -5,10 +5,18 @@ import type { ChatToolExecutionContext } from "../../chat/tools/types";
 import { buildAnalyticsSystemPrompt } from "./prompt";
 import { createAnalyticsTools } from "./tools";
 
+const entityRefSchema = z.object({
+  entityId: z.string().describe("Entity identifier in table:id format, e.g. 'task:abc123'."),
+  kind: z.string().describe("Entity type: project, feature, task, decision, question, person, or observation."),
+  name: z.string().describe("Display name of the entity."),
+  status: z.string().describe("Current status of the entity, e.g. 'open', 'closed', 'confirmed'."),
+});
+
 const analyticsResultSchema = z.object({
   answer: z.string().min(1).describe("Human-readable answer to the user's question. Write in natural language, not raw data."),
   query_executed: z.string().describe("The SurrealQL query that was executed to obtain the result."),
   result_summary: z.string().describe("Brief human-readable summary of the query results, e.g. '3 tasks found' or 'total of 12 features across 2 projects'."),
+  referenced_entities: z.array(entityRefSchema).describe("Entities found in query results. Copy these verbatim from the tool result's referenced_entities field."),
 });
 
 export type AnalyticsAgentOutput = z.infer<typeof analyticsResultSchema>;

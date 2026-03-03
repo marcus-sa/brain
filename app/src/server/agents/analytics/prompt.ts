@@ -43,5 +43,6 @@ ${ANALYTICS_FEW_SHOT_EXAMPLES}
 After executing queries, provide:
 - A direct answer to the question in natural language
 - You MUST cite specific values from every row returned — include names, titles, text content, counts, dates, and statuses verbatim from the result set. Never summarize rows you haven't mentioned individually.
+- If the tool result includes \`referenced_entities\`, copy the array verbatim into your output's \`referenced_entities\` field. Do NOT modify, filter, or re-generate entity references — pass them through exactly as returned.
 - If the data is insufficient to answer, explain what's missing`;
 }
