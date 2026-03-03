@@ -9,7 +9,7 @@ import type { ConversationRow, GraphEntityRecord, IncomingAttachment, WorkspaceR
 import { elapsedMs, logError, logInfo, userFacingError } from "../http/observability";
 import { transitionOnboardingState } from "../onboarding/onboarding-state";
 import type { ServerDependencies } from "../runtime/types";
-import { runOrchestrator } from "./handler";
+import { runChatAgent } from "./handler";
 import { getWorkspaceOwnerRecord } from "../graph/queries";
 import { refreshConversationTouchedBy, maybeUpgradeConversationTitle } from "../workspace/conversation-sidebar";
 import { loadWorkspaceProjects } from "../workspace/workspace-scope";
@@ -145,13 +145,13 @@ export async function processChatMessage(input: {
       now,
     });
 
-    // Always run orchestrator — it handles both onboarding and post-onboarding
+    // Always run chat agent — it handles both onboarding and post-onboarding
     const workspaceOwnerRecord = await getWorkspaceOwnerRecord({
       surreal: input.deps.surreal,
       workspaceRecord: input.workspaceRecord,
     });
 
-    const graphAwareResponse = await runOrchestrator({
+    const graphAwareResponse = await runChatAgent({
       surreal: input.deps.surreal,
       model: input.deps.assistantModel,
       pmModel: input.deps.pmModel,
@@ -190,7 +190,7 @@ export async function processChatMessage(input: {
     );
     const assistantSuggestions = sanitizeAssistantSuggestions(unresolvedAssigneeSuggestions, 3);
 
-    // Post-response hooks (entities now created during orchestrator execution)
+    // Post-response hooks (entities now created during chat agent execution)
     await refreshConversationTouchedBy(input.deps.surreal, conversationRecord);
     await maybeUpgradeConversationTitle(input.deps.surreal, conversationRecord);
 

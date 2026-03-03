@@ -43,7 +43,7 @@ async function createOnboardedWorkspace(
 }
 
 describe("priority extraction smoke", () => {
-  it("orchestrator handles urgent task message and responds meaningfully", async () => {
+  it("chat agent handles urgent task message and responds meaningfully", async () => {
     const { baseUrl, surreal } = getRuntime();
     const workspace = await createOnboardedWorkspace(baseUrl, surreal);
 
@@ -65,13 +65,13 @@ describe("priority extraction smoke", () => {
       throw new Error("Expected assistant_message event");
     }
 
-    // Orchestrator should acknowledge the urgency
+    // Chat agent should acknowledge the urgency
     const text = assistantEvent.text.toLowerCase();
     const acknowledgesUrgency =
       text.includes("urgent") || text.includes("login") || text.includes("bug") || text.includes("fix");
     expect(acknowledgesUrgency).toBe(true);
 
-    // If the orchestrator created a task, verify it has a priority set
+    // If the chat agent created a task, verify it has a priority set
     const workspaceRecord = new RecordId("workspace", workspace.workspaceId);
     const [taskRows] = await surreal
       .query<[Array<{ id: RecordId<"task", string>; title: string; priority?: string }>]>(
@@ -90,7 +90,7 @@ describe("priority extraction smoke", () => {
     }
   }, 180_000);
 
-  it("orchestrator handles low-priority deferred language", async () => {
+  it("chat agent handles low-priority deferred language", async () => {
     const { baseUrl, surreal } = getRuntime();
     const workspace = await createOnboardedWorkspace(baseUrl, surreal);
 
@@ -112,7 +112,7 @@ describe("priority extraction smoke", () => {
       throw new Error("Expected assistant_message event");
     }
 
-    // Verify the orchestrator responds meaningfully
+    // Verify the chat agent responds meaningfully
     expect(assistantEvent.text.length).toBeGreaterThan(0);
   }, 180_000);
 });

@@ -2,9 +2,9 @@ import { tool } from "ai";
 import { z } from "zod";
 import { runPmAgent } from "../../agents/pm/agent";
 import { requireToolContext } from "./helpers";
-import type { OrchestratorToolDeps } from "./types";
+import type { ChatAgentToolDeps } from "./types";
 
-export function createInvokePmAgentTool(deps: OrchestratorToolDeps) {
+export function createInvokePmAgentTool(deps: ChatAgentToolDeps) {
   return tool({
     description:
       "Invoke the PM subagent — the single authority on tasks, features, and project status.",

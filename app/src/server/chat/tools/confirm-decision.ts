@@ -17,8 +17,8 @@ export function createConfirmDecisionTool(deps: ChatToolDeps) {
     execute: async (input, options) => {
       const context = requireToolContext(options);
 
-      if (context.actor !== "chat_agent" && context.actor !== "orchestrator") {
-        throw new Error("confirm_decision is only available for chat_agent or orchestrator context");
+      if (context.actor !== "chat_agent") {
+        throw new Error("confirm_decision is only available for chat_agent context");
       }
 
       const decisionRecord = toDecisionRecordId(input.decision_id);

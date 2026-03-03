@@ -37,7 +37,7 @@ async function createOnboardedWorkspace(
     }),
   });
 
-  // Fast-forward onboarding so orchestrator runs in post-onboarding mode
+  // Fast-forward onboarding so chat agent runs in post-onboarding mode
   const workspaceRecord = new RecordId("workspace", workspace.workspaceId);
   await surreal.update(workspaceRecord).merge({
     onboarding_complete: true,
@@ -49,7 +49,7 @@ async function createOnboardedWorkspace(
 }
 
 describe("agent-controlled extraction smoke", () => {
-  it("orchestrator handles decision language", async () => {
+  it("chat agent handles decision language", async () => {
     const { baseUrl, surreal } = getRuntime();
     const workspace = await createOnboardedWorkspace(baseUrl, surreal);
 
@@ -71,7 +71,7 @@ describe("agent-controlled extraction smoke", () => {
       throw new Error("Expected assistant_message event");
     }
 
-    // The orchestrator should either create a decision entity in DB
+    // The chat agent should either create a decision entity in DB
     // or acknowledge the decision in its response text
     const workspaceRecord = new RecordId("workspace", workspace.workspaceId);
     const [decisionRows] = await surreal

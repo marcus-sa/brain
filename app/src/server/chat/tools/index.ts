@@ -12,9 +12,9 @@ import { createResolveObservationTool } from "./resolve-observation";
 import { createResolveDecisionTool } from "./resolve-decision";
 import { createSearchEntitiesTool } from "./search-entities";
 import { createShowRelationshipGraphTool } from "./show-relationship-graph";
-import type { OrchestratorToolDeps } from "./types";
+import type { ChatAgentToolDeps } from "./types";
 
-export function createOrchestratorTools(deps: OrchestratorToolDeps) {
+export function createChatAgentTools(deps: ChatAgentToolDeps) {
   return {
     search_entities: createSearchEntitiesTool(deps),
     get_entity_detail: createGetEntityDetailTool(deps),
@@ -33,6 +33,6 @@ export function createOrchestratorTools(deps: OrchestratorToolDeps) {
   };
 }
 
-export const createChatTools = createOrchestratorTools;
+export const createChatTools = createChatAgentTools;
 
-export type { ChatToolDeps, ChatToolExecutionContext, OrchestratorToolDeps } from "./types";
+export type { ChatToolDeps, ChatToolExecutionContext, ChatAgentToolDeps } from "./types";

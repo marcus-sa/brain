@@ -88,7 +88,7 @@ describe("extraction quality smoke", () => {
       throw new Error("Known-person turn missing assistant_message");
     }
 
-    // Orchestrator should respond meaningfully (not just silently)
+    // Chat agent should respond meaningfully (not just silently)
     expect(assistantEvent.text.length).toBeGreaterThan(0);
 
     const peopleAfterKnown = await loadWorkspacePeople(surreal, workspaceRecord);

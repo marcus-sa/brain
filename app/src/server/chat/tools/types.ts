@@ -1,7 +1,7 @@
 import { RecordId, Surreal } from "surrealdb";
 
 export type ChatToolExecutionContext = {
-  actor: "chat_agent" | "mcp" | "orchestrator" | "pm_agent";
+  actor: "chat_agent" | "mcp" | "pm_agent";
   workspaceRecord: RecordId<"workspace", string>;
   conversationRecord: RecordId<"conversation", string>;
   currentMessageRecord: RecordId<"message", string>;
@@ -18,6 +18,6 @@ export type ChatToolDeps = {
   extractionStoreThreshold: number;
 };
 
-export type OrchestratorToolDeps = ChatToolDeps & {
+export type ChatAgentToolDeps = ChatToolDeps & {
   pmModel: any;
 };

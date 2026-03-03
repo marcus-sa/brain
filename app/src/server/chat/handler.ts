@@ -2,7 +2,7 @@ import { stepCountIs, streamText, type ModelMessage } from "ai";
 import { RecordId, Surreal } from "surrealdb";
 import type { ExtractedEntity, ExtractedRelationship, OnboardingState } from "../../shared/contracts";
 import { buildChatContext, buildSystemPrompt } from "./context";
-import { createOrchestratorTools } from "./tools";
+import { createChatAgentTools } from "./tools";
 
 type ConversationMessage = {
   role: "user" | "assistant";
@@ -12,13 +12,13 @@ type ConversationMessage = {
 type CollectedEntity = ExtractedEntity;
 type CollectedRelationship = ExtractedRelationship;
 
-export type OrchestratorResult = {
+export type ChatAgentResult = {
   text: string;
   collectedEntities: CollectedEntity[];
   collectedRelationships: CollectedRelationship[];
 };
 
-export async function runOrchestrator(input: {
+export async function runChatAgent(input: {
   surreal: Surreal;
   model: any;
   pmModel: any;
@@ -37,7 +37,7 @@ export async function runOrchestrator(input: {
   isOnboarding?: boolean;
   onboardingState?: OnboardingState;
   onToken: (token: string) => Promise<void> | void;
-}): Promise<OrchestratorResult> {
+}): Promise<ChatAgentResult> {
   const context = await buildChatContext({
     surreal: input.surreal,
     conversationRecord: input.conversationRecord,
@@ -60,7 +60,7 @@ export async function runOrchestrator(input: {
     model: input.model,
     system,
     messages: modelMessages,
-    tools: createOrchestratorTools({
+    tools: createChatAgentTools({
       surreal: input.surreal,
       pmModel: input.pmModel,
       embeddingModel: input.embeddingModel,
@@ -70,7 +70,7 @@ export async function runOrchestrator(input: {
       extractionStoreThreshold: input.extractionStoreThreshold,
     }),
     experimental_context: {
-      actor: "orchestrator",
+      actor: "chat_agent",
       workspaceRecord: input.workspaceRecord,
       conversationRecord: input.conversationRecord,
       currentMessageRecord: input.currentMessageRecord,
@@ -115,4 +115,4 @@ export async function runOrchestrator(input: {
   };
 }
 
-export const runGraphAwareChat = runOrchestrator;
+export const runGraphAwareChat = runChatAgent;

@@ -66,7 +66,7 @@ describe("onboarding smoke", () => {
     });
 
     const firstEvents = await collectSseEvents<StreamEvent>(`${baseUrl}${firstChat.streamUrl}`, 180_000);
-    // Orchestrator handles onboarding — verify it responds to the user
+    // Chat agent handles onboarding — verify it responds to the user
     expect(firstEvents.some((event) => event.type === "assistant_message")).toBe(true);
 
     const uploadForm = new FormData();

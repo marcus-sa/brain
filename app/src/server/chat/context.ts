@@ -166,7 +166,7 @@ type SystemPromptOptions = {
 
 export function buildSystemPrompt(context: ChatContext, options?: SystemPromptOptions): string {
   const sections: string[] = [
-    "You are the Orchestrator agent for a workspace-aware project intelligence system.",
+    "You are the Chat agent for a workspace-aware project intelligence system.",
     "You are a **thin orchestrator**: your job is to decide which tools and subagents to invoke, control sequencing, and synthesize user-facing responses.",
     "You have access to a workspace-scoped knowledge graph stored in SurrealDB.",
     "Never assume data from other workspaces.",
