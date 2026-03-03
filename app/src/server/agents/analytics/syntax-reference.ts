@@ -58,11 +58,30 @@ Time functions:
 - \`time::floor(datetime, duration)\` — round down
 - \`time::day(datetime)\`, \`time::month(datetime)\`, \`time::year(datetime)\`
 
+### GROUP BY / GROUP ALL
+Every non-aggregate field in the SELECT projection must appear in the GROUP BY clause. Use \`GROUP ALL\` to aggregate the entire table into a single row.
+
+\`\`\`sql
+-- Group by single field
+SELECT status, count() AS total FROM task GROUP BY status;
+
+-- Group by multiple fields
+SELECT gender, country, city FROM person GROUP BY gender, country, city;
+
+-- GROUP ALL: aggregate entire table
+SELECT count() AS total FROM task GROUP ALL;
+
+-- Unique values from nested arrays across all records
+SELECT array::group(tags) AS tags FROM article GROUP ALL;
+\`\`\`
+
 ### Aggregate Functions
 - \`count()\` — count rows in group
 - \`math::sum(expr)\` — sum values
 - \`math::mean(expr)\` — average
 - \`math::min(expr)\`, \`math::max(expr)\`
+- \`math::stddev(expr)\` — standard deviation
+- \`math::variance(expr)\` — variance
 - \`array::len(array)\` — array length
 
 ### Useful Built-in Functions
@@ -74,15 +93,37 @@ Time functions:
 - \`string::lowercase(str)\`, \`string::contains(str, substr)\`
 - \`type::is::record(value)\` — check if value is a record
 
+### WHERE Clause
+Supports boolean logic, graph edge conditions, numeric ranges, and nested array filtering.
+
+\`\`\`sql
+-- Boolean logic
+SELECT * FROM user WHERE (admin AND active) OR owner = true;
+
+-- Filter based on graph edge count
+SELECT * FROM profile WHERE count(->experience->organisation) > 3;
+
+-- Filter on graph edge properties
+SELECT * FROM person WHERE ->(reaction WHERE type = 'celebrate')->post;
+
+-- Numeric range (faster than two comparisons)
+SELECT * FROM person WHERE age IN 18..=65;
+
+-- Filter nested array values
+SELECT address[WHERE active = true] FROM person;
+
+-- Truthy check (present and not empty)
+SELECT name FROM person WHERE name;
+\`\`\`
+
 ### SPLIT Clause
 SPLIT expands array fields so each element becomes a separate row. Useful for analyzing individual items within array fields.
 
-\`\`\`sql
--- Split tags array so each tag gets its own row
-SELECT *, tags FROM task SPLIT tags;
+**SPLIT and GROUP BY are incompatible** — they cannot be used together (parsing error since v3.0.0). Use one or the other.
 
--- Count tasks per tag
-SELECT tags, count() AS total FROM task SPLIT tags GROUP BY tags;
+\`\`\`sql
+-- Split the results by each value in an array
+SELECT * FROM user SPLIT emails;
 \`\`\`
 
 ### WITH Clause (Index Hints)
@@ -139,6 +180,37 @@ SELECT title,
   ELSE { 'done' }
   AS category
 FROM task;
+\`\`\`
+
+### FOR Loop
+Iterate over array values or integer ranges.
+
+\`\`\`
+FOR @item IN @iterable { @block };
+\`\`\`
+
+\`\`\`sql
+-- Iterate over an array
+FOR $name IN ['Alpha', 'Beta'] {
+  CREATE type::record('project', $name) CONTENT { name: $name };
+};
+
+-- Iterate over an integer range (inclusive)
+FOR $i IN 0..=10 {
+  CREATE type::record('batch', $i) CONTENT { index: $i };
+};
+\`\`\`
+
+**Limitations:** Variables declared outside a FOR loop can be read inside the loop but NOT modified (assignment operators are only allowed in SET and DUPLICATE KEY UPDATE clauses). Use \`array::fold\` or \`array::reduce\` for accumulation instead.
+
+### RETURN Statement
+RETURN returns an implicit value or query result. Use it to set the return value for a transaction, block, or function.
+
+\`\`\`sql
+-- Return a computed value
+LET $open = (SELECT count() AS total FROM task WHERE status = 'open' GROUP ALL);
+LET $closed = (SELECT count() AS total FROM task WHERE status = 'closed' GROUP ALL);
+RETURN { open: $open[0].total, closed: $closed[0].total };
 \`\`\`
 
 ### Important Rules
