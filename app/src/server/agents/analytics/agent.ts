@@ -6,9 +6,9 @@ import { buildAnalyticsSystemPrompt } from "./prompt";
 import { createAnalyticsTools } from "./tools";
 
 const analyticsResultSchema = z.object({
-  answer: z.string().min(1),
-  query_executed: z.string(),
-  result_summary: z.string(),
+  answer: z.string().min(1).describe("Human-readable answer to the user's question. Write in natural language, not raw data."),
+  query_executed: z.string().describe("The SurrealQL query that was executed to obtain the result."),
+  result_summary: z.string().describe("Brief human-readable summary of the query results, e.g. '3 tasks found' or 'total of 12 features across 2 projects'."),
 });
 
 export type AnalyticsAgentOutput = z.infer<typeof analyticsResultSchema>;
