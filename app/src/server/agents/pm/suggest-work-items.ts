@@ -7,7 +7,7 @@ import { requireToolContext } from "../../chat/tools/helpers";
 import type { ChatToolDeps } from "../../chat/tools/types";
 
 type SuggestedWorkItem = {
-  kind: "task" | "feature";
+  kind: "task" | "feature" | "project";
   title: string;
   rationale: string;
   category?: EntityCategory;
@@ -40,7 +40,7 @@ export function createSuggestWorkItemsTool(deps: ChatToolDeps) {
     inputSchema: z.object({
       items: z.array(
         z.object({
-          kind: z.enum(["task", "feature"]).describe("Work item kind"),
+          kind: z.enum(["task", "feature", "project"]).describe("Work item kind"),
           title: z.string().min(1).describe("Concise work item title"),
           rationale: z.string().min(1).describe("Why this work item is needed"),
           category: z.enum(ENTITY_CATEGORIES).optional().describe("Optional work item category"),

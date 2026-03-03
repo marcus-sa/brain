@@ -2,6 +2,7 @@ import { createCreateObservationTool } from "../../chat/tools/create-observation
 import { createGetProjectStatusTool } from "../../chat/tools/get-project-status";
 import { createSearchEntitiesTool } from "../../chat/tools/search-entities";
 import type { ChatToolDeps } from "../../chat/tools/types";
+import { createCreateWorkItemTool } from "./create-work-item";
 import { createSuggestWorkItemsTool } from "./suggest-work-items";
 
 export function createPmTools(deps: ChatToolDeps) {
@@ -10,5 +11,6 @@ export function createPmTools(deps: ChatToolDeps) {
     get_project_status: createGetProjectStatusTool(deps),
     create_observation: createCreateObservationTool(deps),
     suggest_work_items: createSuggestWorkItemsTool(deps),
+    create_work_item: createCreateWorkItemTool(deps),
   };
 }

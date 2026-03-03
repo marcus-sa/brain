@@ -14,6 +14,8 @@ export type ChatToolDeps = {
   embeddingModel: any;
   embeddingDimension: number;
   extractionModelId: string;
+  extractionModel: any;
+  extractionStoreThreshold: number;
 };
 
 export type OrchestratorToolDeps = ChatToolDeps & {

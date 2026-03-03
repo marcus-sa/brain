@@ -3,6 +3,7 @@ import { createCheckConstraintsTool } from "./check-constraints";
 import { createConfirmDecisionTool } from "./confirm-decision";
 import { createCreateObservationTool } from "./create-observation";
 import { createCreateProvisionalDecisionTool } from "./create-provisional-decision";
+import { createCreateQuestionTool } from "./create-question";
 import { createGetConversationHistoryTool } from "./get-conversation-history";
 import { createGetEntityDetailTool } from "./get-entity-detail";
 import { createGetProjectStatusTool } from "./get-project-status";
@@ -22,6 +23,7 @@ export function createOrchestratorTools(deps: OrchestratorToolDeps) {
     resolve_decision: createResolveDecisionTool(deps),
     check_constraints: createCheckConstraintsTool(deps),
     create_provisional_decision: createCreateProvisionalDecisionTool(deps),
+    create_question: createCreateQuestionTool(deps),
     confirm_decision: createConfirmDecisionTool(deps),
     create_observation: createCreateObservationTool(deps),
     acknowledge_observation: createAcknowledgeObservationTool(deps),

@@ -1,12 +1,12 @@
 import { generateText, Output, stepCountIs } from "ai";
 import { z } from "zod";
-import { ENTITY_CATEGORIES } from "../../../shared/contracts";
+import { ENTITY_CATEGORIES, type ExtractedEntity, type ExtractedRelationship } from "../../../shared/contracts";
 import type { ChatToolDeps, ChatToolExecutionContext } from "../../chat/tools/types";
 import { buildPmSystemPrompt } from "./prompt";
 import { createPmTools } from "./tools";
 
 const workItemSuggestionSchema = z.object({
-  kind: z.enum(["task", "feature"]),
+  kind: z.enum(["task", "feature", "project"]),
   title: z.string().min(1),
   rationale: z.string().min(1),
   category: z.enum(ENTITY_CATEGORIES).optional(),
@@ -43,6 +43,11 @@ const pmAgentResultSchema = z.object({
 export type WorkItemSuggestion = z.infer<typeof workItemSuggestionSchema>;
 export type PmAgentResult = z.infer<typeof pmAgentResultSchema>;
 
+export type PmAgentOutput = PmAgentResult & {
+  extracted_entities: ExtractedEntity[];
+  extracted_relationships: ExtractedRelationship[];
+};
+
 export type PmAgentInput = {
   deps: ChatToolDeps & { pmModel: any };
   context: ChatToolExecutionContext;
@@ -53,12 +58,12 @@ export type PmAgentInput = {
 
 const INTENT_INSTRUCTIONS: Record<PmAgentInput["intent"], string> = {
   check_status: "Primary action: call get_project_status when a project scope is available.",
-  plan_work: "Primary action: propose tasks/features with suggest_work_items, deduping each item.",
+  plan_work: "Primary action: propose tasks/features/projects with suggest_work_items or create_work_item, deduping each item.",
   track_dependencies: "Primary action: identify blockers/dependencies and create observations for high-risk paths.",
   organize: "Primary action: organize work into clear, deduplicated next steps.",
 };
 
-export async function runPmAgent(input: PmAgentInput): Promise<PmAgentResult> {
+export async function runPmAgent(input: PmAgentInput): Promise<PmAgentOutput> {
   const system = await buildPmSystemPrompt({
     surreal: input.deps.surreal,
     workspaceRecord: input.context.workspaceRecord,
@@ -85,5 +90,26 @@ export async function runPmAgent(input: PmAgentInput): Promise<PmAgentResult> {
     throw new Error("pm agent did not produce structured output");
   }
 
-  return result.output;
+  const extracted_entities: ExtractedEntity[] = [];
+  const extracted_relationships: ExtractedRelationship[] = [];
+
+  for (const step of result.steps) {
+    for (const toolResult of step.toolResults) {
+      const res = toolResult.output as Record<string, unknown> | undefined;
+      if (res) {
+        if (Array.isArray(res.extracted_entities)) {
+          extracted_entities.push(...(res.extracted_entities as ExtractedEntity[]));
+        }
+        if (Array.isArray(res.extracted_relationships)) {
+          extracted_relationships.push(...(res.extracted_relationships as ExtractedRelationship[]));
+        }
+      }
+    }
+  }
+
+  return {
+    ...result.output,
+    extracted_entities,
+    extracted_relationships,
+  };
 }

@@ -1292,6 +1292,74 @@ export async function createDecisionRecord(input: {
   return decisionRecord;
 }
 
+export async function createQuestionRecord(input: {
+  surreal: Surreal;
+  text: string;
+  status: string;
+  now: Date;
+  workspaceRecord: RecordId<"workspace", string>;
+  sourceMessageRecord?: RecordId<"message", string>;
+  category?: string;
+  priority?: string;
+  assignedToName?: string;
+  projectRecord?: RecordId<"project", string>;
+  featureRecord?: RecordId<"feature", string>;
+}): Promise<RecordId<"question", string>> {
+  const questionRecord = new RecordId("question", randomUUID());
+
+  await input.surreal.create(questionRecord).content({
+    text: input.text,
+    status: input.status,
+    created_at: input.now,
+    updated_at: input.now,
+    workspace: input.workspaceRecord,
+    ...(input.sourceMessageRecord ? { source_message: input.sourceMessageRecord } : {}),
+    ...(input.category ? { category: input.category } : {}),
+    ...(input.priority ? { priority: input.priority } : {}),
+    ...(input.assignedToName ? { assigned_to_name: input.assignedToName } : {}),
+  });
+
+  if (input.projectRecord) {
+    await input.surreal.relate(questionRecord, new RecordId("belongs_to", randomUUID()), input.projectRecord, {
+      added_at: input.now,
+    }).output("after");
+  }
+
+  if (input.featureRecord) {
+    await input.surreal.relate(questionRecord, new RecordId("belongs_to", randomUUID()), input.featureRecord, {
+      added_at: input.now,
+    }).output("after");
+  }
+
+  return questionRecord;
+}
+
+export async function createProjectRecord(input: {
+  surreal: Surreal;
+  name: string;
+  status: string;
+  now: Date;
+  workspaceRecord: RecordId<"workspace", string>;
+  sourceMessageRecord?: RecordId<"message", string>;
+}): Promise<RecordId<"project", string>> {
+  const projectRecord = new RecordId("project", randomUUID());
+
+  await input.surreal.create(projectRecord).content({
+    name: input.name,
+    status: input.status,
+    created_at: input.now,
+    updated_at: input.now,
+    workspace: input.workspaceRecord,
+    ...(input.sourceMessageRecord ? { source_message: input.sourceMessageRecord } : {}),
+  });
+
+  await input.surreal.relate(input.workspaceRecord, new RecordId("has_project", randomUUID()), projectRecord, {
+    added_at: input.now,
+  }).output("after");
+
+  return projectRecord;
+}
+
 export async function createExtractionProvenanceEdge(input: {
   surreal: Surreal;
   sourceRecord: RecordId<"message", string>;
