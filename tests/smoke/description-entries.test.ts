@@ -14,6 +14,8 @@ const surrealPassword = process.env.SURREAL_PASSWORD ?? "root";
 let surreal: Surreal;
 let namespace: string;
 let database: string;
+let workspaceRecord: RecordId<"workspace", string>;
+let conversationRecord: RecordId<"conversation", string>;
 
 beforeAll(async () => {
   const runId = `${Date.now()}_${Math.floor(Math.random() * 100000)}`;
@@ -30,6 +32,26 @@ beforeAll(async () => {
 
   const schema = readFileSync(join(process.cwd(), "schema", "surreal-schema.surql"), "utf8");
   await surreal.query(schema);
+
+  // Shared workspace and conversation for all test entities
+  workspaceRecord = new RecordId("workspace", randomUUID());
+  const now = new Date();
+  await surreal.create(workspaceRecord).content({
+    name: "Description Test Workspace",
+    status: "active",
+    onboarding_complete: true,
+    onboarding_turn_count: 0,
+    onboarding_summary_pending: false,
+    onboarding_started_at: now,
+    created_at: now,
+  });
+
+  conversationRecord = new RecordId("conversation", randomUUID());
+  await surreal.create(conversationRecord).content({
+    workspace: workspaceRecord,
+    createdAt: now,
+    updatedAt: now,
+  });
 }, 30_000);
 
 afterAll(async () => {
@@ -45,7 +67,7 @@ async function createProject(name: string): Promise<RecordId> {
   const record = new RecordId("project", id);
   await surreal.query("CREATE $record CONTENT $content;", {
     record,
-    content: { name, status: "active", created_at: new Date() },
+    content: { name, status: "active", workspace: workspaceRecord, created_at: new Date() },
   });
   return record;
 }
@@ -65,7 +87,7 @@ async function createTask(title: string): Promise<RecordId> {
   const record = new RecordId("task", id);
   await surreal.query("CREATE $record CONTENT $content;", {
     record,
-    content: { title, status: "open", created_at: new Date() },
+    content: { title, status: "open", workspace: workspaceRecord, created_at: new Date() },
   });
   return record;
 }
@@ -75,7 +97,7 @@ async function createDecision(summary: string): Promise<RecordId> {
   const record = new RecordId("decision", id);
   await surreal.query("CREATE $record CONTENT $content;", {
     record,
-    content: { summary, status: "extracted", created_at: new Date() },
+    content: { summary, status: "extracted", workspace: workspaceRecord, created_at: new Date() },
   });
   return record;
 }
@@ -85,7 +107,7 @@ async function createMessage(text: string): Promise<RecordId> {
   const record = new RecordId("message", id);
   await surreal.query("CREATE $record CONTENT $content;", {
     record,
-    content: { text, role: "user", created_at: new Date() },
+    content: { text, role: "user", conversation: conversationRecord, createdAt: new Date() },
   });
   return record;
 }

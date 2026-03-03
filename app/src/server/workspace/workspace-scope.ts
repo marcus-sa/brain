@@ -42,6 +42,7 @@ export async function ensureDefaultWorkspaceProjectScope(surreal: Surreal): Prom
       name: "AI-Native Business Management Platform",
       status: "active",
       description: "Default dogfooding project",
+      workspace: workspaceRecord,
       created_at: now,
       updated_at: now,
     });
