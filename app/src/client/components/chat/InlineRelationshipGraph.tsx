@@ -1,4 +1,4 @@
-import { GraphCanvas } from "reagraph";
+import { GraphCanvas, darkTheme } from "reagraph";
 import type { EntityKind } from "../../../shared/contracts";
 import type { InlineRelationshipGraphProps } from "../../../shared/chat-component-definitions";
 import { edgeStyle } from "../graph/graph-theme";
@@ -62,6 +62,7 @@ export function InlineRelationshipGraph(props: InlineRelationshipGraphProps) {
       <p className="extraction-summary-title">{props.title}</p>
       <div style={{ height: 300, position: "relative" }}>
         <GraphCanvas
+          theme={darkTheme}
           nodes={nodes as any}
           edges={edges as any}
           selections={props.focusNodeIds ?? []}
