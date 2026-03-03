@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "2166d7ccaf60",
+  "session_id": "8ec32f40-b2f7-4ac1-9bb6-62cc21883aae",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-03T04:14:37.701628Z",
+  "branch": "marcus-sa/svelte-ui-scaffold",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "app/src/server/chat/tools/create-provisional-decision.ts",
+    "app/src/server/chat/tools/resolve-decision.ts",
+    "app/src/server/entities/entity-actions-route.ts",
+    "app/src/server/graph/queries.ts",
+    "schema/surreal-schema.surql",
+    "AGENTS.md",
+    "app/src/server/entities/work-item-accept-route.ts",
+    "app/src/server/extraction/entity-upsert.ts",
+    "app/src/server/feed/feed-queries.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "0e07060c0134",
+  "token_usage": {
+    "input_tokens": 26,
+    "cache_creation_tokens": 39723,
+    "cache_read_tokens": 77204,
+    "output_tokens": 537,
+    "api_call_count": 3
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-03T04:14:37.690912Z",
+    "agent_lines": 45,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 45,
+    "agent_percentage": 100
+  }
+}
