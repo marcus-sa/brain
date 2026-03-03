@@ -3,7 +3,7 @@
   "checkpoint_id": "9c904f783e1d",
   "strategy": "manual-commit",
   "branch": "marcus-sa/recordid-table-access",
-  "checkpoints_count": 0,
+  "checkpoints_count": 1,
   "files_touched": [
     "AGENTS.md",
     "app/src/server/extraction/context-loaders.ts",
@@ -21,13 +21,20 @@
       "context": "/9c/904f783e1d/0/context.md",
       "content_hash": "/9c/904f783e1d/0/content_hash.txt",
       "prompt": "/9c/904f783e1d/0/prompt.txt"
+    },
+    {
+      "metadata": "/9c/904f783e1d/1/metadata.json",
+      "transcript": "/9c/904f783e1d/1/full.jsonl",
+      "context": "/9c/904f783e1d/1/context.md",
+      "content_hash": "/9c/904f783e1d/1/content_hash.txt",
+      "prompt": "/9c/904f783e1d/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 42,
-    "cache_creation_tokens": 23904,
-    "cache_read_tokens": 177353,
-    "output_tokens": 739,
-    "api_call_count": 5
+    "input_tokens": 72,
+    "cache_creation_tokens": 71817,
+    "cache_read_tokens": 1504570,
+    "output_tokens": 9687,
+    "api_call_count": 29
   }
 }
