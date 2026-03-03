@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "df4e7c33a1ec",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/analytics-agent",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "app/src/server/workspace/conversation-sidebar.ts",
+    "schema/surreal-schema.surql"
+  ],
+  "sessions": [
+    {
+      "metadata": "/df/4e7c33a1ec/0/metadata.json",
+      "transcript": "/df/4e7c33a1ec/0/full.jsonl",
+      "context": "/df/4e7c33a1ec/0/context.md",
+      "content_hash": "/df/4e7c33a1ec/0/content_hash.txt",
+      "prompt": "/df/4e7c33a1ec/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 21,
+    "cache_creation_tokens": 8897,
+    "cache_read_tokens": 1092142,
+    "output_tokens": 2260,
+    "api_call_count": 15
+  }
+}
