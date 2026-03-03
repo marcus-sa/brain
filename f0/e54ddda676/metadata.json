@@ -1,0 +1,36 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "f0e54ddda676",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/extraction-to-pm-tool",
+  "checkpoints_count": 3,
+  "files_touched": [
+    "app/src/server/agents/pm/agent.ts",
+    "app/src/server/chat/chat-processor.ts",
+    "app/src/server/chat/handler.ts",
+    "app/src/server/chat/tools/types.ts",
+    "app/src/server/onboarding/onboarding-reply.ts",
+    "app/src/server/runtime/config.ts",
+    "app/src/server/runtime/dependencies.ts",
+    "app/src/server/runtime/start-server.ts",
+    "app/src/server/runtime/types.ts",
+    "evals/eval-test-kit.ts",
+    "evals/suggestions.eval.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/f0/e54ddda676/0/metadata.json",
+      "transcript": "/f0/e54ddda676/0/full.jsonl",
+      "context": "/f0/e54ddda676/0/context.md",
+      "content_hash": "/f0/e54ddda676/0/content_hash.txt",
+      "prompt": "/f0/e54ddda676/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 5283,
+    "cache_creation_tokens": 277311,
+    "cache_read_tokens": 10084658,
+    "output_tokens": 36994,
+    "api_call_count": 105
+  }
+}

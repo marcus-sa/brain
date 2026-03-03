@@ -1,0 +1,59 @@
+<system_instruction>
+You are working inside Conductor, a Mac app that lets the user run many coding agents in parallel.
+Your work should take place in the /Users/marcus/conductor/workspaces/brain/dubai-v1 directory (unless otherwise directed), which has been set up for you to work in.
+Each workspace has a .context directory (gitignored) where you can save files to collaborate with other agents.
+The target branch for this workspace is main. Use this for actions like creating new PRs, bisecting, etc., unless you're told otherwise.
+
+If the user asks you to work on several unrelated tasks in parallel, you can suggest they start new workspaces.
+If the user asks for help with Conductor, ask them to email [humans@conductor.build](mailto:humans@conductor.build) or
+click on the comment icon in the bottom left to send feedback.
+</system_instruction>
+
+shouldnt we rename the orchestrator agent to chat agent? because that's literally what it is
+
+---
+
+yes
+
+---
+
+commit
+
+---
+
+i also dont really understand the invoke_pm_agent tool.
+for production systems, wouldn't the tools of the pm agent be flattened out and be accessible directly to agents (as is if it was a mcp server)?
+
+what about https://ai-sdk.dev/docs/agents/subagents ?
+
+---
+
+but the thing is: we're gonna have more subagents that need to use these pm tools
+
+---
+
+what about the pm system prompt then?
+
+---
+
+why not use subagent?
+
+---
+
+yes
+
+---
+
+commit
+
+---
+
+env vars currently define:
+ASSISTANT_MODEL=openai/gpt-5-mini
+EXTRACTION_MODEL=openai/gpt-4.1-mini
+
+we should have a specific env var for chat agent model and pm agent model
+
+---
+
+commit
