@@ -1,0 +1,31 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "248c0aeecf4f",
+  "session_id": "77dd9d1c-c69c-43c9-a35d-97ec216af5d3",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-03T06:40:53.91224Z",
+  "branch": "marcus-sa/extraction-to-pm-tool",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "tests/smoke/onboarding.test.ts",
+    "tests/smoke/readme-import.test.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "c10dfa590b52",
+  "token_usage": {
+    "input_tokens": 4450,
+    "cache_creation_tokens": 376031,
+    "cache_read_tokens": 22929208,
+    "output_tokens": 71588,
+    "api_call_count": 225
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-03T06:40:52.271272Z",
+    "agent_lines": 6,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 6,
+    "agent_percentage": 100
+  }
+}
