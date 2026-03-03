@@ -86,11 +86,11 @@ async function handleFeed(deps: ServerDependencies, workspaceId: string): Promis
 
     // Blocking: provisional decisions
     for (const row of provisionalDecisions) {
-      const entityId = row.id.id as string;
+      const rawId = row.id.id as string;
       blocking.push({
-        id: `decision:${entityId}:${row.status}`,
+        id: `decision:${rawId}:${row.status}`,
         tier: "blocking",
-        entityId,
+        entityId: `decision:${rawId}`,
         entityKind: "decision",
         entityName: row.summary,
         reason: `${capitalize(row.status)} decision awaiting confirmation`,
@@ -108,7 +108,7 @@ async function handleFeed(deps: ServerDependencies, workspaceId: string): Promis
       blocking.push({
         id: `conflict:${row.edgeId}`,
         tier: "blocking",
-        entityId: row.fromRecord.id as string,
+        entityId: `${row.fromKind}:${row.fromRecord.id as string}`,
         entityKind: row.fromKind as EntityKind,
         entityName: row.fromName,
         reason: row.description ?? `Conflicts with ${row.toName}`,
@@ -117,7 +117,7 @@ async function handleFeed(deps: ServerDependencies, workspaceId: string): Promis
         createdAt: row.detectedAt,
         actions: conflictActions(),
         conflictTarget: {
-          entityId: row.toRecord.id as string,
+          entityId: `${row.toKind}:${row.toRecord.id as string}`,
           entityKind: row.toKind as EntityKind,
           entityName: row.toName,
         },
@@ -126,11 +126,11 @@ async function handleFeed(deps: ServerDependencies, workspaceId: string): Promis
 
     // Blocking: high/critical questions
     for (const row of blockingQuestions) {
-      const entityId = row.id.id as string;
+      const rawId = row.id.id as string;
       blocking.push({
-        id: `question:${entityId}:blocking`,
+        id: `question:${rawId}:blocking`,
         tier: "blocking",
-        entityId,
+        entityId: `question:${rawId}`,
         entityKind: "question",
         entityName: row.text,
         reason: `${capitalize(row.priority)} priority open question`,
@@ -145,11 +145,11 @@ async function handleFeed(deps: ServerDependencies, workspaceId: string): Promis
 
     // Review: low confidence decisions
     for (const row of lowConfidenceDecisions) {
-      const entityId = row.id.id as string;
+      const rawId = row.id.id as string;
       review.push({
-        id: `decision:${entityId}:low_confidence`,
+        id: `decision:${rawId}:low_confidence`,
         tier: "review",
-        entityId,
+        entityId: `decision:${rawId}`,
         entityKind: "decision",
         entityName: row.summary,
         reason: `Low confidence inferred decision (${Math.round(row.extraction_confidence * 100)}%)`,
@@ -164,11 +164,11 @@ async function handleFeed(deps: ServerDependencies, workspaceId: string): Promis
 
     // Review: blocked tasks
     for (const row of blockedTasks) {
-      const entityId = row.id.id as string;
+      const rawId = row.id.id as string;
       review.push({
-        id: `task:${entityId}:blocked`,
+        id: `task:${rawId}:blocked`,
         tier: "review",
-        entityId,
+        entityId: `task:${rawId}`,
         entityKind: "task",
         entityName: row.title,
         reason: "Task is blocked",
@@ -181,13 +181,12 @@ async function handleFeed(deps: ServerDependencies, workspaceId: string): Promis
       });
     }
 
-    // Review + Awareness: observations (warning = review, info = awareness)
+    // Review: all open/acknowledged observations need human action
     for (const obs of observations) {
-      const tier = obs.severity === "info" ? "awareness" : "review";
-      const item: GovernanceFeedItem = {
+      review.push({
         id: `observation:${obs.id}:${obs.severity}`,
-        tier,
-        entityId: obs.id,
+        tier: "review",
+        entityId: `observation:${obs.id}`,
         entityKind: "observation",
         entityName: obs.text,
         reason: `${capitalize(obs.severity)} observation from ${obs.sourceAgent}`,
@@ -196,22 +195,16 @@ async function handleFeed(deps: ServerDependencies, workspaceId: string): Promis
         severity: obs.severity,
         createdAt: obs.createdAt,
         actions: observationActions(obs.status),
-      };
-
-      if (tier === "review") {
-        review.push(item);
-      } else {
-        awareness.push(item);
-      }
+      });
     }
 
     // Awareness: stale tasks
     for (const row of staleTasks) {
-      const entityId = row.id.id as string;
+      const rawId = row.id.id as string;
       awareness.push({
-        id: `task:${entityId}:stale`,
+        id: `task:${rawId}:stale`,
         tier: "awareness",
-        entityId,
+        entityId: `task:${rawId}`,
         entityKind: "task",
         entityName: row.title,
         reason: `Task open for over ${STALE_DAYS} days`,
@@ -226,11 +219,11 @@ async function handleFeed(deps: ServerDependencies, workspaceId: string): Promis
 
     // Awareness: recently completed
     for (const row of recentlyCompleted) {
-      const entityId = row.id.id as string;
+      const rawId = row.id.id as string;
       awareness.push({
-        id: `${row.kind}:${entityId}:completed`,
+        id: `${row.kind}:${rawId}:completed`,
         tier: "awareness",
-        entityId,
+        entityId: `${row.kind}:${rawId}`,
         entityKind: row.kind as EntityKind,
         entityName: row.name,
         reason: `Recently completed ${row.kind}`,
@@ -242,12 +235,18 @@ async function handleFeed(deps: ServerDependencies, workspaceId: string): Promis
       });
     }
 
-    // Awareness: recent extractions
+    // Awareness: recent extractions (skip entities already in higher tiers)
+    const seenEntityIds = new Set<string>();
+    for (const item of [...blocking, ...review, ...awareness]) {
+      seenEntityIds.add(item.entityId);
+    }
     for (const row of recentExtractions) {
+      const entityId = `${row.entityKind}:${row.entityId}`;
+      if (seenEntityIds.has(entityId)) continue;
       awareness.push({
         id: `extraction:${row.edgeId}`,
         tier: "awareness",
-        entityId: row.entityId,
+        entityId,
         entityKind: row.entityKind as EntityKind,
         entityName: row.entityName,
         reason: `Extracted from ${row.sourceKind.replace("_", " ")}`,

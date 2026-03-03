@@ -121,12 +121,16 @@ function WorkItemSuggestion(props: WorkItemSuggestionProps) {
   const [status, setStatus] = useState<WorkItemStatus>("pending");
 
   async function handleAccept() {
-    if (!workspaceId || status !== "pending") return;
+    if (!workspaceId || status !== "pending") {
+      console.warn("[WorkItemSuggestion] accept skipped", { workspaceId, status });
+      return;
+    }
     setStatus("accepting");
     try {
       await acceptWorkItem(workspaceId, props);
       setStatus("accepted");
-    } catch {
+    } catch (error) {
+      console.error("[WorkItemSuggestion] accept failed", error);
       setStatus("pending");
     }
   }
@@ -187,12 +191,15 @@ function WorkItemSuggestionList(props: WorkItemSuggestionListProps) {
   const [dismissedAll, setDismissedAll] = useState(false);
 
   async function handleAcceptAll() {
-    if (!workspaceId || allStatus === "accepting") return;
+    if (!workspaceId || allStatus === "accepting") {
+      console.warn("[WorkItemSuggestionList] acceptAll skipped", { workspaceId, allStatus });
+      return;
+    }
     setAllStatus("accepting");
     try {
       await Promise.all(props.items.map((item) => acceptWorkItem(workspaceId, item)));
-    } catch {
-      // individual items handle their own state
+    } catch (error) {
+      console.error("[WorkItemSuggestionList] acceptAll failed", error);
     }
     setAllStatus("idle");
   }
