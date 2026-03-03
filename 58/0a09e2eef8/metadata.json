@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "580a09e2eef8",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/option-f-ui",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "app/src/client/components/graph/DescriptionSection.tsx"
+  ],
+  "sessions": [
+    {
+      "metadata": "/58/0a09e2eef8/0/metadata.json",
+      "transcript": "/58/0a09e2eef8/0/full.jsonl",
+      "context": "/58/0a09e2eef8/0/context.md",
+      "content_hash": "/58/0a09e2eef8/0/content_hash.txt",
+      "prompt": "/58/0a09e2eef8/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 27,
+    "cache_creation_tokens": 45722,
+    "cache_read_tokens": 666528,
+    "output_tokens": 4063,
+    "api_call_count": 18
+  }
+}
