@@ -10,6 +10,8 @@ import {
 } from "reachat";
 import { chatComponentCatalog } from "../chat-component-catalog";
 import { darkChatTheme } from "../chat-theme";
+import { DiscussEntityCard } from "../components/chat/DiscussEntityCard";
+import type { DiscussEntitySummary } from "../../shared/contracts";
 import { useWorkspaceState } from "../stores/workspace-state";
 import { useChatSession } from "../hooks/use-chat-session";
 
@@ -78,6 +80,12 @@ export function ChatPage() {
             </button>
           </div>
         </div>
+      ) : undefined}
+
+      {(chat.discussEntity ?? chat.conversationDiscussEntity) ? (
+        <DiscussEntityCard
+          entity={(chat.discussEntity ?? chat.conversationDiscussEntity) as DiscussEntitySummary}
+        />
       ) : undefined}
 
       <div className="chat-main">

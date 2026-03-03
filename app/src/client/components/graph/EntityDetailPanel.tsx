@@ -28,6 +28,7 @@ export function EntityDetailPanel({
   const [error, setError] = useState<string | undefined>();
   const [actionPending, setActionPending] = useState(false);
   const navigateToChat = useViewState((s) => s.navigateToChat);
+  const navigateToDiscussEntity = useViewState((s) => s.navigateToDiscussEntity);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -228,25 +229,37 @@ export function EntityDetailPanel({
 
       <ProvenanceSection provenance={detail.provenance} onJumpToMessage={handleJumpToMessage} />
 
-      {(showConfirm || showOverride || showComplete) ? (
-        <div className="entity-detail-actions">
-          {showConfirm ? (
-            <button type="button" disabled={actionPending} onClick={handleConfirm}>
-              Confirm
-            </button>
-          ) : undefined}
-          {showOverride ? (
-            <button type="button" disabled={actionPending} onClick={handleOverride}>
-              Override
-            </button>
-          ) : undefined}
-          {showComplete ? (
-            <button type="button" disabled={actionPending} onClick={handleComplete}>
-              Mark Complete
-            </button>
-          ) : undefined}
-        </div>
-      ) : undefined}
+      <div className="entity-detail-actions">
+        <button
+          type="button"
+          onClick={() => {
+            navigateToDiscussEntity({
+              id: entityId,
+              kind,
+              name: detail.entity.name,
+              ...(status ? { status } : {}),
+            });
+            void navigate({ to: "/chat" });
+          }}
+        >
+          Discuss
+        </button>
+        {showConfirm ? (
+          <button type="button" disabled={actionPending} onClick={handleConfirm}>
+            Confirm
+          </button>
+        ) : undefined}
+        {showOverride ? (
+          <button type="button" disabled={actionPending} onClick={handleOverride}>
+            Override
+          </button>
+        ) : undefined}
+        {showComplete ? (
+          <button type="button" disabled={actionPending} onClick={handleComplete}>
+            Mark Complete
+          </button>
+        ) : undefined}
+      </div>
     </aside>
   );
 }

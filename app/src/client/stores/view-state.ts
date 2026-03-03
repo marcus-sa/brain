@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { DiscussEntitySummary } from "../../shared/contracts";
 
 type ViewState = {
   selectedEntityId: string | undefined;
@@ -7,6 +8,7 @@ type ViewState = {
   graphCenterId: string | undefined;
   graphDepth: number;
   highlightMessageId: string | undefined;
+  discussEntity: DiscussEntitySummary | undefined;
 
   selectEntity: (entityId: string | undefined) => void;
   setGraphViewMode: (mode: "project" | "focused") => void;
@@ -15,6 +17,8 @@ type ViewState = {
   navigateToGraph: (entityId: string) => void;
   navigateToChat: (messageId: string) => void;
   clearHighlight: () => void;
+  navigateToDiscussEntity: (entity: DiscussEntitySummary) => void;
+  clearDiscussEntity: () => void;
 };
 
 export const useViewState = create<ViewState>((set) => ({
@@ -24,6 +28,7 @@ export const useViewState = create<ViewState>((set) => ({
   graphCenterId: undefined,
   graphDepth: 2,
   highlightMessageId: undefined,
+  discussEntity: undefined,
 
   selectEntity: (entityId) => set({ selectedEntityId: entityId }),
 
@@ -45,4 +50,9 @@ export const useViewState = create<ViewState>((set) => ({
     set({ highlightMessageId: messageId }),
 
   clearHighlight: () => set({ highlightMessageId: undefined }),
+
+  navigateToDiscussEntity: (entity) =>
+    set({ discussEntity: entity }),
+
+  clearDiscussEntity: () => set({ discussEntity: undefined }),
 }));
