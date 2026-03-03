@@ -5,14 +5,12 @@ export const SURREALQL_SYNTAX_REFERENCE = `
 \`\`\`
 SELECT [ VALUE ] @fields [ AS @alias ] [ OMIT @fields ]
   FROM [ ONLY ] @targets
-  [ WITH [ NOINDEX | INDEX @indexes ... ] ]
   [ WHERE @conditions ]
   [ SPLIT [ ON ] @field, ... ]
   [ GROUP [ BY ] @field, ... ]
   [ ORDER [ BY ] @field [ COLLATE ] [ NUMERIC ] [ ASC | DESC ], ... | RAND() ]
   [ LIMIT @number [ START @start ] ]
   [ FETCH @fields ... ]
-  [ TIMEOUT @duration ]
 ;
 \`\`\`
 
@@ -27,17 +25,23 @@ SurrealDB uses arrow syntax for graph traversal — NOT SQL JOINs.
 
 Examples:
 \`\`\`sql
--- Forward: tasks belonging to a project
-SELECT ->belongs_to->project FROM task;
+-- Tasks belonging to a feature
+SELECT <-has_task<-task FROM feature;
 
--- Reverse: tasks that belong to a project
-SELECT <-belongs_to<-task FROM project;
+-- Projects in a workspace
+SELECT ->has_project->project FROM workspace;
 
--- Projection: get specific fields from traversal
-SELECT ->belongs_to->project.{name, status} FROM task;
+-- Multi-hop: tasks in projects of a workspace
+SELECT ->has_project->project->has_feature->feature->has_task->task FROM workspace;
 
--- Multi-hop: features of projects in a workspace
-SELECT ->has_project->project->has_feature->feature FROM workspace;
+-- Dependency chain traversal
+SELECT ->depends_on->task.{title, status} FROM task;
+
+-- Observations linked to a project
+SELECT <-observes<-observation FROM project;
+
+-- Filter on graph edge properties
+SELECT * FROM task WHERE ->depends_on[WHERE type = 'blocks']->task;
 \`\`\`
 
 ### Time Literals & Functions
@@ -62,26 +66,26 @@ Time functions:
 Every non-aggregate field in the SELECT projection must appear in the GROUP BY clause. Use \`GROUP ALL\` to aggregate the entire table into a single row.
 
 \`\`\`sql
--- Group by single field
+-- Count tasks by status
 SELECT status, count() AS total FROM task GROUP BY status;
 
--- Group by multiple fields
-SELECT gender, country, city FROM person GROUP BY gender, country, city;
+-- Count tasks by status and priority
+SELECT status, priority, count() AS total FROM task GROUP BY status, priority;
 
--- GROUP ALL: aggregate entire table
+-- Total count across entire table
 SELECT count() AS total FROM task GROUP ALL;
 
--- Unique values from nested arrays across all records
-SELECT array::group(tags) AS tags FROM article GROUP ALL;
+-- Collect unique values from arrays across all records
+SELECT array::group(options_considered) AS all_options FROM decision GROUP ALL;
 \`\`\`
+
+**SPLIT and GROUP BY are incompatible** — they cannot be used together (parsing error since v3.0.0).
 
 ### Aggregate Functions
 - \`count()\` — count rows in group
 - \`math::sum(expr)\` — sum values
 - \`math::mean(expr)\` — average
 - \`math::min(expr)\`, \`math::max(expr)\`
-- \`math::stddev(expr)\` — standard deviation
-- \`math::variance(expr)\` — variance
 - \`array::len(array)\` — array length
 
 ### Useful Built-in Functions
@@ -89,63 +93,61 @@ SELECT array::group(tags) AS tags FROM article GROUP ALL;
 - \`record::id(id)\` — get the ID portion of a record ID
 - \`array::flatten(array)\` — flatten nested arrays
 - \`array::distinct(array)\` — unique values
+- \`array::group(array)\` — collect arrays across groups
 - \`array::len(array)\` — array length
 - \`string::lowercase(str)\`, \`string::contains(str, substr)\`
 - \`type::is::record(value)\` — check if value is a record
 
+### Operators
+Comparison: \`=\` (or \`IS\`), \`!=\` (or \`IS NOT\`), \`==\` (exact type-checked), \`<\`, \`<=\`, \`>\`, \`>=\`
+Logic: \`AND\` (or \`&&\`), \`OR\` (or \`||\`), \`!\` (negate)
+Membership: \`IN\` (value in array/string), \`NOT IN\`, \`CONTAINS\` (array/string contains value), \`CONTAINSALL\`, \`CONTAINSANY\`
+Coalescing: \`??\` (null coalescing — first non-NONE value), \`?:\` (truthy coalescing — first truthy value)
+Arithmetic: \`+\`, \`-\` (used with duration literals for time math)
+
+\`\`\`sql
+-- Null coalescing: fallback for optional fields
+SELECT title, priority ?? 'unset' AS priority FROM task;
+
+-- Truthy coalescing: fallback for empty strings
+SELECT owner_name ?: 'unassigned' AS owner FROM task;
+
+-- Array membership
+SELECT * FROM decision WHERE status IN ['provisional', 'extracted'];
+
+-- Array contains check
+SELECT * FROM decision WHERE options_considered CONTAINS 'PostgreSQL';
+\`\`\`
+
 ### WHERE Clause
-Supports boolean logic, graph edge conditions, numeric ranges, and nested array filtering.
+Supports boolean logic, graph edge conditions, and field presence checks.
 
 \`\`\`sql
 -- Boolean logic
-SELECT * FROM user WHERE (admin AND active) OR owner = true;
+SELECT * FROM task WHERE status = 'open' AND priority = 'high';
 
 -- Filter based on graph edge count
-SELECT * FROM profile WHERE count(->experience->organisation) > 3;
+SELECT * FROM project WHERE count(->has_feature->feature) > 3;
 
--- Filter on graph edge properties
-SELECT * FROM person WHERE ->(reaction WHERE type = 'celebrate')->post;
-
--- Numeric range (faster than two comparisons)
-SELECT * FROM person WHERE age IN 18..=65;
-
--- Filter nested array values
-SELECT address[WHERE active = true] FROM person;
+-- IS NOT NONE for optional field presence
+SELECT * FROM task WHERE deadline IS NOT NONE;
 
 -- Truthy check (present and not empty)
-SELECT name FROM person WHERE name;
-\`\`\`
+SELECT * FROM task WHERE owner_name;
 
-### SPLIT Clause
-SPLIT expands array fields so each element becomes a separate row. Useful for analyzing individual items within array fields.
-
-**SPLIT and GROUP BY are incompatible** — they cannot be used together (parsing error since v3.0.0). Use one or the other.
-
-\`\`\`sql
--- Split the results by each value in an array
-SELECT * FROM user SPLIT emails;
-\`\`\`
-
-### WITH Clause (Index Hints)
-WITH forces the query planner to use a specific index (or no index). Use \`NOINDEX\` to force a full table scan when index cardinality is high and scanning would be faster than multiple index lookups.
-
-\`\`\`sql
--- Force a specific index
-SELECT * FROM task WITH INDEX idx_task_status WHERE status = 'open';
-
--- Force full table scan (skip index)
-SELECT * FROM task WITH NOINDEX WHERE status = 'open';
+-- Multiple status values
+SELECT * FROM decision WHERE status IN ['provisional', 'extracted'];
 \`\`\`
 
 ### FETCH Clause
-FETCH retrieves related records from other tables in a single query, resolving record links or graph edges inline.
+FETCH resolves record links into full objects. Without FETCH, record references are returned as IDs.
 
 \`\`\`sql
--- Fetch related posts for each person
-SELECT * FROM person FETCH posts;
+-- Resolve owner record link to full person object
+SELECT title, status, owner FROM task FETCH owner;
 
--- Fetch specific relation
-SELECT *, ->belongs_to->project AS project FROM task FETCH project;
+-- Resolve workspace on observations
+SELECT text, severity, workspace FROM observation FETCH workspace;
 \`\`\`
 
 ### LET Variables
@@ -153,64 +155,29 @@ Use LET to store intermediate results and reuse them across statements.
 
 \`\`\`sql
 LET $cutoff = time::now() - 2w;
-SELECT * FROM decision WHERE created_at < $cutoff AND status = 'provisional';
+SELECT * FROM decision WHERE created_at < $cutoff AND status = 'provisional' LIMIT 100;
 \`\`\`
 
 ### IF ELSE
-IF ELSE can be used as a standalone statement or inline within a parent statement to return a value. Supports multiple ELSE IF branches with no limit.
-
-\`\`\`
-IF @condition { @expression; .. }
-  [ ELSE IF @condition { @expression; .. } ] ...
-  [ ELSE { @expression; .. } ]
-\`\`\`
+Can be used as a standalone statement or inline within SELECT to compute fields.
 
 \`\`\`sql
--- Standalone: conditional query
-IF count(SELECT * FROM task WHERE status = 'blocked') > 0 {
-  SELECT * FROM task WHERE status = 'blocked';
-} ELSE {
-  SELECT 'No blocked tasks' AS message;
-};
-
 -- Inline: computed field
 SELECT title,
   IF status = 'open' { 'active' }
   ELSE IF status = 'blocked' { 'at risk' }
   ELSE { 'done' }
-  AS category
+  AS health
 FROM task;
 \`\`\`
 
-### FOR Loop
-Iterate over array values or integer ranges.
-
-\`\`\`
-FOR @item IN @iterable { @block };
-\`\`\`
-
-\`\`\`sql
--- Iterate over an array
-FOR $name IN ['Alpha', 'Beta'] {
-  CREATE type::record('project', $name) CONTENT { name: $name };
-};
-
--- Iterate over an integer range (inclusive)
-FOR $i IN 0..=10 {
-  CREATE type::record('batch', $i) CONTENT { index: $i };
-};
-\`\`\`
-
-**Limitations:** Variables declared outside a FOR loop can be read inside the loop but NOT modified (assignment operators are only allowed in SET and DUPLICATE KEY UPDATE clauses). Use \`array::fold\` or \`array::reduce\` for accumulation instead.
-
 ### RETURN Statement
-RETURN returns an implicit value or query result. Use it to set the return value for a transaction, block, or function.
+RETURN returns an implicit value or query result. Use it to compose multi-query results.
 
 \`\`\`sql
--- Return a computed value
 LET $open = (SELECT count() AS total FROM task WHERE status = 'open' GROUP ALL);
-LET $closed = (SELECT count() AS total FROM task WHERE status = 'closed' GROUP ALL);
-RETURN { open: $open[0].total, closed: $closed[0].total };
+LET $blocked = (SELECT count() AS total FROM task WHERE status = 'blocked' GROUP ALL);
+RETURN { open: $open[0].total, blocked: $blocked[0].total };
 \`\`\`
 
 ### Important Rules
@@ -218,14 +185,15 @@ RETURN { open: $open[0].total, closed: $closed[0].total };
 2. ORDER BY fields must appear in the SELECT projection
 3. LIMIT must come before FETCH
 4. Use \`$param\` syntax for parameterized values
-5. For TYPE RELATION tables, edges are created with RELATE — they have \`in\` and \`out\` fields
+5. For TYPE RELATION tables, edges have \`in\` and \`out\` fields
 6. \`IS NOT NONE\` checks for field existence (not \`IS NOT NULL\`)
+7. This agent is read-only — only SELECT queries are permitted
 
 ### DO NOT USE (SQL constructs that do NOT exist in SurrealQL)
 - \`JOIN\` — use arrow traversal instead
 - \`INTERVAL\` — use duration literals (2w, 1d, etc.)
 - \`HAVING\` — use WHERE with GROUP BY
-- \`COALESCE\` / \`IFNULL\` — not available
+- \`COALESCE\` / \`IFNULL\` — use \`??\` (null coalescing) or \`?:\` (truthy coalescing) instead
 - Subqueries in SELECT list — use LET variables instead
 - \`LIMIT N OFFSET M\` — use \`LIMIT @number START @start\` instead
 - \`AS\` for table aliases — not supported
