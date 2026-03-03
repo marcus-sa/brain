@@ -4,9 +4,9 @@ import type { ServerConfig } from "./config";
 
 export async function createRuntimeDependencies(config: ServerConfig): Promise<{
   surreal: Surreal;
-  assistantModel: any;
+  chatAgentModel: any;
   extractionModel: any;
-  pmModel: any;
+  pmAgentModel: any;
   embeddingModel: any;
 }> {
   const surreal = new Surreal();
@@ -15,7 +15,7 @@ export async function createRuntimeDependencies(config: ServerConfig): Promise<{
   await surreal.use({ namespace: config.surrealNamespace, database: config.surrealDatabase });
 
   const openrouter = createOpenRouter({ apiKey: config.openRouterApiKey });
-  const assistantModel = openrouter(config.assistantModelId, {
+  const chatAgentModel = openrouter(config.chatAgentModelId, {
     plugins: [{ id: "response-healing" }],
     ...(config.openRouterReasoning ? { extraBody: { reasoning: config.openRouterReasoning } } : {}),
   });
@@ -23,7 +23,7 @@ export async function createRuntimeDependencies(config: ServerConfig): Promise<{
     plugins: [{ id: "response-healing" }],
     ...(config.openRouterReasoning ? { extraBody: { reasoning: config.openRouterReasoning } } : {}),
   });
-  const pmModel = openrouter(config.pmModelId, {
+  const pmAgentModel = openrouter(config.pmAgentModelId, {
     plugins: [{ id: "response-healing" }],
     ...(config.openRouterReasoning ? { extraBody: { reasoning: config.openRouterReasoning } } : {}),
   });
@@ -31,9 +31,9 @@ export async function createRuntimeDependencies(config: ServerConfig): Promise<{
 
   return {
     surreal,
-    assistantModel,
+    chatAgentModel,
     extractionModel,
-    pmModel,
+    pmAgentModel,
     embeddingModel,
   };
 }

@@ -1,5 +1,5 @@
 import { type RecordId, type Surreal } from "surrealdb";
-import type { ObservationSummary } from "../../shared/contracts";
+import type { ObservationSummary, OnboardingState } from "../../shared/contracts";
 import {
   listConversationEntities,
   listWorkspaceOpenQuestions,
@@ -11,6 +11,7 @@ import {
   type WorkspaceQuestionSummary,
 } from "../graph/queries";
 import { listWorkspaceOpenObservations } from "../observation/queries";
+import { loadOnboardingSummary } from "../onboarding/onboarding-state";
 import { chatComponentSystemPrompt } from "./chat-component-system-prompt";
 
 export type ChatContext = {
@@ -21,6 +22,7 @@ export type ChatContext = {
     openQuestions: WorkspaceQuestionSummary[];
     openObservations: ObservationSummary[];
   };
+  onboardingSummary?: string;
 };
 
 type ChatContextLoaders = {
@@ -29,6 +31,7 @@ type ChatContextLoaders = {
   listWorkspaceRecentDecisions: typeof listWorkspaceRecentDecisions;
   listWorkspaceOpenQuestions: typeof listWorkspaceOpenQuestions;
   listWorkspaceOpenObservations: typeof listWorkspaceOpenObservations;
+  loadOnboardingSummary: typeof loadOnboardingSummary;
 };
 
 export async function buildChatContext(input: {
@@ -44,9 +47,10 @@ export async function buildChatContext(input: {
     listWorkspaceRecentDecisions,
     listWorkspaceOpenQuestions,
     listWorkspaceOpenObservations,
+    loadOnboardingSummary,
   };
 
-  const [conversationEntities, projects, recentDecisions, openQuestions, openObservations] = await Promise.all([
+  const [conversationEntities, projects, recentDecisions, openQuestions, openObservations, onboardingSummary] = await Promise.all([
     loaders.listConversationEntities({
       surreal: input.surreal,
       conversationRecord: input.conversationRecord,
@@ -76,6 +80,7 @@ export async function buildChatContext(input: {
       workspaceRecord: input.workspaceRecord,
       limit: 10,
     }),
+    loaders.loadOnboardingSummary(input.surreal, input.workspaceRecord),
   ]);
 
   return {
@@ -86,6 +91,7 @@ export async function buildChatContext(input: {
       openQuestions,
       openObservations,
     },
+    onboardingSummary,
   };
 }
 
@@ -153,9 +159,14 @@ function formatObservationList(observations: ObservationSummary[]): string {
     .join("\n");
 }
 
-export function buildSystemPrompt(context: ChatContext): string {
-  return [
-    "You are the Orchestrator agent for a workspace-aware project intelligence system.",
+type SystemPromptOptions = {
+  isOnboarding?: boolean;
+  onboardingState?: OnboardingState;
+};
+
+export function buildSystemPrompt(context: ChatContext, options?: SystemPromptOptions): string {
+  const sections: string[] = [
+    "You are the Chat agent for a workspace-aware project intelligence system.",
     "You are a **thin orchestrator**: your job is to decide which tools and subagents to invoke, control sequencing, and synthesize user-facing responses.",
     "You have access to a workspace-scoped knowledge graph stored in SurrealDB.",
     "Never assume data from other workspaces.",
@@ -167,8 +178,60 @@ export function buildSystemPrompt(context: ChatContext): string {
     "- Subsequent agents read the graph and see prior agents' work.",
     "- You synthesize the user-facing response from graph state and tool results.",
     "",
+  ];
+
+  // Onboarding mode instructions
+  if (options?.isOnboarding && options.onboardingState !== "complete") {
+    if (options.onboardingState === "summary_pending") {
+      sections.push(
+        "## Onboarding Mode — Summary",
+        "The workspace onboarding is wrapping up. Summarize what has been captured so far and ask the user to confirm or add anything else.",
+        "",
+        "Current workspace state:",
+        context.onboardingSummary ?? "No entities captured yet.",
+        "",
+      );
+    } else {
+      sections.push(
+        "## Onboarding Mode",
+        "You are onboarding a newly created workspace.",
+        "Ask one natural question at a time like a smart colleague, never as a form.",
+        "Cover these topics over 5-7 turns: business/venture, projects, people, decisions, tools, bottlenecks.",
+        "Keep acknowledgment to one sentence max. Ask exactly one concrete follow-up question.",
+        "",
+        "When the user describes their workspace, create entities directly:",
+        "- Projects → dispatch PM agent with plan_work intent",
+        "- Decisions → use create_provisional_decision",
+        "- Open questions requiring a choice → use create_question (not for informational queries)",
+        "- People mentioned → note in your response (person creation is handled separately)",
+        "",
+        "Current workspace state:",
+        context.onboardingSummary ?? "No entities captured yet.",
+        "",
+      );
+    }
+  }
+
+  sections.push(
+    "## When to Create Decisions",
+    "Commitment/selection language: \"let's go with\", \"we decided\", \"we'll use\", \"going with\", \"settled on\".",
+    "Decision vs feature: choice language (X instead of Y) = decision; description language (we need X) = feature.",
+    "",
+    "## When to Create Questions",
+    "Only for open questions that require a choice or pending decision: \"should we use X or Y?\", \"which approach for Z?\".",
+    "Do NOT create question entities for informational queries (\"what is blocking X?\", \"how does Y work?\", \"what's the status?\") — answer those directly.",
+    "One question per topic; if question includes options (X or Y), create one question entity.",
+    "",
+    "## When NOT to Create Entities",
+    "- Casual conversation, greetings, clarifications, status queries",
+    "- Vague references: \"my project\", \"the feature\", \"the thing\"",
+    "- User is brainstorming/exploring — wait for convergence",
+    "",
+  );
+
+  sections.push(
     "## This Conversation",
-    "Entities already extracted from this conversation:",
+    "Entities in this conversation:",
     formatConversationEntities(context.conversationEntities),
     "",
     "## Workspace Overview",
@@ -201,5 +264,7 @@ export function buildSystemPrompt(context: ChatContext): string {
     "The tool result contains component and props fields -- pass the props as-is to the component.",
     '```component InlineRelationshipGraph { "title": "Relationships: ...", "nodes": [...], "edges": [...], "focusNodeIds": [...] }```',
     "",
-  ].join("\n");
+  );
+
+  return sections.join("\n");
 }

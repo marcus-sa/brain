@@ -18,7 +18,7 @@ import {
   createEventCollector,
 } from "./eval-test-kit";
 
-const assistantModel = process.env.ASSISTANT_MODEL ?? "unknown";
+const chatAgentModel = process.env.CHAT_AGENT_MODEL ?? "unknown";
 
 const cacheDir = process.env.EVAL_CACHE_DIR ?? "eval-results/cache";
 const cachePath = join(cacheDir, "suggestions-cache.json");
@@ -46,7 +46,7 @@ evalite<SuggestionGoldenCase, SuggestionsEvalOutput, SuggestionGoldenCase>("Onbo
     suggestionCountScorer,
   ],
   columns: ({ input, output, scores }) => [
-    { label: "Model", value: assistantModel },
+    { label: "Model", value: chatAgentModel },
     { label: "Case", value: input.id },
     { label: "ExpectedMin", value: input.expectedMinSuggestions ?? 1 },
     { label: "Returned", value: output.suggestions.length },
@@ -73,7 +73,7 @@ function formatScoreCell(value: number): string {
 }
 
 async function runCase(testCase: SuggestionGoldenCase): Promise<SuggestionsEvalOutput> {
-  const cacheKey = buildCaseCacheKey(assistantModel, testCase);
+  const cacheKey = buildCaseCacheKey(chatAgentModel, testCase);
   const cached = resultCache[cacheKey];
   if (cached) {
     return cached;
@@ -94,7 +94,7 @@ async function runCase(testCase: SuggestionGoldenCase): Promise<SuggestionsEvalO
   const deps: ServerDependencies = {
     config: runtime.config,
     surreal: runtime.surreal,
-    assistantModel: runtime.assistantModel,
+    chatAgentModel: runtime.chatAgentModel,
     extractionModel: runtime.extractionModel,
     embeddingModel: runtime.embeddingModel,
     sse: sseStub,

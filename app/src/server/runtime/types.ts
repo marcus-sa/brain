@@ -5,9 +5,9 @@ import type { SseRegistry } from "../streaming/sse-registry";
 export type ServerDependencies = {
   config: ServerConfig;
   surreal: Surreal;
-  assistantModel: any;
+  chatAgentModel: any;
   extractionModel: any;
-  pmModel: any;
+  pmAgentModel: any;
   embeddingModel: any;
   sse: SseRegistry;
 };

@@ -38,7 +38,7 @@ describe("confirm_decision tool guards", () => {
           },
         } as any,
       ),
-    ).rejects.toThrow("only available for chat_agent or orchestrator");
+    ).rejects.toThrow("only available for chat_agent");
   });
 
   it("rejects non-confirmable decision statuses", async () => {

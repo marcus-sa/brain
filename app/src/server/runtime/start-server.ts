@@ -26,9 +26,9 @@ export async function startServer(): Promise<void> {
   const deps: ServerDependencies = {
     config,
     surreal: runtime.surreal,
-    assistantModel: runtime.assistantModel,
+    chatAgentModel: runtime.chatAgentModel,
     extractionModel: runtime.extractionModel,
-    pmModel: runtime.pmModel,
+    pmAgentModel: runtime.pmAgentModel,
     embeddingModel: runtime.embeddingModel,
     sse: createSseRegistry(),
   };
@@ -146,9 +146,9 @@ export async function startServer(): Promise<void> {
   logInfo("server.started", "Brain app server started", {
     port: server.port,
     host: "127.0.0.1",
-    assistantModelId: config.assistantModelId,
+    chatAgentModelId: config.chatAgentModelId,
     extractionModelId: config.extractionModelId,
-    pmModelId: config.pmModelId,
+    pmAgentModelId: config.pmAgentModelId,
     embeddingModelId: config.embeddingModelId,
     embeddingDimension: config.embeddingDimension,
     extractionStoreThreshold: config.extractionStoreThreshold,

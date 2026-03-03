@@ -19,7 +19,7 @@ const assistantReplySchema = z.object({
 });
 
 export async function generateOnboardingAssistantReply(input: {
-  assistantModel: any;
+  chatAgentModel: any;
   surreal: Surreal;
   onboardingState: OnboardingState;
   contextRows: MessageContextRow[];
@@ -114,7 +114,7 @@ export async function generateOnboardingAssistantReply(input: {
   }
 
   const assistantResponse = await generateObject({
-    model: input.assistantModel,
+    model: input.chatAgentModel,
     schema: assistantReplySchema,
     system: systemPrompt,
     prompt: [

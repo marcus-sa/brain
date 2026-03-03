@@ -14,6 +14,7 @@ describe("chat context", () => {
         listWorkspaceRecentDecisions: async () => [],
         listWorkspaceOpenQuestions: async () => [],
         listWorkspaceOpenObservations: async () => [],
+        loadOnboardingSummary: async () => "Projects: none\nPeople: none\nDecisions: none\nOpen questions: none",
       },
     });
 
@@ -25,6 +26,7 @@ describe("chat context", () => {
         openQuestions: [],
         openObservations: [],
       },
+      onboardingSummary: "Projects: none\nPeople: none\nDecisions: none\nOpen questions: none",
     });
 
     const systemPrompt = buildSystemPrompt(context);
@@ -82,6 +84,7 @@ describe("chat context", () => {
             createdAt: "2026-01-01T00:00:00.000Z",
           },
         ],
+        loadOnboardingSummary: async () => "Projects: Brain\nPeople: none\nDecisions: none\nOpen questions: none",
       },
     });
 

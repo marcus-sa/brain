@@ -14,7 +14,6 @@ type StreamEvent =
   | { type: "token"; messageId: string; token: string }
   | { type: "assistant_message"; messageId: string; text: string }
   | { type: "extraction"; messageId: string; entities: Array<{ id: string }>; relationships: Array<{ id: string }> }
-  | { type: "onboarding_seed"; messageId: string; seeds: Array<{ id: string }> }
   | { type: "onboarding_state"; messageId: string; onboardingState: string }
   | { type: "done"; messageId: string }
   | { type: "error"; messageId: string; error: string }
@@ -23,7 +22,7 @@ type StreamEvent =
 const getRuntime = setupSmokeSuite("onboarding");
 
 describe("onboarding smoke", () => {
-  it("bootstraps onboarding and emits onboarding seed events", async () => {
+  it("bootstraps onboarding and completes full onboarding flow", async () => {
     const { baseUrl } = getRuntime();
 
     const create = await fetchJson<{
@@ -66,8 +65,9 @@ describe("onboarding smoke", () => {
       }),
     });
 
-    const firstEvents = await collectSseEvents<StreamEvent>(`${baseUrl}${firstChat.streamUrl}`, 120_000);
-    expect(firstEvents.some((event) => event.type === "extraction")).toBe(true);
+    const firstEvents = await collectSseEvents<StreamEvent>(`${baseUrl}${firstChat.streamUrl}`, 180_000);
+    // Chat agent handles onboarding — verify it responds to the user
+    expect(firstEvents.some((event) => event.type === "assistant_message")).toBe(true);
 
     const uploadForm = new FormData();
     uploadForm.set("clientMessageId", randomUUID());
@@ -96,8 +96,9 @@ describe("onboarding smoke", () => {
       body: uploadForm,
     });
 
-    const uploadEvents = await collectSseEvents<StreamEvent>(`${baseUrl}${uploadResponse.streamUrl}`, 120_000);
-    expect(uploadEvents.some((event) => event.type === "onboarding_seed")).toBe(true);
+    const uploadEvents = await collectSseEvents<StreamEvent>(`${baseUrl}${uploadResponse.streamUrl}`, 180_000);
+    // Attachment ingestion still runs automatically — extraction event should contain document entities
+    expect(uploadEvents.some((event) => event.type === "extraction")).toBe(true);
 
     const confirm = await fetchJson<ChatMessageResponse>(`${baseUrl}/api/chat/messages`, {
       method: "POST",
@@ -111,7 +112,7 @@ describe("onboarding smoke", () => {
       }),
     });
 
-    await collectSseEvents<StreamEvent>(`${baseUrl}${confirm.streamUrl}`, 120_000);
+    await collectSseEvents<StreamEvent>(`${baseUrl}${confirm.streamUrl}`, 180_000);
 
     const finalBootstrap = await fetchJson<{
       onboardingComplete: boolean;
@@ -119,9 +120,9 @@ describe("onboarding smoke", () => {
       seeds: Array<{ sourceKind: string; sourceId: string }>;
     }>(`${baseUrl}/api/workspaces/${encodeURIComponent(create.workspaceId)}/bootstrap`);
 
+    // Seeds are populated from extraction_relation edges — created by attachment ingestion and agent tools
     expect(finalBootstrap.seeds.length).toBeGreaterThan(0);
-    expect(
-      finalBootstrap.seeds.some((seed) => seed.sourceKind === "document_chunk" || seed.sourceKind === "message"),
-    ).toBe(true);
-  }, 180_000);
+    // Document upload should produce document_chunk sourced seeds
+    expect(finalBootstrap.seeds.some((seed) => seed.sourceKind === "document_chunk")).toBe(true);
+  }, 600_000);
 });

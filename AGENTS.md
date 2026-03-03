@@ -79,7 +79,7 @@
 - SSE state management is isolated in `app/src/server/streaming/sse-registry.ts`.
 - Route/business domains are separated by workflow:
   - `workspace/*` for workspace create/bootstrap/scope checks
-  - `chat/*` for ingress, orchestrator, async message processing
+  - `chat/*` for ingress, chat agent, async message processing
   - `entities/*` for entity search, detail, actions, and work item accept endpoints
   - `onboarding/*` for onboarding state and guided replies
   - `extraction/*` for extraction generation, persistence, dedupe/upsert, embeddings, and context loaders
@@ -87,9 +87,9 @@
   - `observation/*` for observation CRUD queries
 - `graph/*` contains reusable Surreal graph queries used by chat/tools and higher-level workflows.
 
-### Orchestrator Agent Architecture
+### Chat Agent Architecture
 
-The chat system uses a thin orchestrator pattern where a single top-level agent dispatches to specialized subagents. The knowledge graph is the communication bus — agents read from and write to the graph independently, never passing data directly between each other.
+The chat system uses a thin orchestrator pattern where a single top-level chat agent dispatches to specialized subagents. The knowledge graph is the communication bus — agents read from and write to the graph independently, never passing data directly between each other.
 
 ```
 User Message
@@ -97,7 +97,7 @@ User Message
   ├─→ Extraction Pipeline (always runs, Haiku)
   │     └─→ entities/relationships → SurrealDB graph
   │
-  └─→ Orchestrator (Sonnet, thin)
+  └─→ Chat Agent (Sonnet, thin orchestrator)
         ├─→ Direct tools (search, entity detail, decisions, observations)
         └─→ Subagent dispatch
               └─→ PM Agent (Haiku) → suggestions, observations → graph
@@ -110,12 +110,12 @@ User Message
 | Agent output | Direct graph write (agents already have structured form) | Nothing to extract |
 
 **Key files:**
-- `chat/handler.ts` — `runOrchestrator()`: streams orchestrator responses with tool use
-- `chat/context.ts` — `buildChatContext()` / `buildSystemPrompt()`: loads graph context, builds orchestrator system prompt
-- `chat/tools/index.ts` — `createOrchestratorTools()`: registers all 12 orchestrator tools
-- `chat/tools/types.ts` — `ChatToolExecutionContext`: actor-typed context (`chat_agent | mcp | orchestrator | pm_agent`)
+- `chat/handler.ts` — `runChatAgent()`: streams chat agent responses with tool use
+- `chat/context.ts` — `buildChatContext()` / `buildSystemPrompt()`: loads graph context, builds chat agent system prompt
+- `chat/tools/index.ts` — `createChatAgentTools()`: registers all chat agent tools
+- `chat/tools/types.ts` — `ChatToolExecutionContext`: actor-typed context (`chat_agent | mcp | pm_agent`)
 
-### Orchestrator Tools
+### Chat Agent Tools
 
 | Tool | Purpose |
 |------|---------|
@@ -132,9 +132,18 @@ User Message
 | `resolve_observation` | Close a resolved observation |
 | `invoke_pm_agent` | Delegate to PM subagent |
 
+### Shared Tool Layer
+
+Tools live in `chat/tools/` as composable building blocks. Any agent (chat agent, PM subagent, future subagents) can compose the tools it needs. Key shared tools for work item management:
+
+| Tool | File | Purpose |
+|------|------|---------|
+| `suggest_work_items` | `chat/tools/suggest-work-items.ts` | Batch triage/dedup (>0.97 exact duplicate, ≥0.8 merge, <0.8 new) |
+| `create_work_item` | `chat/tools/create-work-item.ts` | Direct entity creation in graph |
+
 ### Product Manager Subagent
 
-The PM agent (`agents/pm/`) is the single authority on tasks, features, and project status. It is invoked by the orchestrator via `invoke_pm_agent` tool with an intent:
+The PM agent (`agents/pm/`) is the single authority on tasks, features, and project status. It uses the AI SDK's `ToolLoopAgent` class and composes shared tools from `chat/tools/`. It is invoked by the chat agent via `invoke_pm_agent` tool with an intent:
 
 | Intent | When to use |
 |--------|-------------|
@@ -144,14 +153,13 @@ The PM agent (`agents/pm/`) is the single authority on tasks, features, and proj
 | `track_dependencies` | User asks about blocked items or dependency chains |
 
 **Key files:**
-- `agents/pm/agent.ts` — `runPmAgent()`: generates text with PM tools, parses strict JSON output
+- `agents/pm/agent.ts` — `runPmAgent()`: creates `ToolLoopAgent` with PM tools, returns structured JSON output
 - `agents/pm/prompt.ts` — `buildPmSystemPrompt()`: loads workspace projects and observations
-- `agents/pm/tools.ts` — `createPmTools()`: search_entities, get_project_status, create_observation, suggest_work_items
-- `agents/pm/suggest-work-items.ts` — Embedding-based semantic dedup (>0.97 exact duplicate, ≥0.8 merge, <0.8 new)
+- `agents/pm/tools.ts` — `createPmTools()`: composes shared tools (search_entities, get_project_status, create_observation, suggest_work_items, create_work_item)
 
 **PM output schema:** `{ summary, suggestions: WorkItemSuggestion[], updated, discarded, observations_created }`
 
-The orchestrator renders PM suggestions as `WorkItemSuggestionList` component blocks in the chat UI.
+The chat agent renders PM suggestions as `WorkItemSuggestionList` component blocks in the chat UI.
 
 ### Observation Entity
 
@@ -165,7 +173,7 @@ Observations (`observation/*`) are lightweight cross-cutting signals that agents
 
 ### Work Item Accept Flow
 
-When the PM agent suggests work items, the orchestrator renders them as `WorkItemSuggestionList` components. Users can accept or dismiss each item:
+When the PM agent suggests work items, the chat agent renders them as `WorkItemSuggestionList` components. Users can accept or dismiss each item:
 
 - Accept calls `POST /api/workspaces/:workspaceId/work-items/accept`
 - The endpoint creates a `task` or `feature` record in SurrealDB with embedding and optional project linking
@@ -179,7 +187,7 @@ When the PM agent suggests work items, the orchestrator renders them as `WorkIte
   - run extraction (message and optional attachment chunks)
   - persist entities/relationships/provenance
   - transition onboarding state
-  - generate assistant response (onboarding reply or orchestrator with subagent dispatch)
+  - generate assistant response (onboarding reply or chat agent with subagent dispatch)
   - emit SSE events (`token`, `extraction`, `onboarding_seed`, `onboarding_state`, `observation`, `assistant_message`, `done|error`)
 
 ### RecordId and Table Access Rules

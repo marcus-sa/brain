@@ -1,18 +1,15 @@
 import { RecordId } from "surrealdb";
-import type { ExtractedEntity, ExtractedRelationship, OnboardingAction, OnboardingSeedItem } from "../../shared/contracts";
-import { buildExtractionComponentBlock } from "../extraction/components";
-import { loadAssistantConversationContext, loadConversationGraphContext, loadExtractionConversationContext } from "../extraction/context-loaders";
+import type { ExtractedEntity, ExtractedRelationship, OnboardingAction } from "../../shared/contracts";
+import { loadAssistantConversationContext } from "../extraction/context-loaders";
 import { loadBranchChain, loadMessagesWithInheritance } from "./branch-chain";
 import { ingestAttachment } from "../extraction/document-ingestion";
 import { persistEmbeddings } from "../extraction/embedding-writeback";
-import { extractStructuredGraph } from "../extraction/extract-graph";
-import { appendExtractedTools, persistExtractionOutput } from "../extraction/persist-extraction";
-import type { ConversationRow, GraphEntityRecord, IncomingAttachment, SourceRecord, WorkspaceRow } from "../extraction/types";
+import { appendExtractedTools } from "../extraction/persist-extraction";
+import type { ConversationRow, GraphEntityRecord, IncomingAttachment, WorkspaceRow } from "../extraction/types";
 import { elapsedMs, logError, logInfo, userFacingError } from "../http/observability";
 import { transitionOnboardingState } from "../onboarding/onboarding-state";
-import { generateOnboardingAssistantReply } from "../onboarding/onboarding-reply";
 import type { ServerDependencies } from "../runtime/types";
-import { runOrchestrator } from "./handler";
+import { runChatAgent } from "./handler";
 import { getWorkspaceOwnerRecord } from "../graph/queries";
 import { refreshConversationTouchedBy, maybeUpgradeConversationTitle } from "../workspace/conversation-sidebar";
 import { loadWorkspaceProjects } from "../workspace/workspace-scope";
@@ -85,26 +82,15 @@ export async function processChatMessage(input: {
       assistantContextRows = await loadAssistantConversationContext(input.deps.surreal, input.conversationId);
     }
 
-    const extractionConversationContext = await loadExtractionConversationContext({
-      surreal: input.deps.surreal,
-      conversationId: input.conversationId,
-      currentMessageRecord: input.userMessageRecord,
-    });
-    const extractionGraphContext = await loadConversationGraphContext(
-      input.deps.surreal,
-      input.conversationId,
-      60,
-      inheritedEntityIds && inheritedEntityIds.length > 0 ? { inheritedEntityIds } : undefined,
-    );
     const workspaceProjects = await loadWorkspaceProjects(input.deps.surreal, input.workspaceRecord);
     const workspaceProjectNames = workspaceProjects.map((project) => project.name);
     const persistedEntities: ExtractedEntity[] = [];
     const persistedRelationships: ExtractedRelationship[] = [];
-    const seedItems: OnboardingSeedItem[] = [];
     const embeddingTargets: Array<{ record: GraphEntityRecord; text: string }> = [];
     const extractedTools: string[] = [];
     const unresolvedAssigneeNames = new Set<string>();
 
+    // Attachment extraction stays automatic — document ingestion is intentional
     if (input.attachment) {
       const ingestion = await ingestAttachment({
         surreal: input.deps.surreal,
@@ -129,19 +115,11 @@ export async function processChatMessage(input: {
               relationships: chunkResult.relationships,
             });
           }
-          if (chunkResult.seeds.length > 0) {
-            input.deps.sse.emitEvent(input.messageId, {
-              type: "onboarding_seed",
-              messageId: input.messageId,
-              seeds: chunkResult.seeds,
-            });
-          }
         },
       });
 
       persistedEntities.push(...ingestion.entities);
       persistedRelationships.push(...ingestion.relationships);
-      seedItems.push(...ingestion.seeds);
       embeddingTargets.push(...ingestion.embeddingTargets);
       extractedTools.push(...ingestion.tools);
       for (const unresolvedName of ingestion.unresolvedAssigneeNames) {
@@ -149,49 +127,9 @@ export async function processChatMessage(input: {
       }
     }
 
-    const textExtraction = await extractStructuredGraph({
-      extractionModel: input.deps.extractionModel,
-      conversationHistory: extractionConversationContext.conversationHistory,
-      currentMessage: extractionConversationContext.currentMessage,
-      graphContext: extractionGraphContext,
-      sourceText: input.userText,
-      onboarding: !workspace.onboarding_complete,
-      workspaceName: workspace.name,
-      projectNames: workspaceProjectNames,
-    });
-
-    const textPersistence = await persistExtractionOutput({
-      surreal: input.deps.surreal,
-      extractionModel: input.deps.extractionModel,
-      embeddingModel: input.deps.embeddingModel,
-      embeddingDimension: input.deps.config.embeddingDimension,
-      extractionModelId: input.deps.config.extractionModelId,
-      extractionStoreThreshold: input.deps.config.extractionStoreThreshold,
-      workspaceRecord: input.workspaceRecord,
-      sourceRecord: input.userMessageRecord as SourceRecord,
-      sourceKind: "message",
-      sourceLabel: input.userText.slice(0, 140),
-      promptText: input.userText,
-      output: textExtraction,
-      sourceMessageRecord: input.userMessageRecord,
-      extractionHistoryMessageIds: extractionConversationContext.conversationHistory.map((row) => row.id.id as string),
-      now,
-    });
-
-    persistedEntities.push(...textPersistence.entities);
-    persistedRelationships.push(...textPersistence.relationships);
-    seedItems.push(...textPersistence.seeds);
-    embeddingTargets.push(...textPersistence.embeddingTargets);
-    extractedTools.push(...textPersistence.tools);
-    for (const unresolvedName of textPersistence.unresolvedAssigneeNames) {
-      unresolvedAssigneeNames.add(unresolvedName);
+    if (extractedTools.length > 0) {
+      await appendExtractedTools(input.deps.surreal, input.workspaceRecord, extractedTools, now);
     }
-
-    const dedupedTools = [...new Set(extractedTools.map((tool) => tool.trim()).filter((tool) => tool.length > 0))];
-    await appendExtractedTools(input.deps.surreal, input.workspaceRecord, extractedTools, now);
-
-    await refreshConversationTouchedBy(input.deps.surreal, conversationRecord);
-    await maybeUpgradeConversationTitle(input.deps.surreal, conversationRecord);
 
     const onboardingBefore = workspace.onboarding_complete
       ? "complete"
@@ -207,99 +145,54 @@ export async function processChatMessage(input: {
       now,
     });
 
-    let assistantText = "";
-    let assistantSuggestions: string[] = [];
-    const unresolvedAssigneeSuggestions = [...unresolvedAssigneeNames].map(
-      (name) => `You mentioned ${name} - want to add them to workspace people?`,
-    );
+    // Always run chat agent — it handles both onboarding and post-onboarding
+    const workspaceOwnerRecord = await getWorkspaceOwnerRecord({
+      surreal: input.deps.surreal,
+      workspaceRecord: input.workspaceRecord,
+    });
 
-    if (onboardingAfter === "complete") {
-      const workspaceOwnerRecord = await getWorkspaceOwnerRecord({
-        surreal: input.deps.surreal,
-        workspaceRecord: input.workspaceRecord,
-      });
-
-      const graphAwareResponse = await runOrchestrator({
-        surreal: input.deps.surreal,
-        model: input.deps.assistantModel,
-        pmModel: input.deps.pmModel,
-        embeddingModel: input.deps.embeddingModel,
-        embeddingDimension: input.deps.config.embeddingDimension,
-        extractionModelId: input.deps.config.extractionModelId,
-        conversationRecord,
-        workspaceRecord: input.workspaceRecord,
-        currentMessageRecord: input.userMessageRecord,
-        latestUserText: input.userText,
-        ...(workspaceOwnerRecord ? { workspaceOwnerRecord } : {}),
-        ...(inheritedEntityIds && inheritedEntityIds.length > 0 ? { inheritedEntityIds } : {}),
-        messages: assistantContextRows.map((row) => ({
-          role: row.role,
-          text: row.text,
-        })),
-        onToken: async (token) => {
-          input.deps.sse.emitEvent(input.messageId, {
-            type: "token",
-            messageId: input.messageId,
-            token,
-          });
-        },
-      });
-
-      assistantText = graphAwareResponse.text.trim();
-    } else {
-      const assistantReply = await generateOnboardingAssistantReply({
-        assistantModel: input.deps.assistantModel,
-        surreal: input.deps.surreal,
-        onboardingState: onboardingAfter,
-        contextRows: assistantContextRows,
-        latestUserText: input.userText,
-        workspaceRecord: input.workspaceRecord,
-        latestEntities: persistedEntities.map((entity) => ({
-          kind: entity.kind,
-          text: entity.text,
-          confidence: entity.confidence,
-        })),
-        latestTools: dedupedTools,
-      });
-
-      assistantText = assistantReply.message.trim();
-      assistantSuggestions = assistantReply.suggestions;
-
-      for (const token of assistantText.split(" ")) {
+    const graphAwareResponse = await runChatAgent({
+      surreal: input.deps.surreal,
+      model: input.deps.chatAgentModel,
+      pmAgentModel: input.deps.pmAgentModel,
+      embeddingModel: input.deps.embeddingModel,
+      embeddingDimension: input.deps.config.embeddingDimension,
+      extractionModelId: input.deps.config.extractionModelId,
+      extractionModel: input.deps.extractionModel,
+      extractionStoreThreshold: input.deps.config.extractionStoreThreshold,
+      conversationRecord,
+      workspaceRecord: input.workspaceRecord,
+      currentMessageRecord: input.userMessageRecord,
+      latestUserText: input.userText,
+      isOnboarding: onboardingAfter !== "complete",
+      onboardingState: onboardingAfter,
+      ...(workspaceOwnerRecord ? { workspaceOwnerRecord } : {}),
+      ...(inheritedEntityIds && inheritedEntityIds.length > 0 ? { inheritedEntityIds } : {}),
+      messages: assistantContextRows.map((row) => ({
+        role: row.role,
+        text: row.text,
+      })),
+      onToken: async (token) => {
         input.deps.sse.emitEvent(input.messageId, {
           type: "token",
           messageId: input.messageId,
-          token: `${token} `,
+          token,
         });
-        await new Promise((resolve) => setTimeout(resolve, 25));
-      }
-    }
+      },
+    });
 
-    assistantSuggestions = sanitizeAssistantSuggestions(
-      [...assistantSuggestions, ...unresolvedAssigneeSuggestions],
-      3,
+    let assistantText = graphAwareResponse.text.trim();
+    persistedEntities.push(...graphAwareResponse.collectedEntities);
+    persistedRelationships.push(...graphAwareResponse.collectedRelationships);
+
+    const unresolvedAssigneeSuggestions = [...unresolvedAssigneeNames].map(
+      (name) => `You mentioned ${name} - want to add them to workspace people?`,
     );
+    const assistantSuggestions = sanitizeAssistantSuggestions(unresolvedAssigneeSuggestions, 3);
 
-    const summaryBlock = buildExtractionComponentBlock(
-      persistedEntities,
-      persistedRelationships,
-      input.deps.config.extractionDisplayThreshold,
-    );
-
-    if (summaryBlock) {
-      if (onboardingAfter === "complete") {
-        const streamChunk = assistantText.length > 0 ? `\n\n${summaryBlock}` : summaryBlock;
-        for (const token of streamChunk.split(" ")) {
-          input.deps.sse.emitEvent(input.messageId, {
-            type: "token",
-            messageId: input.messageId,
-            token: `${token} `,
-          });
-        }
-      }
-
-      assistantText = assistantText.length > 0 ? `${assistantText}\n\n${summaryBlock}` : summaryBlock;
-    }
+    // Post-response hooks (entities now created during chat agent execution)
+    await refreshConversationTouchedBy(input.deps.surreal, conversationRecord);
+    await maybeUpgradeConversationTitle(input.deps.surreal, conversationRecord);
 
     if (assistantText.trim().length === 0) {
       assistantText = "I could not generate a response for that request.";
@@ -334,14 +227,6 @@ export async function processChatMessage(input: {
       relationships: persistedRelationships,
     });
 
-    if (seedItems.length > 0) {
-      input.deps.sse.emitEvent(input.messageId, {
-        type: "onboarding_seed",
-        messageId: input.messageId,
-        seeds: seedItems,
-      });
-    }
-
     if (onboardingBefore !== onboardingAfter) {
       input.deps.sse.emitEvent(input.messageId, {
         type: "onboarding_state",
@@ -368,7 +253,6 @@ export async function processChatMessage(input: {
       workspaceId: input.workspaceRecord.id as string,
       entityCount: persistedEntities.length,
       relationshipCount: persistedRelationships.length,
-      seedCount: seedItems.length,
       durationMs: elapsedMs(startedAt),
     });
   } catch (error) {

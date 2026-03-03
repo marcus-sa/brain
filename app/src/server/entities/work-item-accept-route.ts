@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { RecordId } from "surrealdb";
 import { z } from "zod";
-import { ENTITY_CATEGORIES } from "../../shared/contracts";
+import { ENTITY_CATEGORIES, ENTITY_PRIORITIES } from "../../shared/contracts";
 import { HttpError } from "../http/errors";
 import { logError, logInfo } from "../http/observability";
 import { jsonError, jsonResponse } from "../http/response";
 import { createEmbeddingVector } from "../graph/embeddings";
-import { resolveWorkspaceProjectRecord } from "../graph/queries";
+import { createProjectRecord, resolveWorkspaceProjectRecord } from "../graph/queries";
 import { ensureProjectFeatureEdge } from "../workspace/workspace-scope";
 import { resolveWorkspaceRecord } from "../workspace/workspace-scope";
 import type { ServerDependencies } from "../runtime/types";
@@ -14,11 +14,11 @@ import { seedDescriptionEntry } from "../descriptions/persist";
 import { fireDescriptionUpdates } from "../descriptions/triggers";
 
 const acceptWorkItemSchema = z.object({
-  kind: z.enum(["task", "feature"]),
+  kind: z.enum(["task", "feature", "project"]),
   title: z.string().min(1),
   rationale: z.string().min(1),
   project: z.string().optional(),
-  priority: z.string().optional(),
+  priority: z.enum(ENTITY_PRIORITIES).optional(),
   category: z.enum(ENTITY_CATEGORIES).optional(),
 });
 
@@ -112,6 +112,34 @@ async function handleAcceptWorkItem(
       });
 
       return jsonResponse({ entityId: `task:${entityId}` }, 201);
+    }
+
+    if (item.kind === "project") {
+      const projectRecord = await createProjectRecord({
+        surreal: deps.surreal,
+        name: item.title,
+        status: "active",
+        now,
+        workspaceRecord,
+      });
+
+      if (embedding) {
+        await deps.surreal.update(projectRecord).merge({ embedding });
+      }
+
+      void seedDescriptionEntry({
+        surreal: deps.surreal,
+        targetRecord: projectRecord,
+        text: item.rationale,
+      }).catch(() => undefined);
+
+      logInfo("work-item.accept.project.created", "Project created from work item suggestion", {
+        workspaceId,
+        entityId: projectRecord.id as string,
+        title: item.title,
+      });
+
+      return jsonResponse({ entityId: `project:${projectRecord.id as string}` }, 201);
     }
 
     // feature

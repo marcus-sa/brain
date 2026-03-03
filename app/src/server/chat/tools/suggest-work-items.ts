@@ -1,13 +1,13 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { ENTITY_CATEGORIES, type EntityCategory } from "../../../shared/contracts";
+import { ENTITY_CATEGORIES, ENTITY_PRIORITIES, type EntityCategory } from "../../../shared/contracts";
 import { createEmbeddingVector } from "../../graph/embeddings";
 import { resolveWorkspaceProjectRecord, searchEntitiesByEmbedding } from "../../graph/queries";
-import { requireToolContext } from "../../chat/tools/helpers";
-import type { ChatToolDeps } from "../../chat/tools/types";
+import { requireToolContext } from "./helpers";
+import type { ChatToolDeps } from "./types";
 
 type SuggestedWorkItem = {
-  kind: "task" | "feature";
+  kind: "task" | "feature" | "project";
   title: string;
   rationale: string;
   category?: EntityCategory;
@@ -40,12 +40,12 @@ export function createSuggestWorkItemsTool(deps: ChatToolDeps) {
     inputSchema: z.object({
       items: z.array(
         z.object({
-          kind: z.enum(["task", "feature"]).describe("Work item kind"),
+          kind: z.enum(["task", "feature", "project"]).describe("Work item kind"),
           title: z.string().min(1).describe("Concise work item title"),
           rationale: z.string().min(1).describe("Why this work item is needed"),
           category: z.enum(ENTITY_CATEGORIES).optional().describe("Optional work item category"),
           project: z.string().optional().describe("Optional project scope"),
-          priority: z.string().optional().describe("Optional priority hint"),
+          priority: z.enum(ENTITY_PRIORITIES).optional().describe("critical: blocking/urgent. high: important. medium: normal. low: nice-to-have."),
         }),
       ).min(1).max(25),
     }),

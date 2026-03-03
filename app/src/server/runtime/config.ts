@@ -9,9 +9,9 @@ export type OpenRouterReasoningOptions = {
 
 export type ServerConfig = {
   openRouterApiKey: string;
-  assistantModelId: string;
+  chatAgentModelId: string;
   extractionModelId: string;
-  pmModelId: string;
+  pmAgentModelId: string;
   embeddingModelId: string;
   embeddingDimension: number;
   extractionStoreThreshold: number;
@@ -43,10 +43,10 @@ export function loadServerConfig(): ServerConfig {
     throw new Error("EXTRACTION_DISPLAY_THRESHOLD must be greater than or equal to EXTRACTION_STORE_THRESHOLD");
   }
 
-  const assistantModelId = requireEnv("ASSISTANT_MODEL");
+  const chatAgentModelId = requireEnv("CHAT_AGENT_MODEL");
   const extractionModelId = requireEnv("EXTRACTION_MODEL");
-  const pmModelId = Bun.env.PM_MODEL && Bun.env.PM_MODEL.trim().length > 0
-    ? Bun.env.PM_MODEL.trim()
+  const pmAgentModelId = Bun.env.PM_AGENT_MODEL && Bun.env.PM_AGENT_MODEL.trim().length > 0
+    ? Bun.env.PM_AGENT_MODEL.trim()
     : extractionModelId;
   const embeddingModelId = requireEnv("OPENROUTER_EMBEDDING_MODEL");
   const embeddingDimension = parsePositiveInteger(requireEnv("EMBEDDING_DIMENSION"), "EMBEDDING_DIMENSION");
@@ -62,9 +62,9 @@ export function loadServerConfig(): ServerConfig {
 
   return {
     openRouterApiKey,
-    assistantModelId,
+    chatAgentModelId,
     extractionModelId,
-    pmModelId,
+    pmAgentModelId,
     embeddingModelId,
     embeddingDimension,
     extractionStoreThreshold,
