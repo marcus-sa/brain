@@ -9,8 +9,11 @@ const entityRefSchema = z.object({
   entityId: z.string().describe("Entity identifier in table:id format, e.g. 'task:abc123'."),
   kind: z.string().describe("Entity type: project, feature, task, decision, question, person, or observation."),
   name: z.string().describe("Display name of the entity."),
-  status: z.string().describe("Current status of the entity, e.g. 'open', 'closed', 'confirmed'."),
-});
+  status: z.string().describe("Current status of the entity, e.g. 'open', 'closed', 'confirmed'. Use 'none' if the entity has no status."),
+}).transform((ref) => ({
+  ...ref,
+  status: ref.status === "none" ? undefined : ref.status,
+}));
 
 const analyticsResultSchema = z.object({
   answer: z.string().min(1).describe("Human-readable answer to the user's question. Write in natural language, not raw data."),
@@ -51,6 +54,7 @@ export async function runAnalyticsAgent(input: AnalyticsAgentInput): Promise<Ana
 
   console.log("[analytics] answer:", result.output.answer);
   console.log("[analytics] result_summary:", result.output.result_summary);
+  console.log("[analytics] referenced_entities:", JSON.stringify(result.output.referenced_entities));
 
   return result.output;
 }

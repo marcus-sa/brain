@@ -14,6 +14,7 @@ import { DiscussEntityCard } from "../components/chat/DiscussEntityCard";
 import type { DiscussEntitySummary } from "../../shared/contracts";
 import { useWorkspaceState } from "../stores/workspace-state";
 import { useChatSession } from "../hooks/use-chat-session";
+import { entityLinkMarkdownComponents } from "../components/chat/EntityLink";
 
 const COMMAND_ITEMS: SlashCommandItem[] = [
   {
@@ -95,6 +96,7 @@ export function ChatPage() {
           sessions={chat.sessions}
           activeSessionId={chat.activeSession.id}
           components={chatComponentCatalog}
+          markdownComponents={entityLinkMarkdownComponents}
           isLoading={chat.isLoading}
           onSendMessage={chat.onSendMessage}
           onStopMessage={chat.onStopMessage}

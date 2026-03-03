@@ -1,7 +1,7 @@
 import { stepCountIs, streamText, type ModelMessage } from "ai";
 import { RecordId, Surreal } from "surrealdb";
 import type { ExtractedEntity, ExtractedRelationship, OnboardingState } from "../../shared/contracts";
-import { buildChatContext, buildSystemPrompt } from "./context";
+import { buildChatContext, buildSystemPrompt, type ChatContext } from "./context";
 import { createChatAgentTools } from "./tools";
 
 type ConversationMessage = {
@@ -55,6 +55,7 @@ export async function runChatAgent(input: {
     isOnboarding: input.isOnboarding,
     onboardingState: input.onboardingState,
   });
+
   const modelMessages: ModelMessage[] = input.messages.map((message) => ({
     role: message.role,
     content: message.text,
@@ -114,6 +115,14 @@ export async function runChatAgent(input: {
     text = await result.text;
   }
 
+  // Post-process: inject entity:// links for entity names mentioned in the response.
+  const linked = injectEntityLinks(text, context);
+  if (linked !== text) {
+    // Re-send the full linked text as a replacement.
+    // The SSE stream already sent raw text; the persisted version will have links.
+    text = linked;
+  }
+
   return {
     text: text.trim(),
     collectedEntities,
@@ -122,3 +131,53 @@ export async function runChatAgent(input: {
 }
 
 export const runGraphAwareChat = runChatAgent;
+
+type KnownEntity = { entityId: string; kind: string; name: string };
+
+/**
+ * Replace entity name mentions in response text with markdown links:
+ *   "Model for Extraction Pipeline" → "[Model for Extraction Pipeline](entity://decision:uuid)"
+ *
+ * Matches longest names first to avoid partial replacement.
+ * Only replaces the first occurrence of each entity name.
+ */
+function injectEntityLinks(text: string, context: ChatContext): string {
+  const entities: KnownEntity[] = [];
+
+  for (const project of context.workspaceSummary.projects) {
+    entities.push({ entityId: `project:${project.id}`, kind: "project", name: project.name });
+  }
+  for (const decision of context.workspaceSummary.recentDecisions) {
+    entities.push({ entityId: `decision:${decision.id}`, kind: "decision", name: decision.name });
+  }
+  for (const question of context.workspaceSummary.openQuestions) {
+    entities.push({ entityId: `question:${question.id}`, kind: "question", name: question.name });
+  }
+
+  // Sort longest name first so "Agent-Native Business OS" matches before "Agent"
+  entities.sort((a, b) => b.name.length - a.name.length);
+
+  const replaced = new Set<string>();
+  let result = text;
+
+  for (const entity of entities) {
+    if (entity.name.length < 3) continue;
+    if (replaced.has(entity.entityId)) continue;
+
+    // Case-insensitive match, but only replace the first occurrence.
+    // Skip if the name is already inside a markdown link.
+    const idx = result.toLowerCase().indexOf(entity.name.toLowerCase());
+    if (idx === -1) continue;
+
+    // Check if already inside a markdown link: [...](...)
+    const before = result.slice(0, idx);
+    if (before.lastIndexOf("[") > before.lastIndexOf("]")) continue;
+
+    const matched = result.slice(idx, idx + entity.name.length);
+    const link = `[${matched}](#entity/${entity.entityId})`;
+    result = `${result.slice(0, idx)}${link}${result.slice(idx + entity.name.length)}`;
+    replaced.add(entity.entityId);
+  }
+
+  return result;
+}
