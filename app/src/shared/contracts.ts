@@ -284,7 +284,7 @@ export type BranchConversationResponse = {
 export type GovernanceTier = "blocking" | "review" | "awareness";
 
 export type GovernanceFeedAction = {
-  action: "confirm" | "override" | "acknowledge" | "resolve" | "complete" | "discuss";
+  action: "confirm" | "override" | "acknowledge" | "resolve" | "complete" | "discuss" | "dismiss";
   label: string;
 };
 
@@ -317,7 +317,7 @@ export type GovernanceFeedResponse = {
 };
 
 export type EntityActionRequest = {
-  action: "confirm" | "override" | "complete" | "set_priority" | "acknowledge" | "resolve";
+  action: "confirm" | "override" | "complete" | "set_priority" | "acknowledge" | "resolve" | "dismiss";
   notes?: string;
   newSummary?: string;
   priority?: EntityPriority;

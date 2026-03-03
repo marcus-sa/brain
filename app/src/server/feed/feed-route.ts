@@ -252,7 +252,7 @@ async function handleFeed(deps: ServerDependencies, workspaceId: string): Promis
         reason: `Extracted from ${row.sourceKind.replace("_", " ")}`,
         status: "extracted",
         createdAt: row.extractedAt,
-        actions: [],
+        actions: row.entityKind === "question" ? questionActions() : [],
       });
     }
 
@@ -299,8 +299,8 @@ function conflictActions(): GovernanceFeedAction[] {
 
 function questionActions(): GovernanceFeedAction[] {
   return [
-    { action: "resolve", label: "Resolve" },
-    { action: "discuss", label: "Discuss" },
+    { action: "discuss", label: "Answer" },
+    { action: "dismiss", label: "Dismiss" },
   ];
 }
 

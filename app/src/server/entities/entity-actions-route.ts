@@ -34,8 +34,8 @@ async function handleEntityAction(
     return jsonError("invalid JSON body", 400);
   }
 
-  if (!body.action || !["confirm", "override", "complete", "set_priority", "acknowledge", "resolve"].includes(body.action)) {
-    return jsonError("action must be one of: confirm, override, complete, set_priority, acknowledge, resolve", 400);
+  if (!body.action || !["confirm", "override", "complete", "set_priority", "acknowledge", "resolve", "dismiss"].includes(body.action)) {
+    return jsonError("action must be one of: confirm, override, complete, set_priority, acknowledge, resolve, dismiss", 400);
   }
 
   const url = new URL(request.url);
@@ -193,6 +193,15 @@ async function handleEntityAction(
 
       logInfo("entity.action.complete", "Task completed", { workspaceId, entityId });
       return jsonResponse({ status: "completed" }, 200);
+    }
+
+    if (body.action === "dismiss" && table === "question") {
+      await deps.surreal.update(entityRecord as RecordId<"question", string>).merge({
+        status: "dismissed",
+        updated_at: now,
+      });
+      logInfo("entity.action.dismiss", "Question dismissed", { workspaceId, entityId });
+      return jsonResponse({ status: "dismissed" }, 200);
     }
 
     if (body.action === "set_priority" && (table === "task" || table === "decision" || table === "question")) {

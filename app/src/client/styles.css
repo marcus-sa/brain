@@ -1538,6 +1538,16 @@ body {
   background: var(--hover);
 }
 
+.feed-action-btn--dismiss {
+  background: transparent;
+  color: var(--muted-foreground);
+  border-color: var(--border);
+}
+
+.feed-action-btn--dismiss:hover {
+  background: var(--hover);
+}
+
 /* --- Search overlay --- */
 
 .search-trigger {
