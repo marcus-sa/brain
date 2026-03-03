@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "6866b7acc905",
+  "session_id": "dc4c125d-52da-4cf6-8f5c-14500705728f",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-03T11:34:12.594138Z",
+  "branch": "marcus-sa/analytics-agent",
+  "checkpoints_count": 3,
+  "files_touched": [
+    "app/src/server/agents/analytics/syntax-reference.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "47a0c88cc43a",
+  "checkpoint_transcript_start": 278,
+  "transcript_lines_at_start": 278,
+  "token_usage": {
+    "input_tokens": 21,
+    "cache_creation_tokens": 14395,
+    "cache_read_tokens": 814341,
+    "output_tokens": 2533,
+    "api_call_count": 13
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-03T11:34:12.344819Z",
+    "agent_lines": 77,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 77,
+    "agent_percentage": 100
+  }
+}
