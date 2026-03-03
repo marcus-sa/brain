@@ -685,7 +685,7 @@ export type RecentExtractionRow = {
   extractedAt: string;
 };
 
-export async function listRecentExtractions(input: WorkspaceQueryInput): Promise<RecentExtractionRow[]> {
+export async function listRecentExtractions(input: WorkspaceQueryInput & { cutoff: Date }): Promise<RecentExtractionRow[]> {
   const [rows] = await input.surreal
     .query<[
       Array<{
@@ -699,16 +699,19 @@ export async function listRecentExtractions(input: WorkspaceQueryInput): Promise
       [
         "SELECT id, `in`, out, confidence, extracted_at",
         "FROM extraction_relation",
-        "WHERE `in` IN (",
-        "  SELECT VALUE id FROM message",
-        "  WHERE conversation IN (SELECT VALUE id FROM conversation WHERE workspace = $workspace)",
+        "WHERE extracted_at > $cutoff",
+        "AND (",
+        "  `in` IN (",
+        "    SELECT VALUE id FROM message",
+        "    WHERE conversation IN (SELECT VALUE id FROM conversation WHERE workspace = $workspace)",
+        "  )",
+        "  OR `in` IN (SELECT VALUE id FROM document_chunk WHERE workspace = $workspace)",
+        "  OR `in` IN (SELECT VALUE id FROM git_commit WHERE workspace = $workspace)",
         ")",
-        "OR `in` IN (SELECT VALUE id FROM document_chunk WHERE workspace = $workspace)",
-        "OR `in` IN (SELECT VALUE id FROM git_commit WHERE workspace = $workspace)",
         "ORDER BY extracted_at DESC",
         "LIMIT $limit;",
       ].join(" "),
-      { workspace: input.workspaceRecord, limit: input.limit },
+      { workspace: input.workspaceRecord, limit: input.limit, cutoff: input.cutoff },
     )
     .collect<[
       Array<{

@@ -78,7 +78,7 @@ async function handleFeed(deps: ServerDependencies, workspaceId: string): Promis
       listWorkspaceOpenObservations({ surreal: deps.surreal, workspaceRecord, limit: FEED_ITEM_LIMIT }),
       listStaleTasks({ ...queryInput, staleDays: STALE_DAYS }),
       listRecentlyCompletedItems({ ...queryInput, recentDays: RECENT_COMPLETED_DAYS }),
-      listRecentExtractions(queryInput),
+      listRecentExtractions({ ...queryInput, cutoff: new Date(Date.now() - AWARENESS_RECENCY_DAYS * 24 * 60 * 60 * 1000) }),
     ]);
 
     const blocking: GovernanceFeedItem[] = [];
@@ -247,8 +247,6 @@ async function handleFeed(deps: ServerDependencies, workspaceId: string): Promis
       seenEntityIds.add(item.entityId);
     }
     for (const row of recentExtractions) {
-      const extractedAt = new Date(row.extractedAt);
-      if (extractedAt < awarenessCutoff) continue;
       const entityId = `${row.entityKind}:${row.entityId}`;
       if (seenEntityIds.has(entityId)) continue;
       awareness.push({
