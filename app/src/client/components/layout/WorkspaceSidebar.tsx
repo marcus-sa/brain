@@ -43,11 +43,11 @@ export function WorkspaceSidebar({
   return (
     <aside className="workspace-sidebar">
       {/* Navigation links */}
-      <Link to="/graph" className={`sidebar-item sidebar-nav-item${isGraph ? " sidebar-item--active" : ""}`}>
-        Graph
-      </Link>
       <Link to="/" className={`sidebar-item sidebar-nav-item${isHome ? " sidebar-item--active" : ""}`}>
         Feed
+      </Link>
+      <Link to="/graph" className={`sidebar-item sidebar-nav-item${isGraph ? " sidebar-item--active" : ""}`}>
+        Graph
       </Link>
 
       <div className="sidebar-divider" />
