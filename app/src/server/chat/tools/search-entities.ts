@@ -15,7 +15,7 @@ import type { ChatToolDeps } from "./types";
 export function createSearchEntitiesTool(deps: ChatToolDeps) {
   return tool({
     description:
-      "Search the knowledge graph for entities matching a query. Use this when the user asks about topics, decisions, or tasks not already covered in context.",
+      "Semantic search across the knowledge graph. Use for finding entities by topic or meaning (e.g. \"authentication decisions\", \"payment tasks\"). For listing entities by kind or status, use list_workspace_entities instead.",
     inputSchema: z.object({
       query: z.string().min(1).describe("Natural language search query"),
       kinds: z.array(z.enum(["project", "feature", "task", "decision", "question"]))

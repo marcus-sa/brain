@@ -131,57 +131,47 @@ function formatConversationEntities(entities: ConversationEntity[]): string {
     .join("\n");
 }
 
-function formatProjectList(projects: WorkspaceProjectSummary[]): string {
+
+function formatWorkspaceSummary(context: ChatContext): string {
+  const { projects, recentDecisions, openQuestions, openObservations } = context.workspaceSummary;
+
+  const lines: string[] = [];
+
+  // Projects: keep names since they're needed for routing
   if (projects.length === 0) {
-    return "- none";
+    lines.push("- Projects: none");
+  } else {
+    lines.push(`- Projects: ${projects.map((p) => p.name).join(", ")}`);
   }
 
-  return projects
-    .slice(0, 15)
-    .map((project) => `- ${project.name} [id: ${project.id}] active tasks: ${project.activeTaskCount}`)
-    .join("\n");
-}
-
-function formatDecisionList(decisions: WorkspaceDecisionSummary[]): string {
-  if (decisions.length === 0) {
-    return "- none";
+  // Decisions: count by status
+  if (recentDecisions.length === 0) {
+    lines.push("- Decisions: none");
+  } else {
+    const statusCounts = new Map<string, number>();
+    for (const d of recentDecisions) {
+      statusCounts.set(d.status, (statusCounts.get(d.status) ?? 0) + 1);
+    }
+    const breakdown = [...statusCounts.entries()].map(([s, c]) => `${c} ${s}`).join(", ");
+    lines.push(`- Decisions: ${recentDecisions.length} (${breakdown})`);
   }
 
-  return decisions
-    .slice(0, 15)
-    .map((decision) => {
-      const project = decision.project ? ` project: ${decision.project}` : "";
-      return `- ${decision.name} [id: ${decision.id}] status: ${decision.status}${project}`;
-    })
-    .join("\n");
-}
+  // Questions: just count
+  lines.push(`- Open questions: ${openQuestions.length}`);
 
-function formatQuestionList(questions: WorkspaceQuestionSummary[]): string {
-  if (questions.length === 0) {
-    return "- none";
+  // Observations: count by severity
+  if (openObservations.length === 0) {
+    lines.push("- Observations: none");
+  } else {
+    const severityCounts = new Map<string, number>();
+    for (const o of openObservations) {
+      severityCounts.set(o.severity, (severityCounts.get(o.severity) ?? 0) + 1);
+    }
+    const breakdown = [...severityCounts.entries()].map(([s, c]) => `${c} ${s}`).join(", ");
+    lines.push(`- Observations: ${openObservations.length} (${breakdown})`);
   }
 
-  return questions
-    .slice(0, 15)
-    .map((question) => {
-      const project = question.project ? ` project: ${question.project}` : "";
-      return `- ${question.name} [id: ${question.id}]${project}`;
-    })
-    .join("\n");
-}
-
-function formatObservationList(observations: ObservationSummary[]): string {
-  if (observations.length === 0) {
-    return "- none";
-  }
-
-  return observations
-    .slice(0, 10)
-    .map((observation) => {
-      const category = observation.category ? `, ${observation.category}` : "";
-      return `- [${observation.severity}] ${observation.text} (by ${observation.sourceAgent}, ${observation.status}${category})`;
-    })
-    .join("\n");
+  return lines.join("\n");
 }
 
 type SystemPromptOptions = {
@@ -273,19 +263,8 @@ export function buildSystemPrompt(context: ChatContext, options?: SystemPromptOp
     formatConversationEntities(context.conversationEntities),
     "",
     "## Workspace Overview",
-    "Projects:",
-    formatProjectList(context.workspaceSummary.projects),
-    "",
-    "Recent decisions:",
-    formatDecisionList(context.workspaceSummary.recentDecisions),
-    "",
-    "Open questions:",
-    formatQuestionList(context.workspaceSummary.openQuestions),
-    "",
-    "## Active Observations",
-    "Observations are cross-cutting signals from agents about risks, conflicts, and notable facts.",
-    "Factor open observations into your reasoning and responses.",
-    formatObservationList(context.workspaceSummary.openObservations),
+    "Use list_workspace_entities to retrieve full entity listings. Summary:",
+    formatWorkspaceSummary(context),
     "",
     "## UI Components",
     "Render structured component blocks when displaying work items or entity extractions.",

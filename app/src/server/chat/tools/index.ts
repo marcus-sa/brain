@@ -9,6 +9,7 @@ import { createGetEntityDetailTool } from "./get-entity-detail";
 import { createGetProjectStatusTool } from "./get-project-status";
 import { createInvokeAnalyticsAgentTool } from "./invoke-analytics-agent";
 import { createInvokePmAgentTool } from "./invoke-pm-agent";
+import { createListWorkspaceEntitiesTool } from "./list-workspace-entities";
 import { createResolveObservationTool } from "./resolve-observation";
 import { createResolveDecisionTool } from "./resolve-decision";
 import { createSearchEntitiesTool } from "./search-entities";
@@ -17,6 +18,7 @@ import type { ChatAgentToolDeps } from "./types";
 
 export function createChatAgentTools(deps: ChatAgentToolDeps) {
   return {
+    list_workspace_entities: createListWorkspaceEntitiesTool(deps),
     search_entities: createSearchEntitiesTool(deps),
     get_entity_detail: createGetEntityDetailTool(deps),
     get_project_status: createGetProjectStatusTool(deps),
