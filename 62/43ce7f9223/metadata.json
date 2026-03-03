@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "6243ce7f9223",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/option-f-ui",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "app/src/client/components/search/SearchResultCard.tsx",
+    "app/src/client/hooks/use-chat-session.ts",
+    "app/src/server/entities/entity-search-route.ts",
+    "app/src/shared/contracts.ts",
+    "schema/surreal-schema.surql"
+  ],
+  "sessions": [
+    {
+      "metadata": "/62/43ce7f9223/0/metadata.json",
+      "transcript": "/62/43ce7f9223/0/full.jsonl",
+      "context": "/62/43ce7f9223/0/context.md",
+      "content_hash": "/62/43ce7f9223/0/content_hash.txt",
+      "prompt": "/62/43ce7f9223/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 50,
+    "cache_creation_tokens": 89310,
+    "cache_read_tokens": 2394568,
+    "output_tokens": 11284,
+    "api_call_count": 44
+  }
+}
