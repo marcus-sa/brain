@@ -1,0 +1,43 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "125b231ddb51",
+  "session_id": "0231b231-5179-4439-bf3d-41040b1544f6",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-03T07:21:17.525223Z",
+  "branch": "marcus-sa/extraction-to-pm-tool",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "AGENTS.md",
+    "app/src/server/chat/chat-processor.ts",
+    "app/src/server/chat/context.ts",
+    "app/src/server/chat/handler.ts",
+    "app/src/server/chat/tools/confirm-decision.ts",
+    "app/src/server/chat/tools/index.ts",
+    "app/src/server/chat/tools/invoke-pm-agent.ts",
+    "app/src/server/chat/tools/types.ts",
+    "tests/smoke/extraction-quality.test.ts",
+    "tests/smoke/onboarding.test.ts",
+    "tests/smoke/pipeline.test.ts",
+    "tests/smoke/priority.test.ts",
+    "tests/unit/confirm-decision-tool.test.ts",
+    "tests/unit/observation-queries.test.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "0bd6ec69e6ee",
+  "token_usage": {
+    "input_tokens": 4685,
+    "cache_creation_tokens": 77760,
+    "cache_read_tokens": 2248281,
+    "output_tokens": 10432,
+    "api_call_count": 32
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-03T07:21:16.828055Z",
+    "agent_lines": 48,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 1,
+    "total_committed": 48,
+    "agent_percentage": 100
+  }
+}
