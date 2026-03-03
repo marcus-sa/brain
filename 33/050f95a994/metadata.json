@@ -1,0 +1,44 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "33050f95a994",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/chat-entity-reference",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "app/src/client/components/chat/DiscussEntityCard.tsx",
+    "app/src/client/components/feed/GovernanceFeed.tsx",
+    "app/src/client/components/graph/EntityDetailPanel.tsx",
+    "app/src/client/components/search/SearchOverlay.tsx",
+    "app/src/client/components/search/SearchResultCard.tsx",
+    "app/src/client/hooks/use-chat-session.ts",
+    "app/src/client/routes/chat-page.tsx",
+    "app/src/client/stores/view-state.ts",
+    "app/src/client/styles.css",
+    "app/src/server/chat/chat-ingress.ts",
+    "app/src/server/chat/chat-processor.ts",
+    "app/src/server/chat/context.ts",
+    "app/src/server/chat/handler.ts",
+    "app/src/server/extraction/types.ts",
+    "app/src/server/graph/queries.ts",
+    "app/src/server/http/parsing.ts",
+    "app/src/server/workspace/workspace-routes.ts",
+    "app/src/shared/contracts.ts",
+    "schema/surreal-schema.surql"
+  ],
+  "sessions": [
+    {
+      "metadata": "/33/050f95a994/0/metadata.json",
+      "transcript": "/33/050f95a994/0/full.jsonl",
+      "context": "/33/050f95a994/0/context.md",
+      "content_hash": "/33/050f95a994/0/content_hash.txt",
+      "prompt": "/33/050f95a994/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 34,
+    "cache_creation_tokens": 41598,
+    "cache_read_tokens": 120862,
+    "output_tokens": 883,
+    "api_call_count": 4
+  }
+}

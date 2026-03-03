@@ -1,0 +1,48 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "33050f95a994",
+  "session_id": "700c6428-ebf1-449a-8a9f-361441a014a5",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-03T09:40:20.669279Z",
+  "branch": "marcus-sa/chat-entity-reference",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "app/src/shared/contracts.ts",
+    "schema/surreal-schema.surql",
+    "app/src/client/components/chat/DiscussEntityCard.tsx",
+    "app/src/client/components/feed/GovernanceFeed.tsx",
+    "app/src/server/chat/chat-processor.ts",
+    "app/src/server/chat/context.ts",
+    "app/src/server/extraction/types.ts",
+    "app/src/client/components/graph/EntityDetailPanel.tsx",
+    "app/src/client/components/search/SearchOverlay.tsx",
+    "app/src/client/hooks/use-chat-session.ts",
+    "app/src/client/stores/view-state.ts",
+    "app/src/client/styles.css",
+    "app/src/server/chat/handler.ts",
+    "app/src/server/chat/chat-ingress.ts",
+    "app/src/server/graph/queries.ts",
+    "app/src/server/http/parsing.ts",
+    "app/src/server/workspace/workspace-routes.ts",
+    "app/src/client/components/search/SearchResultCard.tsx",
+    "app/src/client/routes/chat-page.tsx"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "54bc7404fd65",
+  "token_usage": {
+    "input_tokens": 34,
+    "cache_creation_tokens": 41598,
+    "cache_read_tokens": 120862,
+    "output_tokens": 883,
+    "api_call_count": 4
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-03T09:40:20.650709Z",
+    "agent_lines": 266,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 266,
+    "agent_percentage": 100
+  }
+}
