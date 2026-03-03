@@ -1,0 +1,34 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "f9f200d05760",
+  "session_id": "0231b231-5179-4439-bf3d-41040b1544f6",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-03T07:47:38.846648Z",
+  "branch": "marcus-sa/extraction-to-pm-tool",
+  "checkpoints_count": 7,
+  "files_touched": [
+    "AGENTS.md",
+    "app/src/server/agents/pm/agent.ts",
+    "app/src/server/agents/pm/tools.ts",
+    "app/src/server/chat/tools/create-work-item.ts",
+    "app/src/server/chat/tools/suggest-work-items.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "3aecfe454537",
+  "token_usage": {
+    "input_tokens": 4729,
+    "cache_creation_tokens": 152359,
+    "cache_read_tokens": 5412504,
+    "output_tokens": 29138,
+    "api_call_count": 65
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-03T07:47:37.585273Z",
+    "agent_lines": 351,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 351,
+    "agent_percentage": 100
+  }
+}
