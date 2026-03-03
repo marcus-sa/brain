@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "d47eebf55149",
+  "session_id": "77dd9d1c-c69c-43c9-a35d-97ec216af5d3",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-03T06:32:30.675453Z",
+  "branch": "marcus-sa/extraction-to-pm-tool",
+  "checkpoints_count": 3,
+  "files_touched": [
+    "app/src/server/extraction/entity-upsert.ts",
+    "app/src/server/workspace/workspace-scope.ts",
+    "schema/surreal-schema.surql",
+    "tests/smoke/description-entries.test.ts",
+    "tests/smoke/phase1.test.ts",
+    "tests/smoke/pipeline.test.ts",
+    "tests/smoke/priority.test.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "8986e6b39a96",
+  "checkpoint_transcript_start": 1050,
+  "transcript_lines_at_start": 1050,
+  "token_usage": {
+    "input_tokens": 59,
+    "cache_creation_tokens": 137459,
+    "cache_read_tokens": 4861596,
+    "output_tokens": 19328,
+    "api_call_count": 55
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-03T06:32:29.269942Z",
+    "agent_lines": 132,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 132,
+    "agent_percentage": 100
+  }
+}
