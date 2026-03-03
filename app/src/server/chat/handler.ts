@@ -21,7 +21,7 @@ export type ChatAgentResult = {
 export async function runChatAgent(input: {
   surreal: Surreal;
   model: any;
-  pmModel: any;
+  pmAgentModel: any;
   embeddingModel: any;
   embeddingDimension: number;
   extractionModelId: string;
@@ -62,7 +62,7 @@ export async function runChatAgent(input: {
     messages: modelMessages,
     tools: createChatAgentTools({
       surreal: input.surreal,
-      pmModel: input.pmModel,
+      pmAgentModel: input.pmAgentModel,
       embeddingModel: input.embeddingModel,
       embeddingDimension: input.embeddingDimension,
       extractionModelId: input.extractionModelId,

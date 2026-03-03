@@ -20,7 +20,7 @@ export type EvalRuntime = {
   surreal: Surreal;
   extractionModel: any;
   embeddingModel: any;
-  assistantModel: any;
+  chatAgentModel: any;
   config: ServerConfig;
   namespace: string;
   database: string;
@@ -56,7 +56,7 @@ export async function setupEvalRuntime(suiteName: string): Promise<EvalRuntime> 
 
   const openRouterApiKey = requireEnv("OPENROUTER_API_KEY");
   const extractionModelId = requireEnv("EXTRACTION_MODEL");
-  const assistantModelId = requireEnv("ASSISTANT_MODEL");
+  const chatAgentModelId = requireEnv("CHAT_AGENT_MODEL");
   const embeddingModelId = requireEnv("OPENROUTER_EMBEDDING_MODEL");
   const embeddingDimension = Number(requireEnv("EMBEDDING_DIMENSION"));
   const extractionStoreThreshold = Number(process.env.EXTRACTION_STORE_THRESHOLD ?? "0.3");
@@ -64,12 +64,12 @@ export async function setupEvalRuntime(suiteName: string): Promise<EvalRuntime> 
 
   const openrouter = createOpenRouter({ apiKey: openRouterApiKey });
   const extractionModel = openrouter(extractionModelId, { plugins: [{ id: "response-healing" }] });
-  const assistantModel = openrouter(assistantModelId, { plugins: [{ id: "response-healing" }] });
+  const chatAgentModel = openrouter(chatAgentModelId, { plugins: [{ id: "response-healing" }] });
   const embeddingModel = openrouter.textEmbeddingModel(embeddingModelId);
 
   const config: ServerConfig = {
     openRouterApiKey,
-    assistantModelId,
+    chatAgentModelId,
     extractionModelId,
     embeddingModelId,
     embeddingDimension,
@@ -87,7 +87,7 @@ export async function setupEvalRuntime(suiteName: string): Promise<EvalRuntime> 
     surreal,
     extractionModel,
     embeddingModel,
-    assistantModel,
+    chatAgentModel,
     config,
     namespace,
     database,

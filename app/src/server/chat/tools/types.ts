@@ -19,5 +19,5 @@ export type ChatToolDeps = {
 };
 
 export type ChatAgentToolDeps = ChatToolDeps & {
-  pmModel: any;
+  pmAgentModel: any;
 };

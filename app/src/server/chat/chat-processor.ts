@@ -153,8 +153,8 @@ export async function processChatMessage(input: {
 
     const graphAwareResponse = await runChatAgent({
       surreal: input.deps.surreal,
-      model: input.deps.assistantModel,
-      pmModel: input.deps.pmModel,
+      model: input.deps.chatAgentModel,
+      pmAgentModel: input.deps.pmAgentModel,
       embeddingModel: input.deps.embeddingModel,
       embeddingDimension: input.deps.config.embeddingDimension,
       extractionModelId: input.deps.config.extractionModelId,

@@ -49,7 +49,7 @@ export type PmAgentOutput = PmAgentResult & {
 };
 
 export type PmAgentInput = {
-  deps: ChatToolDeps & { pmModel: any };
+  deps: ChatToolDeps & { pmAgentModel: any };
   context: ChatToolExecutionContext;
   intent: "plan_work" | "check_status" | "organize" | "track_dependencies";
   conversationContext: string;
@@ -71,7 +71,7 @@ export async function runPmAgent(input: PmAgentInput): Promise<PmAgentOutput> {
 
   const agent = new ToolLoopAgent({
     id: "pm-agent",
-    model: input.deps.pmModel,
+    model: input.deps.pmAgentModel,
     instructions: system,
     tools: createPmTools(input.deps),
     output: Output.object({ schema: pmAgentResultSchema }),
