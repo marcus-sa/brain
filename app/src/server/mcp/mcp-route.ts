@@ -2,11 +2,38 @@ import { RecordId } from "surrealdb";
 import { jsonError, jsonResponse } from "../http/response";
 import { logError, logInfo } from "../http/observability";
 import { buildProjectContext } from "./context-builder";
+import { authenticateMcpRequest, type McpAuthResult } from "./auth";
+import { generateApiKey, hashApiKey } from "./api-key";
+import {
+  listProjectDecisions,
+  getTaskDependencyTree,
+  listProjectConstraints,
+  listRecentChanges,
+  createSubtask,
+  updateTaskStatus,
+  logImplementationNote,
+  createAgentSession,
+  endAgentSession,
+  logCommit,
+} from "./mcp-queries";
+import {
+  createDecisionRecord,
+  createQuestionRecord,
+  getEntityDetail,
+  parseRecordIdString,
+  resolveWorkspaceProjectRecord,
+  resolveWorkspaceFeatureRecord,
+  listDecisionConstraintCandidates,
+  searchEntitiesByEmbedding,
+  type GraphEntityTable,
+} from "../graph/queries";
+import { createEmbeddingVector } from "../graph/embeddings";
 import type { ServerDependencies } from "../runtime/types";
 
 type WorkspaceRow = {
   id: RecordId<"workspace", string>;
   name: string;
+  api_key_hash?: string;
 };
 
 type ProjectRow = {
@@ -14,52 +41,117 @@ type ProjectRow = {
   name: string;
 };
 
-/**
- * Creates MCP route handler.
- *
- * Endpoints:
- *   POST /api/mcp/:workspaceId/context
- *     Body: { project_id: string, task_id?: string, since?: string }
- *     Returns: ContextPacket
- *
- *   GET /api/mcp/:workspaceId/projects
- *     Returns: { projects: { id, name }[] }
- */
-export function createMcpRouteHandlers(deps: ServerDependencies) {
-  const { surreal } = deps;
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
-  async function handleGetContext(workspaceId: string, request: Request): Promise<Response> {
-    // Validate workspace
+async function parseJsonBody<T>(request: Request): Promise<T | Response> {
+  try {
+    return (await request.json()) as T;
+  } catch {
+    return jsonError("invalid JSON body", 400);
+  }
+}
+
+const ENTITY_TABLES: GraphEntityTable[] = ["workspace", "project", "person", "feature", "task", "decision", "question", "observation"];
+
+function normalizeTokens(value: string): Set<string> {
+  return new Set(
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .map((t) => t.trim())
+      .filter((t) => t.length > 2),
+  );
+}
+
+function hasTokenOverlap(a: Set<string>, b: Set<string>): boolean {
+  for (const v of a) {
+    if (b.has(v)) return true;
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+// Route handlers
+// ---------------------------------------------------------------------------
+
+export function createMcpRouteHandlers(deps: ServerDependencies) {
+  const { surreal, config } = deps;
+
+  // ---- Auth helper: returns McpAuthResult or error Response ----
+  async function requireAuth(request: Request, workspaceId: string): Promise<McpAuthResult | Response> {
+    return authenticateMcpRequest(request, workspaceId, surreal);
+  }
+
+  // ---- Workspace helper (no auth - for legacy/unauthenticated routes) ----
+  async function resolveWorkspaceById(workspaceId: string): Promise<{ workspaceRecord: RecordId<"workspace", string>; workspace: WorkspaceRow } | Response> {
     const workspaceRecord = new RecordId("workspace", workspaceId);
     const workspace = await surreal.select<WorkspaceRow>(workspaceRecord);
-    if (!workspace) {
-      return jsonError("workspace not found", 404);
-    }
+    if (!workspace) return jsonError("workspace not found", 404);
+    return { workspaceRecord, workspace };
+  }
 
-    // Parse body
-    let body: { project_id: string; task_id?: string; since?: string };
-    try {
-      body = await request.json();
-    } catch {
-      return jsonError("invalid JSON body", 400);
-    }
+  // =========================================================================
+  // Setup
+  // =========================================================================
 
-    if (!body.project_id || typeof body.project_id !== "string") {
-      return jsonError("project_id is required", 400);
-    }
+  /** POST /api/mcp/:workspaceId/auth/init — Generate API key */
+  async function handleAuthInit(workspaceId: string): Promise<Response> {
+    const result = await resolveWorkspaceById(workspaceId);
+    if (result instanceof Response) return result;
 
-    // Validate project belongs to workspace
+    const apiKey = generateApiKey();
+    const hash = await hashApiKey(apiKey);
+
+    await surreal.update(result.workspaceRecord).merge({ api_key_hash: hash, updated_at: new Date() });
+
+    logInfo("mcp.auth.init", "API key generated for workspace", { workspaceId });
+
+    return jsonResponse({ api_key: apiKey, workspace: { id: workspaceId, name: result.workspace.name } }, 200);
+  }
+
+  /** GET /api/mcp/:workspaceId/projects — List workspace projects */
+  async function handleListProjects(workspaceId: string): Promise<Response> {
+    const result = await resolveWorkspaceById(workspaceId);
+    if (result instanceof Response) return result;
+
+    const [projectRows] = await surreal
+      .query<[ProjectRow[]]>(
+        "SELECT id, name FROM project WHERE id IN (SELECT VALUE out FROM has_project WHERE `in` = $workspace);",
+        { workspace: result.workspaceRecord },
+      )
+      .collect<[ProjectRow[]]>();
+
+    return jsonResponse({
+      workspace: { id: workspaceId, name: result.workspace.name },
+      projects: projectRows.map((p) => ({ id: p.id.id as string, name: p.name })),
+    }, 200);
+  }
+
+  // =========================================================================
+  // Tier 1 — Read
+  // =========================================================================
+
+  /** POST /api/mcp/:workspaceId/context — Get project context (broad or task-scoped) */
+  async function handleGetContext(workspaceId: string, request: Request): Promise<Response> {
+    const auth = await requireAuth(request, workspaceId);
+    if (auth instanceof Response) return auth;
+
+    const body = await parseJsonBody<{ project_id: string; task_id?: string; since?: string }>(request);
+    if (body instanceof Response) return body;
+    if (!body.project_id) return jsonError("project_id is required", 400);
+
     const projectRecord = new RecordId("project", body.project_id);
     const project = await surreal.select<ProjectRow>(projectRecord);
-    if (!project) {
-      return jsonError("project not found", 404);
-    }
+    if (!project) return jsonError("project not found", 404);
 
     try {
       const contextPacket = await buildProjectContext({
         surreal,
-        workspaceRecord,
-        workspaceName: workspace.name,
+        workspaceRecord: auth.workspaceRecord,
+        workspaceName: auth.workspaceName,
         projectRecord,
         taskId: body.task_id,
         since: body.since,
@@ -74,8 +166,6 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
           contextPacket.decisions.provisional.length +
           contextPacket.decisions.contested.length,
         tasksCount: contextPacket.active_tasks.length,
-        questionsCount: contextPacket.open_questions.length,
-        observationsCount: contextPacket.observations.length,
       });
 
       return jsonResponse(contextPacket, 200);
@@ -85,30 +175,575 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
     }
   }
 
-  async function handleListProjects(workspaceId: string): Promise<Response> {
-    const workspaceRecord = new RecordId("workspace", workspaceId);
-    const workspace = await surreal.select<WorkspaceRow>(workspaceRecord);
-    if (!workspace) {
-      return jsonError("workspace not found", 404);
-    }
+  /** POST /api/mcp/:workspaceId/decisions — Active decisions by project/area */
+  async function handleGetDecisions(workspaceId: string, request: Request): Promise<Response> {
+    const auth = await requireAuth(request, workspaceId);
+    if (auth instanceof Response) return auth;
 
-    const [projectRows] = await surreal
-      .query<[ProjectRow[]]>(
-        "SELECT id, name FROM project WHERE id IN (SELECT VALUE out FROM has_project WHERE `in` = $workspace);",
-        { workspace: workspaceRecord },
-      )
-      .collect<[ProjectRow[]]>();
+    const body = await parseJsonBody<{ project_id: string; area?: string }>(request);
+    if (body instanceof Response) return body;
+    if (!body.project_id) return jsonError("project_id is required", 400);
 
-    const projects = projectRows.map((p) => ({
-      id: p.id.id as string,
-      name: p.name,
-    }));
+    const projectRecord = new RecordId("project", body.project_id);
+    const decisions = await listProjectDecisions({
+      surreal,
+      workspaceRecord: auth.workspaceRecord,
+      projectRecord,
+      area: body.area,
+    });
 
-    return jsonResponse({ workspace: { id: workspaceId, name: workspace.name }, projects }, 200);
+    return jsonResponse(decisions, 200);
   }
 
+  /** POST /api/mcp/:workspaceId/tasks/dependencies — Task dependency tree */
+  async function handleGetTaskDependencies(workspaceId: string, request: Request): Promise<Response> {
+    const auth = await requireAuth(request, workspaceId);
+    if (auth instanceof Response) return auth;
+
+    const body = await parseJsonBody<{ task_id: string }>(request);
+    if (body instanceof Response) return body;
+    if (!body.task_id) return jsonError("task_id is required", 400);
+
+    const taskRecord = new RecordId("task", body.task_id);
+    const tree = await getTaskDependencyTree({ surreal, taskRecord });
+
+    return jsonResponse(tree, 200);
+  }
+
+  /** POST /api/mcp/:workspaceId/constraints — Architecture constraints */
+  async function handleGetConstraints(workspaceId: string, request: Request): Promise<Response> {
+    const auth = await requireAuth(request, workspaceId);
+    if (auth instanceof Response) return auth;
+
+    const body = await parseJsonBody<{ project_id: string; area?: string }>(request);
+    if (body instanceof Response) return body;
+    if (!body.project_id) return jsonError("project_id is required", 400);
+
+    const projectRecord = new RecordId("project", body.project_id);
+    const constraints = await listProjectConstraints({
+      surreal,
+      workspaceRecord: auth.workspaceRecord,
+      projectRecord,
+      area: body.area,
+    });
+
+    return jsonResponse({ constraints }, 200);
+  }
+
+  /** POST /api/mcp/:workspaceId/changes — Recent changes since timestamp */
+  async function handleGetChanges(workspaceId: string, request: Request): Promise<Response> {
+    const auth = await requireAuth(request, workspaceId);
+    if (auth instanceof Response) return auth;
+
+    const body = await parseJsonBody<{ project_id?: string; since: string }>(request);
+    if (body instanceof Response) return body;
+    if (!body.since) return jsonError("since is required", 400);
+
+    const projectRecord = body.project_id ? new RecordId("project", body.project_id) : undefined;
+
+    const changes = await listRecentChanges({
+      surreal,
+      workspaceRecord: auth.workspaceRecord,
+      projectRecord,
+      since: body.since,
+    });
+
+    return jsonResponse({ changes }, 200);
+  }
+
+  /** GET /api/mcp/:workspaceId/entities/:entityId — Entity detail */
+  async function handleGetEntityDetail(workspaceId: string, entityId: string, request: Request): Promise<Response> {
+    const auth = await requireAuth(request, workspaceId);
+    if (auth instanceof Response) return auth;
+
+    try {
+      const entityRecord = parseRecordIdString(entityId, ENTITY_TABLES);
+      const detail = await getEntityDetail({
+        surreal,
+        workspaceRecord: auth.workspaceRecord,
+        entityRecord,
+      });
+
+      return jsonResponse(detail, 200);
+    } catch {
+      return jsonError(`entity not found: ${entityId}`, 404);
+    }
+  }
+
+  // =========================================================================
+  // Tier 2 — Reason
+  // =========================================================================
+
+  /** POST /api/mcp/:workspaceId/decisions/resolve — Infer decision from graph */
+  async function handleResolveDecision(workspaceId: string, request: Request): Promise<Response> {
+    const auth = await requireAuth(request, workspaceId);
+    if (auth instanceof Response) return auth;
+
+    const body = await parseJsonBody<{
+      question: string;
+      options?: string[];
+      context?: { project?: string; feature?: string };
+    }>(request);
+    if (body instanceof Response) return body;
+    if (!body.question) return jsonError("question is required", 400);
+
+    // Embed the question and search for related decisions
+    const queryEmbedding = await createEmbeddingVector(
+      deps.embeddingModel,
+      body.question,
+      config.embeddingDimension,
+    );
+
+    if (!queryEmbedding) {
+      return jsonResponse({
+        decision: undefined,
+        confidence: 0,
+        status: "unresolved",
+        rationale: "Could not create embedding for question",
+        sources: [],
+      }, 200);
+    }
+
+    const projectRecord = body.context?.project
+      ? await resolveWorkspaceProjectRecord({ surreal, workspaceRecord: auth.workspaceRecord, projectInput: body.context.project })
+      : undefined;
+
+    const candidates = await searchEntitiesByEmbedding({
+      surreal,
+      workspaceRecord: auth.workspaceRecord,
+      queryEmbedding,
+      kinds: ["decision"],
+      ...(projectRecord ? { projectRecord } : {}),
+      limit: 10,
+    });
+
+    // Check if any existing decision resolves the question
+    const questionTokens = normalizeTokens(body.question);
+    const relevant = candidates.filter((c) => {
+      const tokens = normalizeTokens(c.name);
+      return c.score >= 0.78 && hasTokenOverlap(questionTokens, tokens);
+    });
+
+    if (relevant.length > 0) {
+      const best = relevant[0];
+      return jsonResponse({
+        decision: best.name,
+        confidence: Number(best.score.toFixed(4)),
+        status: best.status ?? "unknown",
+        rationale: `Existing ${best.status} decision found with ${(best.score * 100).toFixed(1)}% similarity`,
+        sources: relevant.map((r) => ({ id: `${r.kind}:${r.id}`, name: r.name, score: Number(r.score.toFixed(4)) })),
+      }, 200);
+    }
+
+    return jsonResponse({
+      decision: undefined,
+      confidence: 0,
+      status: "unresolved",
+      rationale: "No existing decision found that resolves this question",
+      sources: candidates.slice(0, 5).map((c) => ({
+        id: `${c.kind}:${c.id}`,
+        name: c.name,
+        score: Number(c.score.toFixed(4)),
+      })),
+    }, 200);
+  }
+
+  /** POST /api/mcp/:workspaceId/constraints/check — Check proposed action */
+  async function handleCheckConstraints(workspaceId: string, request: Request): Promise<Response> {
+    const auth = await requireAuth(request, workspaceId);
+    if (auth instanceof Response) return auth;
+
+    const body = await parseJsonBody<{ proposed_action: string; project?: string }>(request);
+    if (body instanceof Response) return body;
+    if (!body.proposed_action) return jsonError("proposed_action is required", 400);
+
+    const queryEmbedding = await createEmbeddingVector(
+      deps.embeddingModel,
+      body.proposed_action,
+      config.embeddingDimension,
+    );
+
+    if (!queryEmbedding) {
+      return jsonResponse({ hard_conflicts: [], soft_tensions: [], supporting: [], proceed: true }, 200);
+    }
+
+    const projectRecord = body.project
+      ? await resolveWorkspaceProjectRecord({ surreal, workspaceRecord: auth.workspaceRecord, projectInput: body.project })
+      : undefined;
+
+    const candidates = await listDecisionConstraintCandidates({
+      surreal,
+      workspaceRecord: auth.workspaceRecord,
+      queryEmbedding,
+      ...(projectRecord ? { projectRecord } : {}),
+      limit: 14,
+    });
+
+    const actionTokens = normalizeTokens(body.proposed_action);
+    const hardConflicts: Array<{ id: string; name: string; score: number; reason: string }> = [];
+    const softTensions: Array<{ id: string; name: string; score: number; reason: string }> = [];
+    const supporting: Array<{ id: string; name: string; score: number; reason: string }> = [];
+
+    for (const candidate of candidates) {
+      const candidateTokens = normalizeTokens(candidate.name);
+      const overlap = hasTokenOverlap(actionTokens, candidateTokens);
+      const status = candidate.status?.toLowerCase();
+
+      if (candidate.kind === "decision" && overlap && (status === "contested" || status === "superseded")) {
+        hardConflicts.push({
+          id: `${candidate.kind}:${candidate.id}`,
+          name: candidate.name,
+          score: Number(candidate.score.toFixed(4)),
+          reason: `Decision is marked ${status}.`,
+        });
+        continue;
+      }
+
+      if (candidate.kind === "decision" && candidate.score >= 0.86 && overlap) {
+        supporting.push({
+          id: `${candidate.kind}:${candidate.id}`,
+          name: candidate.name,
+          score: Number(candidate.score.toFixed(4)),
+          reason: "High-similarity decision aligns with proposed action.",
+        });
+        continue;
+      }
+
+      if (candidate.score >= 0.72) {
+        softTensions.push({
+          id: `${candidate.kind}:${candidate.id}`,
+          name: candidate.name,
+          score: Number(candidate.score.toFixed(4)),
+          reason: overlap
+            ? "Related decision/question may require consistency checks."
+            : "Semantically related context may be affected.",
+        });
+      }
+    }
+
+    return jsonResponse({ hard_conflicts: hardConflicts, soft_tensions: softTensions, supporting, proceed: hardConflicts.length === 0 }, 200);
+  }
+
+  // =========================================================================
+  // Tier 3 — Write
+  // =========================================================================
+
+  /** POST /api/mcp/:workspaceId/decisions/provisional — Create provisional decision */
+  async function handleCreateProvisionalDecision(workspaceId: string, request: Request): Promise<Response> {
+    const auth = await requireAuth(request, workspaceId);
+    if (auth instanceof Response) return auth;
+
+    const body = await parseJsonBody<{
+      name: string;
+      rationale: string;
+      context?: { project?: string; feature?: string };
+      options_considered?: string[];
+    }>(request);
+    if (body instanceof Response) return body;
+    if (!body.name) return jsonError("name is required", 400);
+    if (!body.rationale) return jsonError("rationale is required", 400);
+
+    const projectRecord = body.context?.project
+      ? await resolveWorkspaceProjectRecord({ surreal, workspaceRecord: auth.workspaceRecord, projectInput: body.context.project })
+      : undefined;
+
+    const featureRecord = body.context?.feature
+      ? await resolveWorkspaceFeatureRecord({ surreal, workspaceRecord: auth.workspaceRecord, featureInput: body.context.feature })
+      : undefined;
+
+    const decisionRecord = await createDecisionRecord({
+      surreal,
+      summary: body.name,
+      status: "provisional",
+      now: new Date(),
+      workspaceRecord: auth.workspaceRecord,
+      rationale: body.rationale,
+      ...(body.options_considered?.length ? { optionsConsidered: body.options_considered } : {}),
+      decidedByName: "code-agent",
+      ...(projectRecord ? { projectRecord } : {}),
+      ...(featureRecord ? { featureRecord } : {}),
+    });
+
+    logInfo("mcp.decision.created", "Provisional decision created via MCP", {
+      workspaceId,
+      decisionId: decisionRecord.id as string,
+    });
+
+    return jsonResponse({
+      decision_id: `decision:${decisionRecord.id as string}`,
+      status: "provisional",
+      review_required: true,
+    }, 201);
+  }
+
+  /** POST /api/mcp/:workspaceId/questions — Ask a question */
+  async function handleAskQuestion(workspaceId: string, request: Request): Promise<Response> {
+    const auth = await requireAuth(request, workspaceId);
+    if (auth instanceof Response) return auth;
+
+    const body = await parseJsonBody<{
+      text: string;
+      context?: { project?: string; feature?: string; task?: string };
+      options?: string[];
+      blocking_task?: string;
+    }>(request);
+    if (body instanceof Response) return body;
+    if (!body.text) return jsonError("text is required", 400);
+
+    const projectRecord = body.context?.project
+      ? await resolveWorkspaceProjectRecord({ surreal, workspaceRecord: auth.workspaceRecord, projectInput: body.context.project })
+      : undefined;
+
+    const featureRecord = body.context?.feature
+      ? await resolveWorkspaceFeatureRecord({ surreal, workspaceRecord: auth.workspaceRecord, featureInput: body.context.feature })
+      : undefined;
+
+    const questionRecord = await createQuestionRecord({
+      surreal,
+      text: body.text,
+      status: "asked",
+      now: new Date(),
+      workspaceRecord: auth.workspaceRecord,
+      ...(projectRecord ? { projectRecord } : {}),
+      ...(featureRecord ? { featureRecord } : {}),
+    });
+
+    // Set coding agent fields directly
+    const now = new Date();
+    await surreal.update(questionRecord).merge({
+      asked_by: "code-agent",
+      ...(body.options?.length ? { options: body.options } : {}),
+      ...(body.blocking_task ? { blocking_task: new RecordId("task", body.blocking_task) } : {}),
+    });
+
+    // If blocking_task, create a blocks edge (question blocks task)
+    if (body.blocking_task) {
+      const taskRecord = new RecordId("task", body.blocking_task);
+      await surreal
+        .relate(questionRecord, new RecordId("depends_on", crypto.randomUUID()), taskRecord, {
+          type: "blocks",
+          added_at: now,
+        })
+        .output("after");
+    }
+
+    logInfo("mcp.question.created", "Question created via MCP", {
+      workspaceId,
+      questionId: questionRecord.id as string,
+    });
+
+    return jsonResponse({
+      question_id: `question:${questionRecord.id as string}`,
+      status: "asked",
+    }, 201);
+  }
+
+  /** POST /api/mcp/:workspaceId/tasks/status — Update task status */
+  async function handleUpdateTaskStatus(workspaceId: string, request: Request): Promise<Response> {
+    const auth = await requireAuth(request, workspaceId);
+    if (auth instanceof Response) return auth;
+
+    const body = await parseJsonBody<{ task_id: string; status: string; notes?: string }>(request);
+    if (body instanceof Response) return body;
+    if (!body.task_id) return jsonError("task_id is required", 400);
+    if (!body.status) return jsonError("status is required", 400);
+
+    const taskRecord = new RecordId("task", body.task_id);
+    const result = await updateTaskStatus({
+      surreal,
+      taskRecord,
+      status: body.status,
+      notes: body.notes,
+    });
+
+    return jsonResponse(result, 200);
+  }
+
+  /** POST /api/mcp/:workspaceId/tasks/subtask — Create subtask */
+  async function handleCreateSubtask(workspaceId: string, request: Request): Promise<Response> {
+    const auth = await requireAuth(request, workspaceId);
+    if (auth instanceof Response) return auth;
+
+    const body = await parseJsonBody<{
+      parent_task_id: string;
+      title: string;
+      category?: string;
+      rationale?: string;
+    }>(request);
+    if (body instanceof Response) return body;
+    if (!body.parent_task_id) return jsonError("parent_task_id is required", 400);
+    if (!body.title) return jsonError("title is required", 400);
+
+    const parentTaskRecord = new RecordId("task", body.parent_task_id);
+    const result = await createSubtask({
+      surreal,
+      parentTaskRecord,
+      title: body.title,
+      workspaceRecord: auth.workspaceRecord,
+      category: body.category,
+      rationale: body.rationale,
+    });
+
+    return jsonResponse(result, result.already_existed ? 200 : 201);
+  }
+
+  /** POST /api/mcp/:workspaceId/notes — Log implementation note */
+  async function handleLogNote(workspaceId: string, request: Request): Promise<Response> {
+    const auth = await requireAuth(request, workspaceId);
+    if (auth instanceof Response) return auth;
+
+    const body = await parseJsonBody<{
+      entity_id: string;
+      note: string;
+      files_changed?: string[];
+    }>(request);
+    if (body instanceof Response) return body;
+    if (!body.entity_id) return jsonError("entity_id is required", 400);
+    if (!body.note) return jsonError("note is required", 400);
+
+    // Parse "table:id" format
+    const separatorIdx = body.entity_id.indexOf(":");
+    if (separatorIdx === -1) return jsonError("entity_id must be in table:id format", 400);
+
+    const entityTable = body.entity_id.slice(0, separatorIdx);
+    const entityId = body.entity_id.slice(separatorIdx + 1);
+
+    const result = await logImplementationNote({
+      surreal,
+      entityTable,
+      entityId,
+      note: body.note,
+      filesChanged: body.files_changed,
+    });
+
+    return jsonResponse(result, 200);
+  }
+
+  // =========================================================================
+  // Lifecycle
+  // =========================================================================
+
+  /** POST /api/mcp/:workspaceId/sessions/start — Start agent session */
+  async function handleSessionStart(workspaceId: string, request: Request): Promise<Response> {
+    const auth = await requireAuth(request, workspaceId);
+    if (auth instanceof Response) return auth;
+
+    const body = await parseJsonBody<{
+      agent: string;
+      directory: string;
+      project_id: string;
+      task_id?: string;
+    }>(request);
+    if (body instanceof Response) return body;
+    if (!body.agent) return jsonError("agent is required", 400);
+    if (!body.directory) return jsonError("directory is required", 400);
+    if (!body.project_id) return jsonError("project_id is required", 400);
+
+    const projectRecord = new RecordId("project", body.project_id);
+    const result = await createAgentSession({
+      surreal,
+      agent: body.agent,
+      directory: body.directory,
+      workspaceRecord: auth.workspaceRecord,
+      projectRecord,
+      taskId: body.task_id,
+    });
+
+    return jsonResponse(result, 201);
+  }
+
+  /** POST /api/mcp/:workspaceId/sessions/end — End agent session */
+  async function handleSessionEnd(workspaceId: string, request: Request): Promise<Response> {
+    const auth = await requireAuth(request, workspaceId);
+    if (auth instanceof Response) return auth;
+
+    const body = await parseJsonBody<{
+      session_id: string;
+      summary: string;
+      decisions_made?: string[];
+      questions_asked?: string[];
+      tasks_progressed?: Array<{ task_id: string; from_status: string; to_status: string }>;
+      files_changed?: Array<{ path: string; change_type: string }>;
+    }>(request);
+    if (body instanceof Response) return body;
+    if (!body.session_id) return jsonError("session_id is required", 400);
+    if (!body.summary) return jsonError("summary is required", 400);
+
+    const result = await endAgentSession({
+      surreal,
+      sessionId: body.session_id,
+      summary: body.summary,
+      decisionsMade: body.decisions_made,
+      questionsAsked: body.questions_asked,
+      tasksProgressed: body.tasks_progressed,
+      filesChanged: body.files_changed,
+    });
+
+    return jsonResponse(result, 200);
+  }
+
+  /** POST /api/mcp/:workspaceId/commits — Log git commit */
+  async function handleLogCommit(workspaceId: string, request: Request): Promise<Response> {
+    const auth = await requireAuth(request, workspaceId);
+    if (auth instanceof Response) return auth;
+
+    const body = await parseJsonBody<{
+      project_id: string;
+      sha: string;
+      message: string;
+      files_changed: Array<{ path: string; change_type: string; lines_added: number; lines_removed: number }>;
+      author: string;
+      task_updates?: Array<{ task_id: string; new_status: string }>;
+      decisions_detected?: Array<{ name: string; rationale: string }>;
+    }>(request);
+    if (body instanceof Response) return body;
+    if (!body.sha) return jsonError("sha is required", 400);
+    if (!body.message) return jsonError("message is required", 400);
+    if (!body.project_id) return jsonError("project_id is required", 400);
+
+    const projectRecord = new RecordId("project", body.project_id);
+    const result = await logCommit({
+      surreal,
+      workspaceRecord: auth.workspaceRecord,
+      projectRecord,
+      sha: body.sha,
+      message: body.message,
+      filesChanged: body.files_changed ?? [],
+      author: body.author ?? "unknown",
+      taskUpdates: body.task_updates,
+      decisionsDetected: body.decisions_detected,
+    });
+
+    return jsonResponse(result, 201);
+  }
+
+  // =========================================================================
+  // Return all handlers
+  // =========================================================================
+
   return {
-    handleGetContext,
+    // Setup
+    handleAuthInit,
     handleListProjects,
+    // Tier 1 — Read
+    handleGetContext,
+    handleGetDecisions,
+    handleGetTaskDependencies,
+    handleGetConstraints,
+    handleGetChanges,
+    handleGetEntityDetail,
+    // Tier 2 — Reason
+    handleResolveDecision,
+    handleCheckConstraints,
+    // Tier 3 — Write
+    handleCreateProvisionalDecision,
+    handleAskQuestion,
+    handleUpdateTaskStatus,
+    handleCreateSubtask,
+    handleLogNote,
+    // Lifecycle
+    handleSessionStart,
+    handleSessionEnd,
+    handleLogCommit,
   };
 }

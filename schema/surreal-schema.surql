@@ -52,6 +52,7 @@ DEFINE FIELD onboarding_started_at ON workspace TYPE datetime;
 DEFINE FIELD onboarding_completed_at ON workspace TYPE option<datetime>;
 DEFINE FIELD created_at ON workspace TYPE datetime;
 DEFINE FIELD updated_at ON workspace TYPE option<datetime>;
+DEFINE FIELD api_key_hash ON workspace TYPE option<string>;
 DEFINE INDEX workspace_name ON workspace FIELDS name;
 
 DEFINE TABLE project SCHEMAFULL;
@@ -169,6 +170,10 @@ DEFINE INDEX question_status ON question FIELDS status;
 DEFINE INDEX question_source_message ON question FIELDS source_message;
 DEFINE INDEX question_source_commit ON question FIELDS source_commit;
 DEFINE FIELD workspace ON question TYPE record<workspace>;
+DEFINE FIELD asked_by ON question TYPE option<string>;
+DEFINE FIELD options ON question TYPE option<array<string>>;
+DEFINE FIELD answer_summary ON question TYPE option<string>;
+DEFINE FIELD blocking_task ON question TYPE option<record<task>>;
 DEFINE INDEX idx_question_embedding ON question FIELDS embedding HNSW DIMENSION 1536 DIST COSINE;
 DEFINE INDEX question_workspace ON question FIELDS workspace;
 

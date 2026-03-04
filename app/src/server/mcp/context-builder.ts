@@ -223,8 +223,8 @@ export async function buildProjectContext(input: {
 /** Build task-scoped context: subtasks, parent feature, siblings, dependencies, related sessions */
 async function buildTaskScope(
   surreal: Surreal,
-  workspaceRecord: RecordId<"workspace", string>,
-  projectRecord: RecordId<"project", string>,
+  _workspaceRecord: RecordId<"workspace", string>,
+  _projectRecord: RecordId<"project", string>,
   taskId: string,
 ): Promise<TaskScopeContext> {
   const taskRecord = new RecordId("task", taskId);

@@ -147,18 +147,99 @@ export async function startServer(): Promise<void> {
           (request) => githubWebhookHandler(request.params.workspaceId, request),
         ),
       },
-      "/api/mcp/:workspaceId/context": {
-        POST: withRequestLogging(
-          "POST /api/mcp/:workspaceId/context",
-          "POST",
-          (request) => mcpHandlers.handleGetContext(request.params.workspaceId, request),
+      // MCP — Setup
+      "/api/mcp/:workspaceId/auth/init": {
+        POST: withRequestLogging("POST /api/mcp/:workspaceId/auth/init", "POST", (request) =>
+          mcpHandlers.handleAuthInit(request.params.workspaceId),
         ),
       },
       "/api/mcp/:workspaceId/projects": {
-        GET: withRequestLogging(
-          "GET /api/mcp/:workspaceId/projects",
-          "GET",
-          (request) => mcpHandlers.handleListProjects(request.params.workspaceId),
+        GET: withRequestLogging("GET /api/mcp/:workspaceId/projects", "GET", (request) =>
+          mcpHandlers.handleListProjects(request.params.workspaceId),
+        ),
+      },
+      // MCP — Tier 1 Read
+      "/api/mcp/:workspaceId/context": {
+        POST: withRequestLogging("POST /api/mcp/:workspaceId/context", "POST", (request) =>
+          mcpHandlers.handleGetContext(request.params.workspaceId, request),
+        ),
+      },
+      "/api/mcp/:workspaceId/decisions": {
+        POST: withRequestLogging("POST /api/mcp/:workspaceId/decisions", "POST", (request) =>
+          mcpHandlers.handleGetDecisions(request.params.workspaceId, request),
+        ),
+      },
+      "/api/mcp/:workspaceId/tasks/dependencies": {
+        POST: withRequestLogging("POST /api/mcp/:workspaceId/tasks/dependencies", "POST", (request) =>
+          mcpHandlers.handleGetTaskDependencies(request.params.workspaceId, request),
+        ),
+      },
+      "/api/mcp/:workspaceId/constraints": {
+        POST: withRequestLogging("POST /api/mcp/:workspaceId/constraints", "POST", (request) =>
+          mcpHandlers.handleGetConstraints(request.params.workspaceId, request),
+        ),
+      },
+      "/api/mcp/:workspaceId/changes": {
+        POST: withRequestLogging("POST /api/mcp/:workspaceId/changes", "POST", (request) =>
+          mcpHandlers.handleGetChanges(request.params.workspaceId, request),
+        ),
+      },
+      "/api/mcp/:workspaceId/entities/:entityId": {
+        GET: withRequestLogging("GET /api/mcp/:workspaceId/entities/:entityId", "GET", (request) =>
+          mcpHandlers.handleGetEntityDetail(request.params.workspaceId, request.params.entityId, request),
+        ),
+      },
+      // MCP — Tier 2 Reason
+      "/api/mcp/:workspaceId/decisions/resolve": {
+        POST: withRequestLogging("POST /api/mcp/:workspaceId/decisions/resolve", "POST", (request) =>
+          mcpHandlers.handleResolveDecision(request.params.workspaceId, request),
+        ),
+      },
+      "/api/mcp/:workspaceId/constraints/check": {
+        POST: withRequestLogging("POST /api/mcp/:workspaceId/constraints/check", "POST", (request) =>
+          mcpHandlers.handleCheckConstraints(request.params.workspaceId, request),
+        ),
+      },
+      // MCP — Tier 3 Write
+      "/api/mcp/:workspaceId/decisions/provisional": {
+        POST: withRequestLogging("POST /api/mcp/:workspaceId/decisions/provisional", "POST", (request) =>
+          mcpHandlers.handleCreateProvisionalDecision(request.params.workspaceId, request),
+        ),
+      },
+      "/api/mcp/:workspaceId/questions": {
+        POST: withRequestLogging("POST /api/mcp/:workspaceId/questions", "POST", (request) =>
+          mcpHandlers.handleAskQuestion(request.params.workspaceId, request),
+        ),
+      },
+      "/api/mcp/:workspaceId/tasks/status": {
+        POST: withRequestLogging("POST /api/mcp/:workspaceId/tasks/status", "POST", (request) =>
+          mcpHandlers.handleUpdateTaskStatus(request.params.workspaceId, request),
+        ),
+      },
+      "/api/mcp/:workspaceId/tasks/subtask": {
+        POST: withRequestLogging("POST /api/mcp/:workspaceId/tasks/subtask", "POST", (request) =>
+          mcpHandlers.handleCreateSubtask(request.params.workspaceId, request),
+        ),
+      },
+      "/api/mcp/:workspaceId/notes": {
+        POST: withRequestLogging("POST /api/mcp/:workspaceId/notes", "POST", (request) =>
+          mcpHandlers.handleLogNote(request.params.workspaceId, request),
+        ),
+      },
+      // MCP — Lifecycle
+      "/api/mcp/:workspaceId/sessions/start": {
+        POST: withRequestLogging("POST /api/mcp/:workspaceId/sessions/start", "POST", (request) =>
+          mcpHandlers.handleSessionStart(request.params.workspaceId, request),
+        ),
+      },
+      "/api/mcp/:workspaceId/sessions/end": {
+        POST: withRequestLogging("POST /api/mcp/:workspaceId/sessions/end", "POST", (request) =>
+          mcpHandlers.handleSessionEnd(request.params.workspaceId, request),
+        ),
+      },
+      "/api/mcp/:workspaceId/commits": {
+        POST: withRequestLogging("POST /api/mcp/:workspaceId/commits", "POST", (request) =>
+          mcpHandlers.handleLogCommit(request.params.workspaceId, request),
         ),
       },
       "/": appHtml,

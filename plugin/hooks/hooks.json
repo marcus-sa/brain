@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "brain system load-context"
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "type": "command",
+        "command": "brain system check-updates"
+      }
+    ],
+    "Stop": [
+      {
+        "type": "prompt",
+        "prompt": "Review this conversation for architecture or design decisions that were made but NOT logged via the Brain MCP tools (create_provisional_decision or ask_question). For each unlogged decision, call create_provisional_decision now. For each unresolved question that came up, call ask_question now.\n\nAfter logging everything, respond with:\n{\"decision\": \"approve\", \"summary\": {\"decisions_made\": [...], \"tasks_progressed\": [...], \"questions_raised\": [...], \"files_changed\": [...]}}\n\nIf you cannot log some decisions (e.g. MCP unavailable), respond with:\n{\"decision\": \"block\", \"reason\": \"Log these decisions first: [list]\"}"
+      }
+    ],
+    "SessionEnd": [
+      {
+        "type": "command",
+        "command": "brain system end-session"
+      }
+    ]
+  }
+}
