@@ -36,18 +36,19 @@
 ### SurrealDB Schema Migration Workflow
 
 - Create a versioned `.surql` migration script for each schema change (for example `schema/migrations/20260304_add_task_priority.surql`).
-- Validate migration scripts before apply with `surreal validate <migration-file>`.
-- Apply migrations with `surreal import --ns <namespace> --db <database> <migration-file>`.
+- Apply migrations with `bun migrate` — the migration runner (`schema/migrate.ts`) tracks applied migrations in a `_migration` table and only runs pending ones.
+- Do NOT apply migrations manually via `surreal import` or raw HTTP calls — always use `bun migrate`.
+- Wrap migration scripts in `BEGIN TRANSACTION; ... COMMIT TRANSACTION;` so they succeed or fail atomically.
+- `DEFINE ANALYZER` cannot run inside a transaction in SurrealDB v2.6. Place it before the `BEGIN TRANSACTION;` block.
 - Prefer `DEFINE ... OVERWRITE` or `ALTER TABLE` / `ALTER FIELD` for schema evolution; reserve `IF NOT EXISTS` for bootstrap-only creation.
 - When removing fields, update schema and stored rows in the same migration (`REMOVE FIELD ...; UPDATE ... UNSET ...;`).
-- Wrap multi-statement changes in `BEGIN TRANSACTION; ... COMMIT TRANSACTION;` when they must succeed together.
 - Verify applied schema with `INFO FOR TABLE <table>;` in the target namespace/database.
 
 ### SurrealDB Existing Data Migration (Explicit Exception Only)
 
 - Default project policy is still no backfills; only run existing-data migrations when explicitly requested by the user.
 - Snapshot before mutation with `surreal export --ns <namespace> --db <database> <backup-file>`.
-- Run data transforms in versioned `.surql` scripts applied via `surreal import`.
+- Run data transforms in versioned `.surql` scripts applied via `bun migrate`.
 - Use a transaction for multi-step migrations:
   - `BEGIN TRANSACTION;`
   - apply schema updates (`DEFINE ... OVERWRITE` / `ALTER`)
@@ -56,7 +57,7 @@
   - clean old keys with `REMOVE FIELD ...; UPDATE ... UNSET ...;`
   - `COMMIT TRANSACTION;`
 - In this codebase, represent missing values as omitted fields / `NONE` (never `null`) during data transforms.
-- Validate scripts with `surreal validate <migration-file>` before apply.
+- Validate scripts with `surreal validate <migration-file>` before apply if the `surreal` CLI is available.
 - Verify result counts and shape after apply (`SELECT count() ...`, `INFO FOR TABLE ...`).
 
 ## Failure Handling
@@ -247,6 +248,48 @@ When the PM agent suggests work items, the chat agent renders them as `WorkItemS
   SELECT ... FROM $candidates WHERE workspace = $ws ORDER BY similarity DESC LIMIT $limit;
   ```
 - Apply this pattern to ALL KNN queries on tables that have a regular index on the filtered field.
+
+## SurrealDB Full-Text Search (BM25)
+
+Reference: https://surrealdb.com/docs/surrealql/functions/database/search
+
+The UI entity search uses SurrealDB's built-in BM25 full-text search, not vector/KNN search. Vector search is reserved for the chat agent's `search_entities` tool where semantic similarity matters.
+
+### Setup
+
+Full-text search requires an analyzer and `FULLTEXT` indexes:
+```sql
+-- Analyzer with stemming (English snowball) and lowercase normalization
+DEFINE ANALYZER entity_search
+  TOKENIZERS blank, class, camel, punct
+  FILTERS snowball(english), lowercase;
+
+-- Per-field fulltext index (one index per field, not per table)
+DEFINE INDEX idx_task_fulltext ON task FIELDS title FULLTEXT ANALYZER entity_search BM25;
+```
+
+### Query syntax
+
+- Use the `@N@` match operator (N is a predicate reference number for `search::score`):
+  ```sql
+  SELECT id, title, search::score(1) AS score
+  FROM task
+  WHERE title @1@ $query
+  ORDER BY score DESC LIMIT 10;
+  ```
+- `search::score(N)` returns the BM25 relevance score for predicate N.
+- `search::highlight('<b>', '</b>', N)` returns text with matching tokens wrapped in tags.
+- SurrealDB v2.6 syntax: `FULLTEXT ANALYZER` (not `SEARCH ANALYZER` which is v3.0+).
+
+### Known limitations (SurrealDB v2.6)
+
+- `search::score()` and `@N@` do NOT work inside `DEFINE FUNCTION` — the predicate reference is lost across the function boundary. Search queries must run from the app layer. See: https://github.com/surrealdb/surrealdb/issues/7013
+- `@N@` does NOT work with SDK bound parameters (`$query`). The search term must be embedded as a string literal in the query. Escape single quotes before interpolation.
+- `BM25` without explicit parameters returns score=0. Always use `BM25(1.2, 0.75)`.
+
+### Entity search implementation
+
+Search queries run from the app layer (`entity-search-route.ts`) instead of SurrealDB stored functions due to the limitations above. Fulltext indexes are defined in `schema/migrations/20260304_fulltext_search_indexes.surql`.
 
 ## SurrealDB SDK v2
 

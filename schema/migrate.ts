@@ -62,7 +62,17 @@ async function main() {
     const sql = await Bun.file(join(MIGRATIONS_DIR, file)).text();
 
     try {
-      await surreal.query(sql);
+      const stream = surreal.query(sql).stream();
+      let stmtIndex = 0;
+      for await (const frame of stream) {
+        if ((frame as any).status === "ERR") {
+          console.error(`✗ Failed: ${file} (statement ${stmtIndex})`);
+          console.error(`  → ${(frame as any).result}`);
+          await surreal.close();
+          process.exit(1);
+        }
+        stmtIndex++;
+      }
     } catch (err) {
       console.error(`✗ Failed: ${file}`);
       console.error(err);
