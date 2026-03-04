@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "0b33d4e89244",
+  "session_id": "37796e37-62be-4b11-9f1a-777572f1c87d",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-04T15:52:17.706402Z",
+  "branch": "marcus-sa/add-suggestion-entity",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "app/src/server/chat/context.ts",
+    "evals/chat-agent.eval.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "a2f99f046e28",
+  "checkpoint_transcript_start": 910,
+  "transcript_lines_at_start": 910,
+  "token_usage": {
+    "input_tokens": 18,
+    "cache_creation_tokens": 23815,
+    "cache_read_tokens": 1404698,
+    "output_tokens": 2865,
+    "api_call_count": 14
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-04T15:52:16.071328Z",
+    "agent_lines": 10,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 10,
+    "agent_percentage": 100
+  }
+}
