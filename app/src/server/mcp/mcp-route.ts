@@ -855,8 +855,8 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
         workspaceRecord: auth.workspaceRecord,
         projectRecord,
       }),
-      surreal.query<[Array<{ title: string; status: string }>]>(
-        `SELECT title, status FROM task WHERE workspace = $ws AND status IN ["todo", "in_progress"] ORDER BY created_at DESC LIMIT 30;`,
+      surreal.query<[Array<{ title: string; status: string; source_session?: string }>]>(
+        `SELECT title, status, source_session FROM task WHERE workspace = $ws AND status IN ["todo", "in_progress"] ORDER BY created_at DESC LIMIT 30;`,
         { ws: auth.workspaceRecord },
       ).then((r) => r[0] ?? []),
     ]);

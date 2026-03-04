@@ -26,7 +26,7 @@ export type TaskScopeContext = {
   task: { id: string; title: string; description?: string; status: string; category?: string };
   subtasks: { id: string; title: string; status: string }[];
   parent_feature?: { id: string; name: string; description?: string };
-  sibling_tasks: { id: string; title: string; status: string }[];
+  sibling_tasks: { id: string; title: string; status: string; source_session?: string }[];
   dependencies: { id: string; title: string; status: string }[];
   related_sessions: { id: string; agent: string; ended_at: string; summary: string }[];
 };
@@ -47,6 +47,7 @@ export type TaskContext = {
   status: string;
   priority?: string;
   category?: string;
+  source_session?: string;
 };
 
 export type QuestionContext = {

@@ -33,6 +33,7 @@ type TaskRow = {
   priority?: string;
   category?: string;
   description?: string;
+  source_session?: RecordId<"agent_session", string>;
 };
 
 type QuestionRow = {
@@ -112,7 +113,7 @@ export async function buildProjectContext(input: {
     WHERE workspace = $workspace AND id IN $project_entity_ids
     ORDER BY created_at DESC LIMIT 50;
 
-    SELECT id, title, status, priority, category, description
+    SELECT id, title, status, priority, category, description, source_session
     FROM task
     WHERE workspace = $workspace AND id IN $project_entity_ids
     ORDER BY created_at DESC LIMIT 50;
@@ -171,6 +172,7 @@ export async function buildProjectContext(input: {
       status: t.status,
       ...(t.priority ? { priority: t.priority } : {}),
       ...(t.category ? { category: t.category } : {}),
+      ...(t.source_session ? { source_session: toId(t.source_session) } : {}),
     }));
 
   // Map questions
@@ -278,11 +280,11 @@ async function buildTaskScope(
     : undefined;
 
   // Load sibling tasks (other tasks under same feature)
-  let siblingTasks: { id: string; title: string; status: string }[] = [];
+  let siblingTasks: { id: string; title: string; status: string; source_session?: string }[] = [];
   if (parentFeature && featureRows.length > 0) {
     const [siblingRows] = await surreal
       .query<[TaskRow[]]>(
-        `SELECT id, title, status FROM task
+        `SELECT id, title, status, source_session FROM task
          WHERE id IN (SELECT VALUE out FROM has_task WHERE \`in\` = $feature)
            AND id != $task
          ORDER BY created_at ASC LIMIT 20;`,
@@ -294,6 +296,7 @@ async function buildTaskScope(
       id: toId(t.id),
       title: t.title,
       status: t.status,
+      ...(t.source_session ? { source_session: toId(t.source_session) } : {}),
     }));
   }
 

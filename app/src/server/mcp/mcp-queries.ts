@@ -494,13 +494,16 @@ export async function createAgentSession(input: {
     ...(input.taskId ? { task_id: new RecordId("task", input.taskId) } : {}),
   });
 
-  // If task-scoped, auto-update task status to in_progress
+  // If task-scoped, link session to task and auto-promote status
   if (input.taskId) {
     const taskRecord = new RecordId("task", input.taskId);
     const task = await input.surreal.select<TaskRow>(taskRecord);
-    if (task && (task.status === "todo" || task.status === "ready")) {
+    if (task) {
       await input.surreal.update(taskRecord).merge({
-        status: "in_progress",
+        ...(task.status === "todo" || task.status === "ready"
+          ? { status: "in_progress" }
+          : {}),
+        source_session: sessionRecord,
         updated_at: now,
       });
     }

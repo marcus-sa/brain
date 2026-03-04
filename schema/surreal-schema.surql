@@ -99,7 +99,8 @@ DEFINE FIELD description_entries[*].created_at ON task TYPE datetime;
 DEFINE FIELD owner ON task TYPE option<record<person>>;
 DEFINE FIELD owner_name ON task TYPE option<string>;
 DEFINE FIELD deadline ON task TYPE option<datetime>;
-DEFINE FIELD status ON task TYPE string;
+DEFINE FIELD status ON task TYPE string
+  ASSERT $value IN ["open", "todo", "ready", "in_progress", "blocked", "done", "completed"];
 DEFINE FIELD priority ON task TYPE option<string>
   ASSERT $value IN ["low", "medium", "high", "critical"] OR $value IS NONE;
 DEFINE FIELD created_at ON task TYPE datetime;
@@ -115,6 +116,7 @@ DEFINE INDEX task_status_deadline ON task FIELDS status, deadline;
 DEFINE INDEX task_source_message ON task FIELDS source_message;
 DEFINE INDEX task_source_commit ON task FIELDS source_commit;
 DEFINE FIELD workspace ON task TYPE record<workspace>;
+DEFINE FIELD source_session ON task TYPE option<record<agent_session>>;
 DEFINE INDEX idx_task_embedding ON task FIELDS embedding HNSW DIMENSION 1536 DIST COSINE;
 DEFINE INDEX task_workspace ON task FIELDS workspace;
 
