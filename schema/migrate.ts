@@ -34,7 +34,11 @@ async function main() {
   await surreal.query(BOOTSTRAP_SQL);
 
   // Read migration files sorted alphabetically
-  const files = Array.from(migrationGlob.scanSync(MIGRATIONS_DIR)).sort();
+  const files: string[] = [];
+  for await (const file of migrationGlob.scan(MIGRATIONS_DIR)) {
+    files.push(file);
+  }
+  files.sort();
 
   if (files.length === 0) {
     console.log("No migration files found.");
