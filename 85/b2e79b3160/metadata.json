@@ -1,0 +1,43 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "85b2e79b3160",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/add-suggestion-entity",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "app/src/client/components/graph/graph-theme.ts",
+    "app/src/server/agents/pm/prompt.ts",
+    "app/src/server/agents/pm/tools.ts",
+    "app/src/server/chat/context.ts",
+    "app/src/server/chat/tools/create-suggestion.ts",
+    "app/src/server/chat/tools/index.ts",
+    "app/src/server/entities/entity-actions-route.ts",
+    "app/src/server/entities/entity-detail-route.ts",
+    "app/src/server/entities/entity-search-route.ts",
+    "app/src/server/feed/feed-route.ts",
+    "app/src/server/graph/graph-route.ts",
+    "app/src/server/graph/queries.ts",
+    "app/src/server/graph/transform.ts",
+    "app/src/server/suggestion/queries.ts",
+    "app/src/shared/contracts.ts",
+    "schema/migrations/0008_add_suggestion_entity.surql",
+    "schema/surreal-schema.surql",
+    "tests/unit/chat-context.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/85/b2e79b3160/0/metadata.json",
+      "transcript": "/85/b2e79b3160/0/full.jsonl",
+      "context": "/85/b2e79b3160/0/context.md",
+      "content_hash": "/85/b2e79b3160/0/content_hash.txt",
+      "prompt": "/85/b2e79b3160/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 343,
+    "cache_creation_tokens": 214651,
+    "cache_read_tokens": 11800955,
+    "output_tokens": 35812,
+    "api_call_count": 102
+  }
+}
