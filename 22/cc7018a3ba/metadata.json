@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "22cc7018a3ba",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/cli-setup-command",
+  "checkpoints_count": 7,
+  "files_touched": [
+    "USER_STORIES.md",
+    "cli/brain.ts",
+    "cli/commands/git-hooks.ts",
+    "cli/commands/init-content.ts",
+    "cli/commands/init.ts",
+    "cli/commands/system.ts",
+    "cli/config.ts",
+    "cli/mcp-server.ts",
+    "plugin/.claude-plugin/marketplace.json",
+    "plugin/CLAUDE.md",
+    "plugin/hooks/hooks.json",
+    "plugin/skills/brain-start-task/brain-start-task.md",
+    "plugin/skills/brain-status/brain-status.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/22/cc7018a3ba/0/metadata.json",
+      "transcript": "/22/cc7018a3ba/0/full.jsonl",
+      "context": "/22/cc7018a3ba/0/context.md",
+      "content_hash": "/22/cc7018a3ba/0/content_hash.txt",
+      "prompt": "/22/cc7018a3ba/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 157,
+    "cache_creation_tokens": 329752,
+    "cache_read_tokens": 9623046,
+    "output_tokens": 48843,
+    "api_call_count": 102
+  }
+}

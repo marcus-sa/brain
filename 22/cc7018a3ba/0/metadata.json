@@ -1,0 +1,42 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "22cc7018a3ba",
+  "session_id": "ff7b3553-d568-43bf-a876-9f5fe61247e8",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-04T18:05:10.850296Z",
+  "branch": "marcus-sa/cli-setup-command",
+  "checkpoints_count": 7,
+  "files_touched": [
+    "USER_STORIES.md",
+    "cli/brain.ts",
+    "cli/commands/git-hooks.ts",
+    "cli/commands/init-content.ts",
+    "cli/commands/init.ts",
+    "cli/commands/system.ts",
+    "cli/config.ts",
+    "cli/mcp-server.ts",
+    "plugin/.claude-plugin/marketplace.json",
+    "plugin/CLAUDE.md",
+    "plugin/hooks/hooks.json",
+    "plugin/skills/brain-start-task/brain-start-task.md",
+    "plugin/skills/brain-status/brain-status.md"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "d6c1ff1ff1d1",
+  "token_usage": {
+    "input_tokens": 157,
+    "cache_creation_tokens": 329752,
+    "cache_read_tokens": 9623046,
+    "output_tokens": 48843,
+    "api_call_count": 102
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-04T18:05:09.963883Z",
+    "agent_lines": 546,
+    "human_added": 1,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 547,
+    "agent_percentage": 99.81718464351006
+  }
+}
