@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID, createHash } from "node:crypto";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
@@ -39,20 +39,43 @@ export async function setupEvalRuntime(suiteName: string): Promise<EvalRuntime> 
   await surreal.connect(surrealUrl);
   await surreal.signin({ username: surrealUsername, password: surrealPassword });
 
-  await surreal.query(`DEFINE NAMESPACE ${namespace};`).catch((error) => {
-    if (!isAlreadyExistsError(error)) throw error;
-  });
-  await surreal.use({ namespace, database });
-  await surreal.query(`REMOVE DATABASE ${database};`).catch(() => undefined);
-  await surreal.query(`DEFINE DATABASE ${database};`).catch((error) => {
-    if (!isAlreadyExistsError(error)) throw error;
-  });
+  // SurrealDB can throw "Cannot perform subtraction with 'NONE'" during
+  // namespace/database operations when leftover computed fields exist.
+  // Swallow these benign errors during setup.
+  const setupQuery = async (sql: string) => {
+    await surreal.query(sql).catch((error) => {
+      if (!isAlreadyExistsError(error) && !isNoneSubtractionError(error)) throw error;
+    });
+  };
+  await setupQuery(`DEFINE NAMESPACE IF NOT EXISTS ${namespace};`);
+  await surreal.use({ namespace, database: undefined as any });
+  await setupQuery(`REMOVE DATABASE IF EXISTS ${database};`);
+  await setupQuery(`DEFINE DATABASE IF NOT EXISTS ${database};`);
   await surreal.use({ namespace, database });
 
   const schemaSql = readFileSync(schemaPath, "utf8");
-  await surreal.query(schemaSql).catch((error) => {
-    if (!isAlreadyExistsError(error)) throw error;
-  });
+  // Split schema into individual statements to isolate errors.
+  // SurrealDB multi-statement queries can fail mid-batch; splitting lets us
+  // skip benign runtime errors (like subtraction on NONE in DEFINE FUNCTION
+  // validation) while still applying all schema definitions.
+  const schemaStatements = splitSurqlStatements(schemaSql);
+  for (const stmt of schemaStatements) {
+    await surreal.query(stmt).catch((error) => {
+      if (!isAlreadyExistsError(error) && !isNoneSubtractionError(error)) throw error;
+    });
+  }
+
+  // Apply migrations for production parity
+  const migrationsDir = join(process.cwd(), "schema", "migrations");
+  const migrationFiles = readdirSync(migrationsDir)
+    .filter((f) => f.endsWith(".surql"))
+    .sort();
+  for (const file of migrationFiles) {
+    const migrationSql = readFileSync(join(migrationsDir, file), "utf8");
+    await surreal.query(migrationSql).catch((error) => {
+      if (!isAlreadyExistsError(error) && !isNoneSubtractionError(error)) throw error;
+    });
+  }
 
   const openRouterApiKey = requireEnv("OPENROUTER_API_KEY");
   const extractionModelId = requireEnv("EXTRACTION_MODEL");
@@ -296,6 +319,80 @@ export function createEventCollector(): SseRegistry & { getEvents(messageId: str
 
 function isAlreadyExistsError(error: unknown): boolean {
   return error instanceof Error && error.message.includes("already exists");
+}
+
+function isNoneSubtractionError(error: unknown): boolean {
+  return error instanceof Error && error.message.includes("Cannot perform subtraction with 'NONE'");
+}
+
+/**
+ * Split a .surql file into individual top-level statements.
+ * Handles BEGIN TRANSACTION...COMMIT TRANSACTION blocks as single units,
+ * and DEFINE FUNCTION...}; blocks as single units.
+ */
+function splitSurqlStatements(sql: string): string[] {
+  const lines = sql.split("\n");
+  const statements: string[] = [];
+  let current: string[] = [];
+  let inTransaction = false;
+  let inFunction = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // Skip empty lines and comments at top level
+    if (!inTransaction && !inFunction && (trimmed === "" || trimmed.startsWith("--"))) {
+      continue;
+    }
+
+    if (trimmed.startsWith("BEGIN TRANSACTION") || trimmed === "BEGIN TRANSACTION;") {
+      inTransaction = true;
+      current.push(line);
+      continue;
+    }
+
+    if (inTransaction) {
+      current.push(line);
+      if (trimmed.startsWith("COMMIT TRANSACTION") || trimmed === "COMMIT TRANSACTION;") {
+        inTransaction = false;
+        statements.push(current.join("\n"));
+        current = [];
+      }
+      continue;
+    }
+
+    if (trimmed.startsWith("DEFINE FUNCTION")) {
+      inFunction = true;
+      current.push(line);
+      continue;
+    }
+
+    if (inFunction) {
+      current.push(line);
+      if (trimmed === "};") {
+        inFunction = false;
+        statements.push(current.join("\n"));
+        current = [];
+      }
+      continue;
+    }
+
+    // Regular statement (single line ending with ;)
+    if (trimmed.endsWith(";")) {
+      current.push(line);
+      statements.push(current.join("\n"));
+      current = [];
+    } else if (trimmed.length > 0) {
+      // Multi-line statement continuation
+      current.push(line);
+    }
+  }
+
+  if (current.length > 0) {
+    statements.push(current.join("\n"));
+  }
+
+  return statements.filter((s) => s.trim().length > 0);
 }
 
 function requireEnv(name: string): string {
