@@ -35,7 +35,9 @@
 
 ### SurrealDB Schema Migration Workflow
 
-- Create a versioned `.surql` migration script for each schema change (for example `schema/migrations/20260304_add_task_priority.surql`).
+- Create a versioned `.surql` migration script for each schema change.
+- Migration filenames MUST use a zero-padded autoincrement numeric prefix, followed by an underscore and slug (for example `schema/migrations/0008_add_task_priority.surql`).
+- Determine the next prefix by scanning `schema/migrations` and incrementing the highest existing prefix. Do NOT reuse or renumber existing migration files.
 - Apply migrations with `bun migrate` — the migration runner (`schema/migrate.ts`) tracks applied migrations in a `_migration` table and only runs pending ones.
 - Do NOT apply migrations manually via `surreal import` or raw HTTP calls — always use `bun migrate`.
 - Wrap migration scripts in `BEGIN TRANSACTION; ... COMMIT TRANSACTION;` so they succeed or fail atomically.
@@ -305,7 +307,7 @@ DEFINE INDEX idx_task_fulltext ON task FIELDS title FULLTEXT ANALYZER entity_sea
 
 ### Entity search implementation
 
-Search queries run from the app layer (`entity-search-route.ts`) instead of SurrealDB stored functions due to the limitations above. Fulltext indexes are defined in `schema/migrations/20260304_fulltext_search_indexes.surql`.
+Search queries run from the app layer (`entity-search-route.ts`) instead of SurrealDB stored functions due to the limitations above. Fulltext indexes are defined in `schema/migrations/0002_fulltext_search_indexes.surql`.
 
 ## SurrealDB SDK v2
 
