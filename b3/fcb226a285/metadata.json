@@ -3,7 +3,7 @@
   "checkpoint_id": "b3fcb226a285",
   "strategy": "manual-commit",
   "branch": "marcus-sa/analytics-agent",
-  "checkpoints_count": 0,
+  "checkpoints_count": 3,
   "files_touched": [
     "USER_STORIES.md"
   ],
@@ -14,13 +14,20 @@
       "context": "",
       "content_hash": "/b3/fcb226a285/0/content_hash.txt",
       "prompt": ""
+    },
+    {
+      "metadata": "/b3/fcb226a285/1/metadata.json",
+      "transcript": "/b3/fcb226a285/1/full.jsonl",
+      "context": "/b3/fcb226a285/1/context.md",
+      "content_hash": "/b3/fcb226a285/1/content_hash.txt",
+      "prompt": "/b3/fcb226a285/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 0,
-    "cache_creation_tokens": 0,
-    "cache_read_tokens": 0,
-    "output_tokens": 0,
-    "api_call_count": 0
+    "input_tokens": 89,
+    "cache_creation_tokens": 137707,
+    "cache_read_tokens": 7113812,
+    "output_tokens": 25686,
+    "api_call_count": 75
   }
 }
