@@ -3,7 +3,7 @@
   "checkpoint_id": "ecd4fd5446de",
   "strategy": "manual-commit",
   "branch": "marcus-sa/analytics-agent",
-  "checkpoints_count": 0,
+  "checkpoints_count": 4,
   "files_touched": [
     "AGENTS.md",
     "app/src/server/entities/entity-search-route.ts",
@@ -18,13 +18,20 @@
       "context": "",
       "content_hash": "/ec/d4fd5446de/0/content_hash.txt",
       "prompt": ""
+    },
+    {
+      "metadata": "/ec/d4fd5446de/1/metadata.json",
+      "transcript": "/ec/d4fd5446de/1/full.jsonl",
+      "context": "/ec/d4fd5446de/1/context.md",
+      "content_hash": "/ec/d4fd5446de/1/content_hash.txt",
+      "prompt": "/ec/d4fd5446de/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 0,
-    "cache_creation_tokens": 0,
-    "cache_read_tokens": 0,
-    "output_tokens": 0,
-    "api_call_count": 0
+    "input_tokens": 107,
+    "cache_creation_tokens": 481169,
+    "cache_read_tokens": 10893196,
+    "output_tokens": 31836,
+    "api_call_count": 95
   }
 }
