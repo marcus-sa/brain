@@ -3,7 +3,7 @@
   "checkpoint_id": "c798674890f5",
   "strategy": "manual-commit",
   "branch": "marcus-sa/coding-agent-integration",
-  "checkpoints_count": 1,
+  "checkpoints_count": 3,
   "files_touched": [
     ".nwave/des-config.json",
     ".ralph/fix_plan.md",
@@ -38,13 +38,20 @@
       "context": "/c7/98674890f5/3/context.md",
       "content_hash": "/c7/98674890f5/3/content_hash.txt",
       "prompt": "/c7/98674890f5/3/prompt.txt"
+    },
+    {
+      "metadata": "/c7/98674890f5/4/metadata.json",
+      "transcript": "/c7/98674890f5/4/full.jsonl",
+      "context": "/c7/98674890f5/4/context.md",
+      "content_hash": "/c7/98674890f5/4/content_hash.txt",
+      "prompt": "/c7/98674890f5/4/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 217,
-    "cache_creation_tokens": 88353,
-    "cache_read_tokens": 406021,
-    "output_tokens": 3581,
-    "api_call_count": 11
+    "input_tokens": 1197,
+    "cache_creation_tokens": 260793,
+    "cache_read_tokens": 6176797,
+    "output_tokens": 30416,
+    "api_call_count": 83
   }
 }
