@@ -181,6 +181,25 @@ export class BrainHttpClient {
     return res.json();
   }
 
+  async checkCommit(body: {
+    project_id: string;
+    diff: string;
+    commit_message: string;
+  }): Promise<{
+    task_completions: Array<{ task_title: string; confidence: number }>;
+    unlogged_decisions: Array<{ description: string }>;
+    constraint_violations: Array<{ constraint: string; violation: string; severity: string }>;
+    summary: string;
+  }> {
+    const res = await fetch(this.url("/commits/check"), {
+      method: "POST",
+      headers: this.headers(),
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`Failed to check commit: ${res.status} ${await res.text()}`);
+    return res.json();
+  }
+
   async logCommit(body: {
     project_id: string;
     sha: string;

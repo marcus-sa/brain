@@ -16,6 +16,7 @@ export type DirCacheEntry = {
   project_id: string;
   project_name: string;
   last_session?: string;
+  session_id?: string;
 };
 
 function ensureDir(): void {

@@ -1,4 +1,4 @@
-import { requireConfig, getDirCacheEntry, setDirCacheEntry } from "../config";
+import { requireConfig, getDirCacheEntry, setDirCacheEntry, type DirCacheEntry } from "../config";
 import { BrainHttpClient } from "../http-client";
 
 /**
@@ -24,8 +24,17 @@ export async function runLoadContext(): Promise<void> {
       // Output as text for Claude Code additionalContext
       console.log(formatContextPacket(context));
 
-      // Update last session timestamp
-      setDirCacheEntry(cwd, { ...cached, last_session: new Date().toISOString() });
+      // Start agent session for active session tracking
+      try {
+        const session = await client.sessionStart({
+          agent: "claude-code",
+          directory: cwd,
+          project_id: cached.project_id,
+        });
+        setDirCacheEntry(cwd, { ...cached, session_id: session.session_id, last_session: new Date().toISOString() });
+      } catch {
+        setDirCacheEntry(cwd, { ...cached, last_session: new Date().toISOString() });
+      }
     } catch (error) {
       console.error(`Failed to load context: ${error instanceof Error ? error.message : error}`);
     }
@@ -45,14 +54,27 @@ export async function runLoadContext(): Promise<void> {
     if (projects.length === 1) {
       // Single project — auto-select
       const project = projects[0];
-      setDirCacheEntry(cwd, {
+      const entry: DirCacheEntry = {
         project_id: project.id,
         project_name: project.name,
         last_session: new Date().toISOString(),
-      });
+      };
 
       const context = await client.getContext({ project_id: project.id });
       console.log(formatContextPacket(context));
+
+      try {
+        const session = await client.sessionStart({
+          agent: "claude-code",
+          directory: cwd,
+          project_id: project.id,
+        });
+        entry.session_id = session.session_id;
+      } catch {
+        // Session creation failure must not break context loading
+      }
+
+      setDirCacheEntry(cwd, entry);
       return;
     }
 
@@ -145,17 +167,72 @@ export async function runCheckUpdates(): Promise<void> {
  * Called by SessionEnd hook.
  */
 export async function runEndSession(): Promise<void> {
-  // The SessionEnd hook captures the session summary from the Stop hook
-  // and sends it to the server. For now, this is a placeholder that reads
-  // from stdin (the Stop hook output).
   const config = requireConfig();
-  const _client = new BrainHttpClient(config);
+  const client = new BrainHttpClient(config);
+  const cwd = process.cwd();
+  const cached = getDirCacheEntry(cwd);
 
-  // The actual session end logic is handled by the MCP server
-  // through the session/end endpoint. The CLI just forwards the data.
-  // In practice, this is called by the SessionEnd command hook which
-  // passes the summary from the Stop prompt hook.
-  console.log("Session ended. Summary logged to Brain knowledge graph.");
+  if (!cached) return; // No project mapped — nothing to end
+
+  try {
+    // Read stdin (Claude Code pipes Stop hook JSON)
+    let stdinText = "";
+    try {
+      const chunks: Buffer[] = [];
+      for await (const chunk of Bun.stdin.stream()) {
+        chunks.push(Buffer.from(chunk));
+      }
+      stdinText = Buffer.concat(chunks).toString("utf-8").trim();
+    } catch {
+      // stdin not available or empty
+    }
+
+    // Parse the summary payload
+    let summary = "Session ended without summary";
+    let decisionsMade: string[] | undefined;
+    let questionsAsked: string[] | undefined;
+    let tasksProgressed: Array<{ task_id: string; from_status: string; to_status: string }> | undefined;
+    let filesChanged: Array<{ path: string; change_type: string }> | undefined;
+
+    if (stdinText) {
+      try {
+        const parsed = JSON.parse(stdinText);
+        summary = parsed.summary || stdinText;
+        decisionsMade = parsed.decisions_made;
+        questionsAsked = parsed.questions_asked;
+        tasksProgressed = parsed.tasks_progressed;
+        filesChanged = parsed.files_changed;
+      } catch {
+        // JSON parse failed — use raw text as summary
+        summary = stdinText;
+      }
+    }
+
+    // Get session_id from cache, or create a session as fallback
+    let sessionId = cached.session_id;
+    if (!sessionId) {
+      const session = await client.sessionStart({
+        agent: "claude-code",
+        directory: cwd,
+        project_id: cached.project_id,
+      });
+      sessionId = session.session_id;
+    }
+
+    await client.sessionEnd({
+      session_id: sessionId,
+      summary,
+      decisions_made: decisionsMade,
+      questions_asked: questionsAsked,
+      tasks_progressed: tasksProgressed,
+      files_changed: filesChanged,
+    });
+
+    // Clear session_id from cache
+    setDirCacheEntry(cwd, { ...cached, session_id: undefined });
+  } catch (error) {
+    console.error(`Brain: Failed to end session: ${error instanceof Error ? error.message : error}`);
+  }
 }
 
 // ---------------------------------------------------------------------------

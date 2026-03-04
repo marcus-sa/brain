@@ -242,6 +242,11 @@ export async function startServer(): Promise<void> {
           mcpHandlers.handleLogCommit(request.params.workspaceId, request),
         ),
       },
+      "/api/mcp/:workspaceId/commits/check": {
+        POST: withRequestLogging("POST /api/mcp/:workspaceId/commits/check", "POST", (request) =>
+          mcpHandlers.handleCheckCommit(request.params.workspaceId, request),
+        ),
+      },
       "/": appHtml,
       "/*": appHtml,
     },

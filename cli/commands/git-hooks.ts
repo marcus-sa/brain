@@ -9,20 +9,16 @@ import { BrainHttpClient } from "../http-client";
  */
 export async function runCheckCommit(): Promise<void> {
   const config = requireConfig();
+  const client = new BrainHttpClient(config);
   const cwd = process.cwd();
   const cached = getDirCacheEntry(cwd);
 
-  if (!cached) {
-    // No project mapped — skip silently
-    return;
-  }
+  if (!cached) return; // No project mapped — skip silently
 
-  // Get staged diff
   let diff: string;
   let commitMessage: string;
   try {
-    diff = execSync("git diff --cached --stat", { encoding: "utf-8", cwd }).trim();
-    // Try to get commit message from .git/COMMIT_EDITMSG
+    diff = execSync("git diff --cached", { encoding: "utf-8", cwd }).trim();
     try {
       commitMessage = execSync("cat .git/COMMIT_EDITMSG", { encoding: "utf-8", cwd }).trim();
     } catch {
@@ -34,9 +30,31 @@ export async function runCheckCommit(): Promise<void> {
 
   if (!diff) return;
 
-  // For now, just log the commit check. Full LLM analysis is Phase 4.
-  // The pre-commit hook will be extended to call the server for LLM analysis.
-  console.log(`Brain: Checking commit against project "${cached.project_name}"...`);
+  try {
+    // Truncate for token budget
+    const truncatedDiff = diff.length > 8000 ? diff.slice(0, 8000) : diff;
+
+    const result = await client.checkCommit({
+      project_id: cached.project_id,
+      diff: truncatedDiff,
+      commit_message: commitMessage,
+    });
+
+    // Display findings to stderr (stdout is reserved for git hook protocol)
+    for (const tc of result.task_completions) {
+      if (tc.confidence >= 0.6) {
+        process.stderr.write(`Brain: This commit may complete: ${tc.task_title}\n`);
+      }
+    }
+    for (const d of result.unlogged_decisions) {
+      process.stderr.write(`Brain: Unlogged decision: ${d.description}\n`);
+    }
+    for (const v of result.constraint_violations) {
+      process.stderr.write(`Brain: Constraint violation (${v.severity}): ${v.violation}\n`);
+    }
+  } catch {
+    // Never block commits on analysis failures
+  }
 }
 
 /**
