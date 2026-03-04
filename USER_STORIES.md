@@ -70,3 +70,27 @@
 
 - [ ] Clicking "New conversation" in the sidebar navigates to `/chat`
 - [ ] Messages are cleared, input is ready for a fresh conversation
+
+## US-7: Discuss entity resets chat state on route transitions
+
+**As a** user pressing "Discuss" on an entity,
+**I want** to always land on a fresh `/chat` with that entity context,
+**So that** the discussion starts cleanly without leftover conversation state.
+
+### Acceptance Criteria
+
+- [ ] Pressing "Discuss" on an entity while on `/chat/<id>` navigates to `/chat`, clears the previous conversation messages, and shows the entity card at the top
+- [ ] Navigating from `/chat` (with a discuss entity) to an existing `/chat/<id>` via the sidebar clears the discuss entity card — the existing conversation loads without stale discuss context
+- [ ] Pressing "Discuss" on an entity while on `/chat` (no active conversation) shows the entity card and keeps the chat ready for a new message
+
+## US-8: Chat agent treats user domain as business content, not Brain internals
+
+**As a** user describing my business domain in Brain,
+**I want** the chat agent to capture my concepts as graph entities,
+**So that** it never confuses my domain model with Brain's own architecture — even when terms overlap.
+
+### Acceptance Criteria
+
+- [ ] Describing a hierarchy (e.g. "I want entities: Initiative -> Project -> Feature -> Task") triggers the PM agent to plan work items — the agent does not explain Brain's data model
+- [ ] Using terms like "entities", "graph", "features", or "tasks" in a business context creates entities in the graph rather than prompting clarification about Brain internals
+- [ ] The agent only explains Brain's architecture when explicitly asked (e.g. "How does Brain work?" or "What entity types does Brain support?")
