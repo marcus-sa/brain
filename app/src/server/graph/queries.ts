@@ -6,7 +6,7 @@ export type GraphEntityTable = "workspace" | "project" | "person" | "feature" | 
 
 export type GraphEntityRecord = RecordId<GraphEntityTable, string>;
 
-export type SearchEntityKind = "project" | "feature" | "task" | "decision" | "question";
+export type SearchEntityKind = "project" | "feature" | "task" | "decision" | "question" | "suggestion";
 
 export type ConversationEntity = {
   id: string;
@@ -129,7 +129,7 @@ type EntitySearchCandidate = {
   embedding?: number[];
 };
 
-const SEARCH_KINDS: SearchEntityKind[] = ["project", "feature", "task", "decision", "question"];
+const SEARCH_KINDS: SearchEntityKind[] = ["project", "feature", "task", "decision", "question", "suggestion"];
 
 function toRecordIdString(record: RecordId<string, string>): string {
   return record.id as string;
@@ -334,7 +334,8 @@ export async function listConversationEntities(input: {
       table !== "feature" &&
       table !== "task" &&
       table !== "decision" &&
-      table !== "question"
+      table !== "question" &&
+      table !== "suggestion"
     ) {
       continue;
     }
@@ -388,7 +389,8 @@ export async function listConversationEntities(input: {
         table !== "feature" &&
         table !== "task" &&
         table !== "decision" &&
-        table !== "question"
+        table !== "question" &&
+        table !== "suggestion"
       ) {
         continue;
       }
@@ -820,6 +822,25 @@ async function listScopedEntityCandidates(input: {
       candidates.push({
         id: row.id,
         kind: "question",
+        name: row.text,
+        status: row.status,
+        embedding: row.embedding,
+      });
+    }
+  }
+
+  if (kinds.includes("suggestion")) {
+    const [rows] = await input.surreal
+      .query<[Array<{ id: RecordId<"suggestion", string>; text: string; status: string; embedding?: number[] }>]>(
+        "SELECT id, text, status, embedding FROM suggestion WHERE workspace = $workspace LIMIT $limit;",
+        { workspace: input.workspaceRecord, limit: input.candidateLimit },
+      )
+      .collect<[Array<{ id: RecordId<"suggestion", string>; text: string; status: string; embedding?: number[] }>]>();
+
+    for (const row of rows) {
+      candidates.push({
+        id: row.id,
+        kind: "suggestion",
         name: row.text,
         status: row.status,
         embedding: row.embedding,

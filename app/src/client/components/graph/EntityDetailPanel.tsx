@@ -8,7 +8,7 @@ import { EntityBadge } from "./EntityBadge";
 import { RelationshipList } from "./RelationshipList";
 import { ProvenanceSection } from "./ProvenanceSection";
 import { useViewState } from "../../stores/view-state";
-import { confirmDecision, overrideDecision, markTaskComplete, setEntityPriority } from "../../graph/actions";
+import { acceptSuggestion, confirmDecision, deferSuggestion, dismissSuggestion, markTaskComplete, overrideDecision, setEntityPriority } from "../../graph/actions";
 
 const CONFIRMABLE_STATUSES = new Set(["extracted", "proposed", "provisional", "inferred"]);
 
@@ -140,6 +140,7 @@ export function EntityDetailPanel({
   const showConfirm = kind === "decision" && CONFIRMABLE_STATUSES.has(status);
   const showOverride = kind === "decision" && CONFIRMABLE_STATUSES.has(status);
   const showComplete = kind === "task" && status !== "done";
+  const showSuggestionActions = kind === "suggestion" && (status === "pending" || status === "deferred");
 
   return (
     <aside className="entity-detail-panel">
@@ -260,6 +261,31 @@ export function EntityDetailPanel({
           <button type="button" disabled={actionPending} onClick={handleComplete}>
             Mark Complete
           </button>
+        ) : undefined}
+        {showSuggestionActions ? (
+          <>
+            <button type="button" disabled={actionPending} onClick={async () => {
+              setActionPending(true);
+              try {
+                await acceptSuggestion(workspaceId, entityId);
+                setDetail((prev) => prev ? { ...prev, entity: { ...prev.entity, data: { ...prev.entity.data, status: "accepted" } } } : prev);
+              } finally { setActionPending(false); }
+            }}>Accept</button>
+            <button type="button" disabled={actionPending} onClick={async () => {
+              setActionPending(true);
+              try {
+                await deferSuggestion(workspaceId, entityId);
+                setDetail((prev) => prev ? { ...prev, entity: { ...prev.entity, data: { ...prev.entity.data, status: "deferred" } } } : prev);
+              } finally { setActionPending(false); }
+            }}>Defer</button>
+            <button type="button" disabled={actionPending} onClick={async () => {
+              setActionPending(true);
+              try {
+                await dismissSuggestion(workspaceId, entityId);
+                setDetail((prev) => prev ? { ...prev, entity: { ...prev.entity, data: { ...prev.entity.data, status: "dismissed" } } } : prev);
+              } finally { setActionPending(false); }
+            }}>Dismiss</button>
+          </>
         ) : undefined}
       </div>
     </aside>
