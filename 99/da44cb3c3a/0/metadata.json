@@ -1,0 +1,35 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "99da44cb3c3a",
+  "session_id": "ad70aee4-d8b7-47c8-b7ee-f81a17181cdb",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-04T18:36:48.805897Z",
+  "branch": "marcus-sa/cli-setup-command",
+  "checkpoints_count": 3,
+  "files_touched": [
+    ".gitignore",
+    "AGENTS.md",
+    "cli/config.ts",
+    "conductor.json",
+    "package.json",
+    "schema/migrations/0004_mcp_auth_and_question_fields.surql"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "4f540289b752",
+  "token_usage": {
+    "input_tokens": 19,
+    "cache_creation_tokens": 28808,
+    "cache_read_tokens": 455102,
+    "output_tokens": 1650,
+    "api_call_count": 11
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-04T18:36:48.750728Z",
+    "agent_lines": 14,
+    "human_added": 0,
+    "human_modified": 1,
+    "human_removed": 0,
+    "total_committed": 15,
+    "agent_percentage": 93.33333333333333
+  }
+}
