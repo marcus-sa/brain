@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "20a0e3551c15",
+  "session_id": "ddb216ba-5d09-431e-805c-7c01b6dd89ea",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-04T04:41:05.932719Z",
+  "branch": "marcus-sa/analytics-agent",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "app/src/shared/contracts.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "d194aeaf6adc",
+  "token_usage": {
+    "input_tokens": 276,
+    "cache_creation_tokens": 359171,
+    "cache_read_tokens": 25875899,
+    "output_tokens": 70234,
+    "api_call_count": 249
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-04T04:41:04.422062Z",
+    "agent_lines": 1,
+    "human_added": 162,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 163,
+    "agent_percentage": 0.6134969325153374
+  }
+}

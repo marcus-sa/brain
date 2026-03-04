@@ -3,7 +3,7 @@
   "checkpoint_id": "20a0e3551c15",
   "strategy": "manual-commit",
   "branch": "marcus-sa/analytics-agent",
-  "checkpoints_count": 1,
+  "checkpoints_count": 2,
   "files_touched": [
     "USER_STORIES.md",
     "app/src/client/components/graph/EntityDetailPanel.tsx",
@@ -30,13 +30,20 @@
       "context": "",
       "content_hash": "/20/a0e3551c15/1/content_hash.txt",
       "prompt": ""
+    },
+    {
+      "metadata": "/20/a0e3551c15/2/metadata.json",
+      "transcript": "/20/a0e3551c15/2/full.jsonl",
+      "context": "/20/a0e3551c15/2/context.md",
+      "content_hash": "/20/a0e3551c15/2/content_hash.txt",
+      "prompt": "/20/a0e3551c15/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 84,
-    "cache_creation_tokens": 111479,
-    "cache_read_tokens": 7041351,
-    "output_tokens": 23803,
-    "api_call_count": 78
+    "input_tokens": 360,
+    "cache_creation_tokens": 470650,
+    "cache_read_tokens": 32917250,
+    "output_tokens": 94037,
+    "api_call_count": 327
   }
 }
