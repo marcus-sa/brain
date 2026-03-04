@@ -9,7 +9,6 @@ describe("view-state store", () => {
       graphProjectId: undefined,
       graphCenterId: undefined,
       graphDepth: 2,
-      highlightMessageId: undefined,
     });
   });
 
@@ -30,17 +29,6 @@ describe("view-state store", () => {
     expect(state.graphCenterId).toBe("decision:xyz");
     expect(state.graphViewMode).toBe("focused");
     expect(state.selectedEntityId).toBe("decision:xyz");
-  });
-
-  it("navigateToChat sets highlightMessageId", () => {
-    useViewState.getState().navigateToChat("msg-123");
-    expect(useViewState.getState().highlightMessageId).toBe("msg-123");
-  });
-
-  it("clearHighlight clears highlightMessageId", () => {
-    useViewState.getState().navigateToChat("msg-123");
-    useViewState.getState().clearHighlight();
-    expect(useViewState.getState().highlightMessageId).toBe(undefined);
   });
 
   it("setGraphProject sets project and switches to project mode", () => {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { useChat, type UseChatHelpers } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import type {
@@ -50,6 +51,7 @@ export function useChatSession(): UseChatSessionReturn {
   const store = useWorkspaceState();
   const workspaceId = store.workspaceId;
   const bootstrapPayload = store.bootstrapPayload;
+  const navigate = useNavigate();
 
   const [activeConversationId, setActiveConversationId] = useState<string | undefined>();
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
@@ -101,6 +103,11 @@ export function useChatSession(): UseChatSessionReturn {
       if (metadata?.conversationId && !conversationIdRef.current) {
         setActiveConversationId(metadata.conversationId);
         conversationIdRef.current = metadata.conversationId;
+        void navigate({
+          to: "/chat/$conversationId",
+          params: { conversationId: metadata.conversationId },
+          replace: true,
+        });
         if (discussEntity) {
           clearDiscussEntity();
         }
@@ -134,32 +141,6 @@ export function useChatSession(): UseChatSessionReturn {
     conversationIdRef.current = store.conversationId;
   }, [bootstrapPayload]);
 
-  // Highlight message support (graph -> chat navigation)
-  const highlightMessageId = useViewState((s) => s.highlightMessageId);
-  const clearHighlight = useViewState((s) => s.clearHighlight);
-
-  useEffect(() => {
-    if (!highlightMessageId) return;
-
-    const timer = setTimeout(() => {
-      const element = document.querySelector(`[data-message-id="${highlightMessageId}"]`);
-      if (element) {
-        element.scrollIntoView({ behavior: "smooth", block: "center" });
-        element.classList.add("animate-highlight");
-        element.addEventListener(
-          "animationend",
-          () => {
-            element.classList.remove("animate-highlight");
-          },
-          { once: true },
-        );
-      }
-      clearHighlight();
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, [highlightMessageId, clearHighlight]);
-
   async function refreshSidebar(wsId: string) {
     try {
       const response = await fetch(`/api/workspaces/${encodeURIComponent(wsId)}/sidebar`);
@@ -180,6 +161,7 @@ export function useChatSession(): UseChatSessionReturn {
       if (!response.ok) {
         const body = await response.text();
         setErrorMessage(body);
+        void navigate({ to: "/chat", replace: true });
         return;
       }
 
@@ -225,6 +207,7 @@ export function useChatSession(): UseChatSessionReturn {
     setErrorMessage(undefined);
     setConversationDiscussEntity(undefined);
     clearDiscussEntity();
+    void navigate({ to: "/chat" });
   }
 
   function selectConversation(conversationId: string) {
@@ -256,6 +239,10 @@ export function useChatSession(): UseChatSessionReturn {
 
       const payload = (await response.json()) as BranchConversationResponse;
       await loadConversation(workspaceId, payload.conversationId);
+      void navigate({
+        to: "/chat/$conversationId",
+        params: { conversationId: payload.conversationId },
+      });
       await refreshSidebar(workspaceId);
     } catch (error) {
       const messageText = error instanceof Error ? error.message : "Branch creation failed";

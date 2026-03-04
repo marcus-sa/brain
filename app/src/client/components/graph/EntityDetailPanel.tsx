@@ -27,7 +27,6 @@ export function EntityDetailPanel({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | undefined>();
   const [actionPending, setActionPending] = useState(false);
-  const navigateToChat = useViewState((s) => s.navigateToChat);
   const navigateToDiscussEntity = useViewState((s) => s.navigateToDiscussEntity);
   const navigate = useNavigate();
 
@@ -53,9 +52,12 @@ export function EntityDetailPanel({
       });
   }, [entityId, workspaceId]);
 
-  function handleJumpToMessage(messageId: string) {
-    navigateToChat(messageId);
-    void navigate({ to: "/" });
+  function handleJumpToMessage(messageId: string, conversationId?: string) {
+    if (conversationId) {
+      void navigate({ to: "/chat/$conversationId", params: { conversationId }, search: { message: messageId } });
+    } else {
+      void navigate({ to: "/chat", search: { message: messageId } });
+    }
   }
 
   async function handleConfirm() {

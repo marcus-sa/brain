@@ -7,7 +7,7 @@ export function ProvenanceSection({
   onJumpToMessage,
 }: {
   provenance: ProvenanceItem[];
-  onJumpToMessage: (messageId: string) => void;
+  onJumpToMessage: (messageId: string, conversationId?: string) => void;
 }) {
   if (provenance.length === 0) {
     return (
@@ -35,7 +35,7 @@ export function ProvenanceSection({
             <button
               type="button"
               className="provenance-link"
-              onClick={() => onJumpToMessage(item.sourceId)}
+              onClick={() => onJumpToMessage(item.sourceId, item.conversationId)}
             >
               Jump to message
             </button>

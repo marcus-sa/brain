@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useMatch, useSearch } from "@tanstack/react-router";
 import Markdown from "react-markdown";
 import { DiscussEntityCard } from "../components/chat/DiscussEntityCard";
 import { EntityLink } from "../components/chat/EntityLink";
@@ -9,6 +10,14 @@ import { useChatSession } from "../hooks/use-chat-session";
 export function ChatPage() {
   const onboardingState = useWorkspaceState((s) => s.onboardingState);
   const setSidebarHandlers = useWorkspaceState((s) => s.setSidebarHandlers);
+
+  // Read conversationId from /chat/$conversationId route (undefined on /chat)
+  const matchWithId = useMatch({ from: "/chat/$conversationId", shouldThrow: false });
+  const routeConversationId = matchWithId?.params.conversationId;
+
+  // Read message search param (works on both /chat and /chat/:id)
+  const search = useSearch({ strict: false });
+  const messageParam = (search as { message?: string })?.message;
 
   const chat = useChatSession();
 
@@ -34,9 +43,35 @@ export function ChatPage() {
     };
   }, []);
 
-  // Auto-scroll to bottom
+  // Load conversation from URL param on mount/param change
+  useEffect(() => {
+    if (routeConversationId && routeConversationId !== chat.activeConversationId) {
+      chat.selectConversation(routeConversationId);
+    }
+  }, [routeConversationId]);
+
+  // Scroll to message from ?message= search param
+  useEffect(() => {
+    if (!messageParam) return;
+
+    const timer = setTimeout(() => {
+      const element = document.querySelector(`[data-message-id="${CSS.escape(messageParam)}"]`);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "center" });
+        element.classList.add("animate-highlight");
+        element.addEventListener("animationend", () => {
+          element.classList.remove("animate-highlight");
+        }, { once: true });
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [messageParam, chat.messages]);
+
+  // Auto-scroll to bottom (skip when targeting a specific message)
   const messagesEndRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    if (messageParam) return;
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chat.messages]);
 

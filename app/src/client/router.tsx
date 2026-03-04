@@ -28,7 +28,7 @@ function AppShell() {
     if (sidebarHandlers) {
       sidebarHandlers.onSelectConversation(conversationId);
     }
-    void navigate({ to: "/chat" });
+    void navigate({ to: "/chat/$conversationId", params: { conversationId } });
   }
 
   return (
@@ -83,10 +83,24 @@ const homeRoute = createRoute({
   component: HomePage,
 });
 
+type ChatSearch = { message?: string };
+
+const validateChatSearch = (search: Record<string, unknown>): ChatSearch => ({
+  ...(typeof search.message === "string" ? { message: search.message } : {}),
+});
+
 const chatRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/chat",
   component: ChatPage,
+  validateSearch: validateChatSearch,
+});
+
+const chatConversationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/chat/$conversationId",
+  component: ChatPage,
+  validateSearch: validateChatSearch,
 });
 
 const graphRoute = createRoute({
@@ -95,7 +109,7 @@ const graphRoute = createRoute({
   component: GraphPage,
 });
 
-const routeTree = rootRoute.addChildren([homeRoute, chatRoute, graphRoute]);
+const routeTree = rootRoute.addChildren([homeRoute, chatRoute, chatConversationRoute, graphRoute]);
 
 export const router = createRouter({ routeTree });
 

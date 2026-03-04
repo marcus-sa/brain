@@ -7,7 +7,6 @@ type ViewState = {
   graphProjectId: string | undefined;
   graphCenterId: string | undefined;
   graphDepth: number;
-  highlightMessageId: string | undefined;
   discussEntity: DiscussEntitySummary | undefined;
 
   selectEntity: (entityId: string | undefined) => void;
@@ -15,8 +14,6 @@ type ViewState = {
   setGraphProject: (projectId: string) => void;
   setGraphDepth: (depth: number) => void;
   navigateToGraph: (entityId: string) => void;
-  navigateToChat: (messageId: string) => void;
-  clearHighlight: () => void;
   navigateToDiscussEntity: (entity: DiscussEntitySummary) => void;
   clearDiscussEntity: () => void;
 };
@@ -27,7 +24,6 @@ export const useViewState = create<ViewState>((set) => ({
   graphProjectId: undefined,
   graphCenterId: undefined,
   graphDepth: 2,
-  highlightMessageId: undefined,
   discussEntity: undefined,
 
   selectEntity: (entityId) => set({ selectedEntityId: entityId }),
@@ -45,11 +41,6 @@ export const useViewState = create<ViewState>((set) => ({
       graphViewMode: "focused",
       selectedEntityId: entityId,
     }),
-
-  navigateToChat: (messageId) =>
-    set({ highlightMessageId: messageId }),
-
-  clearHighlight: () => set({ highlightMessageId: undefined }),
 
   navigateToDiscussEntity: (entity) =>
     set({ discussEntity: entity }),

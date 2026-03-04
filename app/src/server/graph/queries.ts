@@ -60,6 +60,7 @@ export type EntityProvenance = {
   sourceKind: "message" | "document_chunk" | "git_commit";
   confidence: number;
   extractedAt: string;
+  conversationId?: string;
   evidence?: string;
   evidenceSource?: string;
   resolvedFrom?: string;
@@ -984,6 +985,19 @@ export async function getEntityDetail(input: {
       }>,
     ]>();
 
+  // Resolve conversationIds for message-type provenance sources
+  const messageProvenanceRows = provenanceRows.filter((r) => r.in.table.name === "message");
+  let convMap: Map<string, string> | undefined;
+  if (messageProvenanceRows.length > 0) {
+    const [convRows] = await input.surreal
+      .query<[Array<{ id: RecordId<"message", string>; conversation: RecordId<"conversation", string> }>]>(
+        "SELECT id, conversation FROM message WHERE id IN $ids;",
+        { ids: messageProvenanceRows.map((r) => r.in) },
+      )
+      .collect<[Array<{ id: RecordId<"message", string>; conversation: RecordId<"conversation", string> }>]>();
+    convMap = new Map(convRows.map((r) => [r.id.id as string, r.conversation.id as string]));
+  }
+
   const provenance = provenanceRows.map((row) => ({
     sourceId: toRecordIdString(row.in),
     sourceKind: row.in.table.name === "document_chunk"
@@ -993,6 +1007,9 @@ export async function getEntityDetail(input: {
         : "message",
     confidence: row.confidence,
     extractedAt: toIsoString(row.extracted_at),
+    ...(row.in.table.name === "message" && convMap?.get(row.in.id as string)
+      ? { conversationId: convMap.get(row.in.id as string) }
+      : {}),
     ...(row.evidence ? { evidence: row.evidence } : {}),
     ...(row.evidence_source ? { evidenceSource: toRecordIdString(row.evidence_source) } : {}),
     ...(row.resolved_from ? { resolvedFrom: toRecordIdString(row.resolved_from) } : {}),

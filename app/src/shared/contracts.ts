@@ -271,6 +271,7 @@ export type EntityDetailResponse = {
     sourceKind: SourceKind;
     confidence: number;
     extractedAt: string;
+    conversationId?: string;
     evidence?: string;
     evidenceSource?: string;
     resolvedFrom?: string;
