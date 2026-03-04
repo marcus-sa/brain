@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "d7e9b3a48426",
+  "session_id": "c36cede4-5451-4c27-8fc3-1de343a0c337",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-04T18:24:41.698653Z",
+  "branch": "marcus-sa/cli-setup-command",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "cli/commands/init-content.ts",
+    "cli/commands/system.ts",
+    "cli/http-client.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "6195b4394d33",
+  "token_usage": {
+    "input_tokens": 32,
+    "cache_creation_tokens": 148140,
+    "cache_read_tokens": 1408032,
+    "output_tokens": 7761,
+    "api_call_count": 28
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-04T18:24:41.541345Z",
+    "agent_lines": 78,
+    "human_added": 1432,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 1510,
+    "agent_percentage": 5.1655629139072845
+  }
+}
