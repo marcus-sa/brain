@@ -3,7 +3,7 @@
   "checkpoint_id": "4d9ac9d11789",
   "strategy": "manual-commit",
   "branch": "marcus-sa/analytics-agent",
-  "checkpoints_count": 0,
+  "checkpoints_count": 1,
   "files_touched": [
     "AGENTS.md",
     "schema/migrations/20260304_fulltext_search_indexes.surql"
@@ -22,13 +22,20 @@
       "context": "/4d/9ac9d11789/1/context.md",
       "content_hash": "/4d/9ac9d11789/1/content_hash.txt",
       "prompt": "/4d/9ac9d11789/1/prompt.txt"
+    },
+    {
+      "metadata": "/4d/9ac9d11789/2/metadata.json",
+      "transcript": "/4d/9ac9d11789/2/full.jsonl",
+      "context": "/4d/9ac9d11789/2/context.md",
+      "content_hash": "/4d/9ac9d11789/2/content_hash.txt",
+      "prompt": "/4d/9ac9d11789/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 3,
-    "cache_creation_tokens": 22354,
-    "cache_read_tokens": 18899,
-    "output_tokens": 365,
-    "api_call_count": 1
+    "input_tokens": 1237,
+    "cache_creation_tokens": 693500,
+    "cache_read_tokens": 17159165,
+    "output_tokens": 63507,
+    "api_call_count": 181
   }
 }

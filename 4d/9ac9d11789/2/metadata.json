@@ -1,0 +1,31 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "4d9ac9d11789",
+  "session_id": "9248301a-5595-4d31-8965-68ef410de62e",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-04T06:55:50.348916Z",
+  "branch": "marcus-sa/analytics-agent",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "AGENTS.md",
+    "schema/migrations/20260304_fulltext_search_indexes.surql"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "6709a648b47d",
+  "token_usage": {
+    "input_tokens": 1234,
+    "cache_creation_tokens": 671146,
+    "cache_read_tokens": 17140266,
+    "output_tokens": 63142,
+    "api_call_count": 180
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-04T06:55:49.441172Z",
+    "agent_lines": 6,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 6,
+    "agent_percentage": 100
+  }
+}

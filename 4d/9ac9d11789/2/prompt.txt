@@ -1,0 +1,469 @@
+<system_instruction>
+You are working inside Conductor, a Mac app that lets the user run many coding agents in parallel.
+Your work should take place in the /Users/marcus/conductor/workspaces/brain/montevideo-v1 directory (unless otherwise directed), which has been set up for you to work in.
+Each workspace has a .context directory (gitignored) where you can save files to collaborate with other agents.
+The target branch for this workspace is main. Use this for actions like creating new PRs, bisecting, etc., unless you're told otherwise.
+
+If the user asks you to work on several unrelated tasks in parallel, you can suggest they start new workspaces.
+If the user asks for help with Conductor, ask them to email [humans@conductor.build](mailto:humans@conductor.build) or
+click on the comment icon in the bottom left to send feedback.
+</system_instruction>
+
+the vector based search does not work at all...
+
+no matter what i search for this shows up:
+
+governance
+
+✕
+All
+Decision
+Task
+Feature
+Question
+Observation
+Message
+Person
+Project
+PROJECT
+20%
+Agent-Native Business Operating System
+View in graph
+Discuss
+PERSON
+15%
+Marcus
+View in graph
+
+governance is a part of:
+OBSERVATION
+⚙️ Engineering
+OPEN
+IAM vision: Agents have identity and authority scopes. Coding agent can make provisional architecture decisions but can't confirm them. Sales agent can draft proposals but can't commit to pricing. Trust expands over time as user widens authority.
+Info observation from chat_agent
+Acknowledge
+Resolve
+
+---
+
+Continue from where you left off.
+
+---
+
+but the observation i am searching for does have embeddings
+
+---
+
+Root cause: SurrealDB v2.6 query planner bug — when the WHERE clause uses both a KNN operator (HNSW index) and a condition covered by a regular B-tree index, the two index scans conflict and produce empty results.
+
+add to AGENTS.md
+
+---
+
+is there a github issue for this in surrealdb repo?
+
+---
+
+maybe the search functionality is too smart?
+
+iam
+
+OBSERVATION
+35%
+IAM vision: Agents have identity and authority scopes. Coding agent can make provisional architecture decisions but can't confirm them. Sales agent can draft proposals but can't commit to pricing. Trust expands over time as user widens authority.
+View in graph
+Discuss
+PERSON
+31%
+Marcus
+View in graph
+Discuss
+MESSAGE
+22%
+This is a crystal-clear articulation of the product vision. Let me capture the key strategic decisions and create observations about what I'm hearing.
+View in graph
+Discuss
+PROJECT
+17%
+Agent-Native Business Operating System
+View in graph
+Discuss
+MESSAGE
+17%
+let's start mapping out the graph itself. I want there to be entities: Initiative -> Project -> Feature -> Task, and then questions, suggestions and decisions
+
+---
+
+maybe we should rethink our search approach entirely... this is becoming too convoluted
+
+---
+
+what about https://surrealdb.com/docs/surrealql/functions/database/search ?
+
+---
+
+commit current changes and go ahead. if we need schema migrations, add a new schema migration file
+
+---
+
+Continue from where you left off.
+
+---
+
+why are u manually applying them? we have a "bun migrate" script for applying schema migrations. also as says in AGENTS.md, we use transactions in schema migration files...
+
+refine AGENTS.md
+
+---
+
+add surrealdb search functionality info to AGENTS.md
+
+---
+
+why do we not get more descriptive errors from surrealdb when migration fail?
+
+---
+
+Continue from where you left off.
+
+---
+
+ah ok, thats because this cannot be used within transaction:
+
+DEFINE ANALYZER OVERWRITE entity_search
+  TOKENIZERS blank, class, camel, punct
+  FILTERS snowball(english), lowercase;
+
+---
+
+Continue from where you left off.
+
+---
+
+Continue from where you left off.
+
+---
+
+add learning to AGENTS.md
+
+---
+
+why the fuck did u change it to query_raw? that doesnt exist
+
+---
+
+continue
+
+---
+
+"Confirmed: search::score() and @N@ don’t work inside DEFINE FUNCTION. The predicate reference is lost across the function boundary. We need to move the search queries into the app layer."
+
+search surrealdb github issues
+
+---
+
+create a github issue
+
+---
+
+ok, we'll have to move queries to app layer until this is fixed
+
+---
+
+please report these bugs to surrealdb github
+
+---
+
+https://surrealdb.com/docs/surrealql/operators
+
+---
+
+This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.
+
+Analysis:
+Let me chronologically analyze the entire conversation:
+
+1. **Initial Problem**: User reports vector-based entity search always returns the same results (project "Agent-Native Business Operating System" at 20% and person "Marcus" at 15%) regardless of what they search for.
+
+2. **Investigation Phase**: 
+   - Explored the search implementation: entity-search-route.ts, graph/queries.ts, graph/embeddings.ts, SurrealDB schema
+   - Found the search uses KNN vector search via `fn::entity_search_workspace` and `fn::entity_search_project` stored functions
+   - Queried the database to count entities with embeddings
+
+3. **Root Cause #1 - KNN + WHERE Bug**: 
+   - Found that SurrealDB v2.6 query planner silently returns empty results when combining KNN operator (`<|K, COSINE|>`) with WHERE conditions that use a B-tree index
+   - Tables with workspace indexes (task, decision, question, observation) returned empty; tables without (project, person, feature) worked
+   - Fix: Split KNN into LET subquery, then filter by workspace separately
+   - Updated the migration file `20260304_replace_entity_search_with_knn_vector.surql`
+   - Added the bug documentation to AGENTS.md
+   - Committed this fix
+
+4. **User feedback**: "maybe the search functionality is too smart?" - User searched "iam" and got IAM observation (35%) but also irrelevant results like Marcus (31%) and random messages (17-22%)
+
+5. **Text match boost attempt**: Added MIN_SIMILARITY threshold (0.25) and TEXT_MATCH_BOOST (0.3) to entity-search-route.ts
+
+6. **User wants to rethink search entirely**: "maybe we should rethink our search approach entirely... this is becoming too convoluted"
+
+7. **User suggests BM25 full-text search**: Points to SurrealDB docs for search functions
+
+8. **Decision to switch to BM25**: Replace vector search with SurrealDB's built-in BM25 full-text search for the UI search bar. Keep vector search for chat agent's search_entities tool.
+
+9. **User feedback on committing**: "commit current changes and go ahead. if we need schema migrations, add a new schema migration file" - Committed KNN fix, then started on BM25 migration.
+
+10. **Syntax issues**: 
+    - First tried `SEARCH ANALYZER` syntax - wrong for v2.6
+    - Correct syntax is `FULLTEXT ANALYZER` for SurrealDB v2.6
+
+11. **User feedback on manual migration**: "why are u manually applying them? we have a 'bun migrate' script... also as says in AGENTS.md, we use transactions in schema migration files... refine AGENTS.md"
+    - Updated AGENTS.md migration workflow to reference `bun migrate` instead of `surreal import`
+    - Added note about `DEFINE ANALYZER` not working inside transactions
+
+12. **Migration transaction failure**: `DEFINE ANALYZER` cannot run inside a transaction in SurrealDB v2.6. Fixed by placing it before `BEGIN TRANSACTION;`.
+
+13. **User feedback on query_raw**: "why the fuck did u change it to query_raw? that doesnt exist" - I had incorrectly used `surreal.query_raw()` which doesn't exist in the SDK. Fixed to use `surreal.query(sql).stream()` for per-statement error reporting.
+
+14. **BM25 scoring issues**: 
+    - `BM25` without explicit params returns score=0
+    - `BM25(1.2, 0.75)` works correctly
+    - `search::score()` and `@N@` don't work inside `DEFINE FUNCTION`
+    - `@N@` doesn't work with SDK bound parameters
+
+15. **GitHub issues created**:
+    - #7013: search::score()/@N@ fail inside DEFINE FUNCTION
+    - #7014: @N@ ignores bound parameters
+    - #7015: BM25 without explicit params returns score=0
+
+16. **Final implementation**: 
+    - Moved search queries to app layer (entity-search-route.ts)
+    - Search term embedded as escaped string literal (not bound param)
+    - Migration file stripped down to just analyzer + indexes
+    - Committed everything
+
+17. **Last user message**: User shared the SurrealDB operators docs page. I fetched it and found no info about using variables/params with match operators - confirming the bound parameter issue is undocumented.
+
+Let me now trace the current state of all files.
+
+Summary:
+1. Primary Request and Intent:
+   - User reported that vector-based entity search in the UI always returns the same results regardless of search query
+   - User wanted the search to be fixed, then decided to completely replace vector/KNN search with BM25 full-text search for the UI search bar
+   - User wanted all SurrealDB bugs discovered to be reported as GitHub issues
+   - User wanted AGENTS.md updated with learnings about SurrealDB full-text search, migration workflow, and known bugs
+   - User wanted proper migration workflow followed (`bun migrate`, transactions, new migration files)
+
+2. Key Technical Concepts:
+   - SurrealDB v2.6.1 KNN vector search via HNSW indexes with `<|K, COSINE|>` operator
+   - SurrealDB v2.6 query planner bug: KNN + WHERE with B-tree index = empty results
+   - SurrealDB BM25 full-text search with `FULLTEXT ANALYZER` syntax (v2.6), `@N@` match operator, `search::score(N)`
+   - SurrealDB `DEFINE ANALYZER` cannot run inside transactions
+   - SurrealDB `search::score()` and `@N@` don't work inside `DEFINE FUNCTION` (issue #7013)
+   - SurrealDB `@N@` doesn't work with SDK bound parameters - must use string literal interpolation (issue #7014)
+   - SurrealDB `BM25` without explicit params `(1.2, 0.75)` returns score=0 (issue #7015)
+   - Migration runner at `schema/migrate.ts` using `bun migrate` with `_migration` tracking table
+   - Vercel AI SDK embedding model via OpenRouter for vector embeddings (no longer needed for UI search)
+
+3. Files and Code Sections:
+   - **`AGENTS.md`** (project instructions)
+     - Added `## SurrealDB KNN + WHERE Bug (v2.6)` section documenting the index conflict workaround
+     - Added `## SurrealDB Full-Text Search (BM25)` section with setup, query syntax, known limitations, and implementation notes
+     - Updated migration workflow: `bun migrate` instead of `surreal import`, `DEFINE ANALYZER` transaction limitation
+     - Key additions:
+     ```
+     ### Known limitations (SurrealDB v2.6)
+     - search::score() and @N@ do NOT work inside DEFINE FUNCTION
+     - @N@ does NOT work with SDK bound parameters ($query). The search term must be embedded as a string literal
+     - BM25 without explicit parameters returns score=0. Always use BM25(1.2, 0.75)
+     ```
+
+   - **`app/src/server/entities/entity-search-route.ts`** (main search handler)
+     - Completely rewritten from vector/embedding-based search to BM25 full-text search
+     - Removed `createEmbeddingVector` dependency (no more API calls per search)
+     - Search term embedded as escaped string literal due to SDK param binding bug
+     - Runs 8 parallel BM25 queries (one per entity type), merges and sorts results
+     - Final version:
+     ```typescript
+     import { RecordId } from "surrealdb";
+     import type { EntityKind, SearchEntityResponse } from "../../shared/contracts";
+     import { HttpError } from "../http/errors";
+     import { elapsedMs, logDebug, logError, logInfo, logWarn } from "../http/observability";
+     import { jsonError, jsonResponse } from "../http/response";
+     import type { ServerDependencies } from "../runtime/types";
+     import { resolveWorkspaceProjectRecord, resolveWorkspaceRecord } from "../workspace/workspace-scope";
+
+     type SearchEntityRow = {
+       id: RecordId<string, string>;
+       kind: EntityKind;
+       text: string;
+       score: number;
+     };
+
+     function escapeSearchQuery(query: string): string {
+       return query.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+     }
+
+     function buildWorkspaceSearchSQL(escapedQuery: string): string {
+       const q = `'${escapedQuery}'`;
+       return `
+     SELECT id, "task" AS kind, title AS text, search::score(1) AS score
+     FROM task WHERE title @1@ ${q} AND workspace = $workspace ORDER BY score DESC LIMIT $limit;
+
+     SELECT id, "decision" AS kind, summary AS text, search::score(1) AS score
+     FROM decision WHERE summary @1@ ${q} AND workspace = $workspace ORDER BY score DESC LIMIT $limit;
+
+     SELECT id, "question" AS kind, text AS text, search::score(1) AS score
+     FROM question WHERE text @1@ ${q} AND workspace = $workspace ORDER BY score DESC LIMIT $limit;
+
+     SELECT id, "observation" AS kind, text AS text, search::score(1) AS score
+     FROM observation WHERE text @1@ ${q} AND workspace = $workspace ORDER BY score DESC LIMIT $limit;
+
+     SELECT id, "feature" AS kind, name AS text, search::score(1) AS score
+     FROM feature WHERE name @1@ ${q} ORDER BY score DESC LIMIT $limit;
+
+     SELECT id, "project" AS kind, name AS text, search::score(1) AS score
+     FROM project WHERE name @1@ ${q} AND workspace = $workspace ORDER BY score DESC LIMIT $limit;
+
+     SELECT id, "person" AS kind, name AS text, search::score(1) AS score
+     FROM person WHERE name @1@ ${q} ORDER BY score DESC LIMIT $limit;
+
+     SELECT id, "message" AS kind, text AS text, search::score(1) AS score
+     FROM message WHERE text @1@ ${q} AND conversation.workspace = $workspace ORDER BY score DESC LIMIT $limit;
+     `;
+     }
+
+     function buildProjectSearchSQL(escapedQuery: string): string {
+       const q = `'${escapedQuery}'`;
+       return `
+     LET $project_entity_ids = SELECT VALUE in FROM belongs_to WHERE out = $project;
+
+     SELECT id, "task" AS kind, title AS text, search::score(1) AS score
+     FROM task WHERE title @1@ ${q} AND workspace = $workspace AND id IN $project_entity_ids ORDER BY score DESC LIMIT $limit;
+
+     SELECT id, "decision" AS kind, summary AS text, search::score(1) AS score
+     FROM decision WHERE summary @1@ ${q} AND workspace = $workspace AND id IN $project_entity_ids ORDER BY score DESC LIMIT $limit;
+
+     SELECT id, "question" AS kind, text AS text, search::score(1) AS score
+     FROM question WHERE text @1@ ${q} AND workspace = $workspace AND id IN $project_entity_ids ORDER BY score DESC LIMIT $limit;
+
+     SELECT id, "observation" AS kind, text AS text, search::score(1) AS score
+     FROM observation WHERE text @1@ ${q} AND workspace = $workspace ORDER BY score DESC LIMIT $limit;
+
+     SELECT id, "feature" AS kind, name AS text, search::score(1) AS score
+     FROM feature WHERE name @1@ ${q} AND id IN $project_entity_ids ORDER BY score DESC LIMIT $limit;
+
+     SELECT id, "message" AS kind, text AS text, search::score(1) AS score
+     FROM message WHERE text @1@ ${q} AND conversation.workspace = $workspace ORDER BY score DESC LIMIT $limit;
+     `;
+     }
+     ```
+     - Handler merges results: `results.filter(Array.isArray).flat().sort((a, b) => b.score - a.score).slice(0, limit)`
+
+   - **`schema/migrations/20260304_fulltext_search_indexes.surql`** (new migration)
+     - Defines `entity_search` analyzer with snowball(english) stemming and lowercase
+     - Creates FULLTEXT BM25(1.2, 0.75) indexes on all searchable entity text fields
+     - `DEFINE ANALYZER` placed before `BEGIN TRANSACTION` (can't run inside transaction)
+     ```sql
+     DEFINE ANALYZER OVERWRITE entity_search
+       TOKENIZERS blank, class, camel, punct
+       FILTERS snowball(english), lowercase;
+
+     BEGIN TRANSACTION;
+     DEFINE INDEX OVERWRITE idx_task_fulltext ON task FIELDS title FULLTEXT ANALYZER entity_search BM25(1.2, 0.75);
+     DEFINE INDEX OVERWRITE idx_decision_fulltext ON decision FIELDS summary FULLTEXT ANALYZER entity_search BM25(1.2, 0.75);
+     DEFINE INDEX OVERWRITE idx_question_fulltext ON question FIELDS text FULLTEXT ANALYZER entity_search BM25(1.2, 0.75);
+     DEFINE INDEX OVERWRITE idx_observation_fulltext ON observation FIELDS text FULLTEXT ANALYZER entity_search BM25(1.2, 0.75);
+     DEFINE INDEX OVERWRITE idx_feature_fulltext ON feature FIELDS name FULLTEXT ANALYZER entity_search BM25(1.2, 0.75);
+     DEFINE INDEX OVERWRITE idx_project_fulltext ON project FIELDS name FULLTEXT ANALYZER entity_search BM25(1.2, 0.75);
+     DEFINE INDEX OVERWRITE idx_person_fulltext ON person FIELDS name FULLTEXT ANALYZER entity_search BM25(1.2, 0.75);
+     DEFINE INDEX OVERWRITE idx_message_fulltext ON message FIELDS text FULLTEXT ANALYZER entity_search BM25(1.2, 0.75);
+     COMMIT TRANSACTION;
+     ```
+
+   - **`schema/migrations/20260304_replace_entity_search_with_knn_vector.surql`** (deleted)
+     - Old KNN vector search migration - removed in favor of fulltext search
+
+   - **`schema/migrate.ts`** (migration runner)
+     - Changed from `await surreal.query(sql)` to streaming with `surreal.query(sql).stream()` for per-statement error reporting
+     ```typescript
+     try {
+       const stream = surreal.query(sql).stream();
+       let stmtIndex = 0;
+       for await (const frame of stream) {
+         if ((frame as any).status === "ERR") {
+           console.error(`✗ Failed: ${file} (statement ${stmtIndex})`);
+           console.error(`  → ${(frame as any).result}`);
+           await surreal.close();
+           process.exit(1);
+         }
+         stmtIndex++;
+       }
+     } catch (err) {
+       console.error(`✗ Failed: ${file}`);
+       console.error(err);
+       await surreal.close();
+       process.exit(1);
+     }
+     ```
+
+4. Errors and fixes:
+   - **KNN + WHERE returning empty results**: SurrealDB v2.6 query planner conflict between HNSW and B-tree indexes. Fixed by splitting into two-step queries (KNN in LET, filter in second query). Later replaced entirely with BM25.
+   - **`SEARCH ANALYZER` syntax error**: SurrealDB v2.6 uses `FULLTEXT ANALYZER`, not `SEARCH ANALYZER` (which is v3.0+). Fixed by using correct keyword.
+   - **Manual migration application**: User scolded for applying migrations via raw HTTP calls instead of `bun migrate`. Fixed approach and updated AGENTS.md.
+   - **`DEFINE ANALYZER` in transaction**: Failed with "query was not executed due to a failed transaction". Fixed by placing `DEFINE ANALYZER` before `BEGIN TRANSACTION;` block.
+   - **`query_raw` doesn't exist**: User was angry ("why the fuck did u change it to query_raw?"). The SurrealDB SDK has no `query_raw` method. Fixed by using `surreal.query(sql).stream()` to iterate per-statement frames.
+   - **`search::score()` inside DEFINE FUNCTION**: Errors with "no MATCHES clause found in WHERE condition". Unfixable SurrealDB bug - moved queries to app layer.
+   - **`@N@` with SDK bound parameters**: Returns all rows (no filtering) or errors with search::score. SDK parameter binding doesn't work with match operators. Fixed by embedding search term as escaped string literal.
+   - **`BM25` without params returns score=0**: Must use `BM25(1.2, 0.75)` explicitly. Updated all index definitions.
+
+5. Problem Solving:
+   - Diagnosed KNN search returning wrong results via systematic database queries counting embeddings per table and testing KNN with/without WHERE clauses
+   - Identified the B-tree index conflict pattern by comparing tables (observation with workspace index vs project without)
+   - Pivoted from vector search to BM25 full-text search after user feedback that approach was "too convoluted"
+   - Worked around three SurrealDB bugs to get BM25 working: stored functions, bound params, score=0
+   - Filed three GitHub issues against surrealdb/surrealdb repo (#7013, #7014, #7015)
+
+6. All user messages:
+   - "the vector based search does not work at all... no matter what i search for this shows up: governance [screenshot showing project at 20% and person at 15%]"
+   - "Continue from where you left off."
+   - "but the observation i am searching for does have embeddings"
+   - "Root cause: SurrealDB v2.6 query planner bug — when the WHERE clause uses both a KNN operator (HNSW index) and a condition covered by a regular B-tree index, the two index scans conflict and produce empty results. add to AGENTS.md"
+   - "is there a github issue for this in surrealdb repo?"
+   - "maybe the search functionality is too smart? [screenshot showing iam search with IAM observation at 35%, Marcus at 31%, messages at 17-22%]"
+   - "maybe we should rethink our search approach entirely... this is becoming too convoluted"
+   - "what about https://surrealdb.com/docs/surrealql/functions/database/search ?"
+   - "commit current changes and go ahead. if we need schema migrations, add a new schema migration file"
+   - "why are u manually applying them? we have a 'bun migrate' script for applying schema migrations. also as says in AGENTS.md, we use transactions in schema migration files... refine AGENTS.md"
+   - "add surrealdb search functionality info to AGENTS.md"
+   - "why the fuck did u change it to query_raw? that doesnt exist"
+   - "add learning to AGENTS.md" (about DEFINE ANALYZER transaction limitation)
+   - "continue" (after migration applied successfully)
+   - "Confirmed: search::score() and @N@ don't work inside DEFINE FUNCTION... search surrealdb github issues"
+   - "create a github issue"
+   - "ok, we'll have to move queries to app layer until this is fixed"
+   - "please report these bugs to surrealdb github"
+   - "https://surrealdb.com/docs/surrealql/operators" (shared docs link)
+
+7. Pending Tasks:
+   - No explicitly pending tasks. All requested work has been committed. The user's last message was sharing the SurrealDB operators docs page, which was fetched and confirmed that there's no documentation about using variables/params with match operators.
+
+8. Current Work:
+   The last action was fetching the SurrealDB operators documentation page that the user shared (`https://surrealdb.com/docs/surrealql/operators`). The fetch confirmed that the docs show no examples of using variables or parameters with `@N@` match operators - only string literals. This validates the bug reported in issue #7014. The user shared this link without additional instructions.
+
+   Two commits were made on branch `marcus-sa/analytics-agent`:
+   - `a4c9eed` - "Fix KNN vector search returning wrong results due to SurrealDB index conflict"
+   - `7f377c6` - "Replace vector search with BM25 full-text search for UI entity search"
+
+   The migration `20260304_fulltext_search_indexes.surql` has been applied to the database. The old KNN migration file was deleted.
+
+9. Optional Next Step:
+   No clear next step — the user's last message was simply sharing a docs URL which was already fetched and analyzed. All requested work (fix search, report bugs, update AGENTS.md, commit) has been completed. The user may want to test the search in the UI to verify it works end-to-end.
+
+If you need specific details from before compaction (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/marcus/.claude/projects/-Users-marcus-conductor-workspaces-brain-montevideo-v1/9248301a-5595-4d31-8965-68ef410de62e.jsonl
+Please continue the conversation from where we left off without asking the user any further questions. Continue with the last task that you were asked to work on.
+
+---
+
+also surrealdb version is incorrect. we're running server surrealdb/surrealdb:v3.0.0 with sdk "surrealdb": "2.0.0-alpha.18"
+
+---
+
+commit
