@@ -104,6 +104,17 @@ body {
   color: var(--foreground);
 }
 
+.onboarding-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--entity-feature);
+  color: var(--entity-feature);
+  background: var(--entity-feature-muted);
+}
+
 .app-content {
   flex: 1;
   overflow-y: auto;

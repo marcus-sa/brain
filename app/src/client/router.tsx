@@ -14,6 +14,7 @@ function AppShell() {
   const sidebar = useWorkspaceState((s) => s.sidebar);
   const sidebarHandlers = useWorkspaceState((s) => s.sidebarHandlers);
   const workspaceName = useWorkspaceState((s) => s.workspaceName);
+  const onboardingState = useWorkspaceState((s) => s.onboardingState);
   const navigate = useNavigate();
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -55,6 +56,11 @@ function AppShell() {
         <div className="app-main">
           <div className="content-header">
             <span className="content-header-title">{workspaceName}</span>
+            {onboardingState === "active" ? (
+              <span className="onboarding-badge">Setting up</span>
+            ) : onboardingState === "summary_pending" ? (
+              <span className="onboarding-badge">Review setup</span>
+            ) : undefined}
             <button
               type="button"
               className="search-trigger"
