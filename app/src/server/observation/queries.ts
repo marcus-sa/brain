@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { RecordId, Surreal } from "surrealdb";
-import type { EntityCategory, ObservationSeverity, ObservationStatus, ObservationSummary } from "../../shared/contracts";
+import type { EntityCategory, ObservationSeverity, ObservationStatus, ObservationSummary, ObservationType } from "../../shared/contracts";
 
 type ObservationRecord = RecordId<"observation", string>;
 type ObserveTargetRecord = RecordId<"project" | "feature" | "task" | "decision" | "question", string>;
@@ -17,9 +17,11 @@ export async function createObservation(input: {
   text: string;
   severity: ObservationSeverity;
   category?: EntityCategory;
+  observationType?: ObservationType;
   sourceAgent: string;
   now: Date;
   sourceMessageRecord?: RecordId<"message", string>;
+  sourceSessionRecord?: RecordId<"agent_session", string>;
   relatedRecord?: ObserveTargetRecord;
   embedding?: number[];
 }): Promise<ObservationRecord> {
@@ -30,9 +32,11 @@ export async function createObservation(input: {
     severity: input.severity,
     status: "open",
     ...(input.category ? { category: input.category } : {}),
+    ...(input.observationType ? { observation_type: input.observationType } : {}),
     source_agent: input.sourceAgent,
     workspace: input.workspaceRecord,
     ...(input.sourceMessageRecord ? { source_message: input.sourceMessageRecord } : {}),
+    ...(input.sourceSessionRecord ? { source_session: input.sourceSessionRecord } : {}),
     ...(input.embedding ? { embedding: input.embedding } : {}),
     created_at: input.now,
     updated_at: input.now,

@@ -1,0 +1,254 @@
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
+import { requireConfig } from "./config";
+import { BrainHttpClient } from "./http-client";
+
+export async function runMcpServer(): Promise<void> {
+  const config = requireConfig();
+  const client = new BrainHttpClient(config);
+
+  const server = new McpServer({
+    name: "brain",
+    version: "0.1.0",
+  });
+
+  // =========================================================================
+  // Tier 1 — Read Tools
+  // =========================================================================
+
+  server.tool(
+    "get_project_context",
+    "Get token-budgeted context packet for a project. Returns decisions, tasks, constraints, open questions, and recent changes. Use at session start or to refresh context mid-session.",
+    {
+      project_id: z.string().describe("Project ID"),
+      task_id: z.string().optional().describe("Task ID for task-scoped context (focused on one task's subgraph)"),
+      since: z.string().optional().describe("ISO timestamp to get changes since (e.g. last session end)"),
+    },
+    async (input) => {
+      const result = await client.getContext(input);
+      return { content: [{ type: "text" as const, text: JSON.stringify(result, undefined, 2) }] };
+    },
+  );
+
+  server.tool(
+    "get_active_decisions",
+    "Get active decisions for a project, grouped by status (confirmed, provisional, contested). Optionally filter by area/category.",
+    {
+      project_id: z.string().describe("Project ID"),
+      area: z.string().optional().describe("Category filter: engineering, research, marketing, operations, design, sales"),
+    },
+    async (input) => {
+      const result = await client.getDecisions(input);
+      return { content: [{ type: "text" as const, text: JSON.stringify(result, undefined, 2) }] };
+    },
+  );
+
+  server.tool(
+    "get_task_dependencies",
+    "Get full dependency tree for a task: what it depends on, what depends on it, and its subtasks.",
+    {
+      task_id: z.string().describe("Task ID"),
+    },
+    async (input) => {
+      const result = await client.getTaskDependencies(input);
+      return { content: [{ type: "text" as const, text: JSON.stringify(result, undefined, 2) }] };
+    },
+  );
+
+  server.tool(
+    "get_architecture_constraints",
+    "Get constraints that apply to a project: confirmed decisions (hard constraints) and open observations (warnings/conflicts).",
+    {
+      project_id: z.string().describe("Project ID"),
+      area: z.string().optional().describe("Category filter"),
+    },
+    async (input) => {
+      const result = await client.getConstraints(input);
+      return { content: [{ type: "text" as const, text: JSON.stringify(result, undefined, 2) }] };
+    },
+  );
+
+  server.tool(
+    "get_recent_changes",
+    "Get entities that changed since a timestamp. Use to see what happened while you were away.",
+    {
+      project_id: z.string().optional().describe("Project ID to scope changes"),
+      since: z.string().describe("ISO timestamp to get changes since"),
+    },
+    async (input) => {
+      const result = await client.getChanges(input);
+      return { content: [{ type: "text" as const, text: JSON.stringify(result, undefined, 2) }] };
+    },
+  );
+
+  server.tool(
+    "get_entity_detail",
+    "Get full detail for any entity including relationships and provenance. Entity ID format: table:id (e.g. decision:abc123).",
+    {
+      entity_id: z.string().describe("Entity ID in table:id format"),
+    },
+    async (input) => {
+      const result = await client.getEntityDetail(input.entity_id);
+      return { content: [{ type: "text" as const, text: JSON.stringify(result, undefined, 2) }] };
+    },
+  );
+
+  // =========================================================================
+  // Tier 2 — Reasoning Tools
+  // =========================================================================
+
+  server.tool(
+    "resolve_decision",
+    "Check if an existing decision in the graph answers your question. Use before making a new decision — the graph may already have the answer from a previous agent or human.",
+    {
+      question: z.string().describe("The question you need answered (e.g. 'Should this endpoint use REST or tRPC?')"),
+      options: z.array(z.string()).optional().describe("Options you've identified"),
+      context: z
+        .object({
+          project: z.string().optional(),
+          feature: z.string().optional(),
+        })
+        .optional()
+        .describe("Project/feature scope to search within"),
+    },
+    async (input) => {
+      const result = await client.resolveDecision(input);
+      return { content: [{ type: "text" as const, text: JSON.stringify(result, undefined, 2) }] };
+    },
+  );
+
+  server.tool(
+    "check_constraints",
+    "Check if a proposed action conflicts with existing decisions or constraints. Returns hard conflicts, soft tensions, and supporting context.",
+    {
+      proposed_action: z.string().describe("What you're proposing to do (e.g. 'Add Redis dependency for caching')"),
+      project: z.string().optional().describe("Project scope"),
+    },
+    async (input) => {
+      const result = await client.checkConstraints(input);
+      return { content: [{ type: "text" as const, text: JSON.stringify(result, undefined, 2) }] };
+    },
+  );
+
+  // =========================================================================
+  // Tier 3 — Write Tools
+  // =========================================================================
+
+  server.tool(
+    "create_provisional_decision",
+    "Create a provisional decision when you make an implementation choice the graph doesn't cover. This surfaces for human review in the feed. Use after resolve_decision returns unresolved.",
+    {
+      name: z.string().describe("Concise decision name (e.g. 'Use token bucket for rate limiting')"),
+      rationale: z.string().describe("Why this decision was made"),
+      context: z
+        .object({
+          project: z.string().optional(),
+          feature: z.string().optional(),
+        })
+        .optional()
+        .describe("Project/feature this decision belongs to"),
+      options_considered: z.array(z.string()).optional().describe("Other options that were considered"),
+    },
+    async (input) => {
+      const result = await client.createProvisionalDecision(input);
+      return { content: [{ type: "text" as const, text: JSON.stringify(result, undefined, 2) }] };
+    },
+  );
+
+  server.tool(
+    "ask_question",
+    "Ask a question when genuinely uncertain. Creates a question entity for human review in the feed. Better than guessing or creating a provisional decision when you don't know the answer.",
+    {
+      text: z.string().describe("The question"),
+      context: z
+        .object({
+          project: z.string().optional(),
+          feature: z.string().optional(),
+          task: z.string().optional(),
+        })
+        .optional()
+        .describe("Scope for the question"),
+      options: z.array(z.string()).optional().describe("Options you've identified (helps human answer faster)"),
+      blocking_task: z.string().optional().describe("Task ID this question blocks (creates BLOCKS edge)"),
+    },
+    async (input) => {
+      const result = await client.askQuestion(input);
+      return { content: [{ type: "text" as const, text: JSON.stringify(result, undefined, 2) }] };
+    },
+  );
+
+  server.tool(
+    "update_task_status",
+    "Update a task's status. Triggers automatic subtask rollup on parent tasks.",
+    {
+      task_id: z.string().describe("Task ID"),
+      status: z.string().describe("New status: todo, in_progress, blocked, completed, done"),
+      notes: z.string().optional().describe("Optional notes about the status change"),
+    },
+    async (input) => {
+      const result = await client.updateTaskStatus(input);
+      return { content: [{ type: "text" as const, text: JSON.stringify(result, undefined, 2) }] };
+    },
+  );
+
+  server.tool(
+    "create_subtask",
+    "Create a subtask under a parent task. Use to break work into smaller pieces. Includes semantic dedup — returns existing subtask if a similar one already exists.",
+    {
+      parent_task_id: z.string().describe("Parent task ID to add subtask under"),
+      title: z.string().describe("Subtask title"),
+      category: z.string().optional().describe("Category (inherits from parent if not specified)"),
+      rationale: z.string().optional().describe("Why this subtask is needed"),
+    },
+    async (input) => {
+      const result = await client.createSubtask(input);
+      return { content: [{ type: "text" as const, text: JSON.stringify(result, undefined, 2) }] };
+    },
+  );
+
+  server.tool(
+    "log_implementation_note",
+    "Append an implementation note to any entity (decision, task, feature). Use to record what was implemented and how.",
+    {
+      entity_id: z.string().describe("Entity ID in table:id format (e.g. decision:abc123)"),
+      note: z.string().describe("What was implemented and how"),
+      files_changed: z.array(z.string()).optional().describe("Paths of files touched"),
+    },
+    async (input) => {
+      const result = await client.logImplementationNote(input);
+      return { content: [{ type: "text" as const, text: JSON.stringify(result, undefined, 2) }] };
+    },
+  );
+
+  server.tool(
+    "log_observation",
+    "Log a codebase observation to the knowledge graph. Use when you notice contradictions between code and decisions, duplicated logic, missing implementations, deprecated patterns, recurring patterns, or anomalies. Creates an observation entity visible in the feed and to other agents.",
+    {
+      text: z.string().describe("What you observed — include file paths and specifics so a human can act on it"),
+      category: z
+        .enum(["contradiction", "duplication", "missing", "deprecated", "pattern", "anomaly"])
+        .describe(
+          "contradiction: code contradicts a decision or spec. duplication: same logic in multiple places. missing: expected thing is absent (tests, error handling, docs). deprecated: outdated dependency or pattern. pattern: recurring pattern worth noting. anomaly: something unexpected.",
+        ),
+      severity: z
+        .enum(["info", "warning", "conflict"])
+        .describe(
+          "info: awareness-level, no action needed. warning: risk that should be addressed. conflict: contradiction needing human resolution.",
+        ),
+      target: z.string().optional().describe("Entity this observation is about, in table:id format (e.g. decision:abc123, task:def456)"),
+      session_id: z.string().optional().describe("Current agent session ID to link this observation to"),
+    },
+    async (input) => {
+      const result = await client.logObservation(input);
+      return { content: [{ type: "text" as const, text: JSON.stringify(result, undefined, 2) }] };
+    },
+  );
+
+  // =========================================================================
+  // Connect via stdio
+  // =========================================================================
+
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}

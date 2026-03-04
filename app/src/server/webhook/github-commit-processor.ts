@@ -9,6 +9,7 @@ import { createEmbedding } from "../extraction/embedding-writeback";
 import { createObservation } from "../observation/queries";
 import { elapsedMs, logError, logInfo } from "../http/observability";
 import type { SourceRecord } from "../extraction/types";
+import { extractReferencedTaskIds } from "./commit-task-refs";
 import { classifyDecisionLinks } from "./types";
 import type { CommitInput, ProcessCommitResult, ProcessWebhookInput, ProcessWebhookResult } from "./types";
 
@@ -130,6 +131,7 @@ async function processCommit(input: {
     message: input.commit.message,
     authored_at: new Date(input.commit.authoredAt),
     ...(authorRecord ? { author: authorRecord } : {}),
+    author_name: input.commit.authorName,
     url: input.commit.url,
     workspace: input.workspaceRecord,
     ...(embedding ? { embedding } : {}),
@@ -140,6 +142,52 @@ async function processCommit(input: {
     sha: input.commit.sha,
     commitRecordId,
   });
+
+  const referencedTaskIds = extractReferencedTaskIds(input.commit.message);
+  let linkedTaskCount = 0;
+  let unresolvedTaskIds: string[] = [];
+  let linkedTaskSummaries: Array<{ id: string; title: string }> = [];
+
+  if (referencedTaskIds.length > 0) {
+    const taskRecords = referencedTaskIds.map((taskId) => new RecordId("task", taskId));
+    const [taskRows] = await input.surreal
+      .query<[Array<{ id: RecordId<"task", string>; title: string }> ]>(
+        "SELECT id, title FROM task WHERE workspace = $workspace AND id IN $taskIds;",
+        { workspace: input.workspaceRecord, taskIds: taskRecords },
+      )
+      .collect<[Array<{ id: RecordId<"task", string>; title: string }>]>();
+
+    const foundTaskIds = new Set(taskRows.map((row) => row.id.id as string));
+    unresolvedTaskIds = referencedTaskIds.filter((id) => !foundTaskIds.has(id));
+
+    for (const task of taskRows) {
+      await input.surreal
+        .relate(task.id, new RecordId("implemented_by", randomUUID()), commitRecord, {
+          commit_sha: input.commit.sha,
+          linked_at: input.now,
+        })
+        .output("after");
+    }
+
+    linkedTaskCount = taskRows.length;
+    linkedTaskSummaries = taskRows.map((row) => ({
+      id: row.id.id as string,
+      title: row.title,
+    }));
+  }
+
+  logInfo("webhook.commit.task_refs", "Processed explicit commit task references", {
+    sha: input.commit.sha,
+    referencedTaskCount: referencedTaskIds.length,
+    linkedTaskCount,
+    unresolvedTaskCount: unresolvedTaskIds.length,
+  });
+
+  const extractionSourceText = buildCommitExtractionSourceText(
+    input.commit.message,
+    linkedTaskSummaries,
+    unresolvedTaskIds,
+  );
 
   // Load workspace graph context for extraction
   const graphContext = await loadWorkspaceGraphContext(
@@ -153,7 +201,7 @@ async function processCommit(input: {
     extractionModel: input.extractionModel,
     conversationHistory: [],
     graphContext,
-    sourceText: input.commit.message,
+    sourceText: extractionSourceText,
     onboarding: false,
     workspaceName: input.workspaceName,
     projectNames: input.projectNames,
@@ -171,7 +219,7 @@ async function processCommit(input: {
     sourceRecord: commitRecord as SourceRecord,
     sourceKind: "git_commit",
     sourceLabel: `commit ${input.commit.sha.slice(0, 8)}`,
-    promptText: input.commit.message,
+    promptText: extractionSourceText,
     output: extractionOutput,
     sourceCommitRecord: commitRecord,
     now: input.now,
@@ -226,4 +274,23 @@ async function processCommit(input: {
     autoLinkedDecisions,
     observationsCreated,
   };
+}
+
+function buildCommitExtractionSourceText(
+  message: string,
+  linkedTasks: Array<{ id: string; title: string }>,
+  unresolvedTaskIds: string[],
+): string {
+  if (linkedTasks.length === 0 && unresolvedTaskIds.length === 0) {
+    return message;
+  }
+
+  const lines = [message, "", "Explicit task references parsed from commit message:"];
+  for (const task of linkedTasks) {
+    lines.push(`- task:${task.id} (workspace task title: ${task.title})`);
+  }
+  for (const taskId of unresolvedTaskIds) {
+    lines.push(`- task:${taskId} (not found in this workspace)`);
+  }
+  return lines.join("\n");
 }

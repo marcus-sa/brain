@@ -35,7 +35,9 @@
 
 ### SurrealDB Schema Migration Workflow
 
-- Create a versioned `.surql` migration script for each schema change (for example `schema/migrations/20260304_add_task_priority.surql`).
+- Create a versioned `.surql` migration script for each schema change.
+- Migration filenames MUST use a zero-padded autoincrement numeric prefix, followed by an underscore and slug (for example `schema/migrations/0008_add_task_priority.surql`).
+- Determine the next prefix by scanning `schema/migrations` and incrementing the highest existing prefix. Do NOT reuse or renumber existing migration files.
 - Apply migrations with `bun migrate` — the migration runner (`schema/migrate.ts`) tracks applied migrations in a `_migration` table and only runs pending ones.
 - Do NOT apply migrations manually via `surreal import` or raw HTTP calls — always use `bun migrate`.
 - Wrap migration scripts in `BEGIN TRANSACTION; ... COMMIT TRANSACTION;` so they succeed or fail atomically.
@@ -229,10 +231,28 @@ When the PM agent suggests work items, the chat agent renders them as `WorkItemS
 
 ### RecordId and Table Access Rules
 
-- Use `RecordId` objects everywhere for Surreal identifiers (never `table:id` strings).
+- After request parsing, use `RecordId` objects everywhere for Surreal identifiers (never raw `table:id` strings in internal logic).
 - Server extraction types define typed record aliases:
   - `GraphEntityRecord` and `SourceRecord` are `RecordId<UnionOfTables, string>` aliases.
 - Use `record.table.name` for table branching (the SDK's public API; `.tb` is an undeclared internal field that may break on upgrade).
+
+### RecordId Wire Format Contract (Strict)
+
+- Do NOT use one universal ID string format across all API fields. ID format is field-specific and enforced.
+- Fixed-table ID fields (for example: `session_id`, `task_id`, `project_id`, `workspace_id`) MUST be raw IDs only (UUID/string without `table:` prefix).
+- Polymorphic entity reference fields (for example: `entity_id`, `target`) MAY use `table:id`, but only when the field is explicitly documented as polymorphic.
+- Parse IDs exactly once at the HTTP/CLI boundary:
+  - fixed-table fields: `new RecordId("<known_table>", rawId)`
+  - polymorphic fields: parse `table:id` with table allowlist validation, then convert to `RecordId`
+- Never re-wrap prefixed values: reject fixed-table IDs containing `:` with a hard error instead of attempting recovery.
+- Never emit fixed-table IDs as `table:id` in API responses or CLI cache payloads. Emit raw IDs only.
+- If table context must be returned to clients, return it in a separate field (for example: `{ id: "<raw>", table: "task" }`), not by prefixing `id`.
+- `table:id` strings are for explicit polymorphic references only; they are not a general serialization format for all IDs.
+- Forbidden pattern: `new RecordId("agent_session", "agent_session:uuid")` (creates nested/mismatched IDs like `agent_session:⟨agent_session:uuid⟩`).
+- Any change touching ID read/write paths MUST include tests that cover:
+  - fixed-table round-trip (`raw -> RecordId -> raw`)
+  - polymorphic parse/validation (`table:id -> RecordId`)
+  - rejection of prefixed input in fixed-table fields.
 
 ## SurrealDB KNN + WHERE Bug (v3.0)
 
@@ -287,7 +307,7 @@ DEFINE INDEX idx_task_fulltext ON task FIELDS title FULLTEXT ANALYZER entity_sea
 
 ### Entity search implementation
 
-Search queries run from the app layer (`entity-search-route.ts`) instead of SurrealDB stored functions due to the limitations above. Fulltext indexes are defined in `schema/migrations/20260304_fulltext_search_indexes.surql`.
+Search queries run from the app layer (`entity-search-route.ts`) instead of SurrealDB stored functions due to the limitations above. Fulltext indexes are defined in `schema/migrations/0002_fulltext_search_indexes.surql`.
 
 ## SurrealDB SDK v2
 
