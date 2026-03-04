@@ -139,7 +139,7 @@ export function ChatPage() {
                 className="branch-message-btn"
                 onClick={() => void chat.branchFromMessage(message.id)}
                 disabled={chat.isLoading || chat.branchingFromId !== undefined}
-                title="Branch from here"
+                data-tooltip="Branch from here"
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                   <path d="M5 3v4.5c0 1.1.9 2 2 2h2.5M5 3L3 5M5 3l2 2M11 5v4.5c0 1.1-.9 2-2 2H6.5M11 5l-2-2M11 5l2-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
