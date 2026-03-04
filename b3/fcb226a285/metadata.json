@@ -21,6 +21,13 @@
       "context": "/b3/fcb226a285/1/context.md",
       "content_hash": "/b3/fcb226a285/1/content_hash.txt",
       "prompt": "/b3/fcb226a285/1/prompt.txt"
+    },
+    {
+      "metadata": "/b3/fcb226a285/2/metadata.json",
+      "transcript": "/b3/fcb226a285/2/full.jsonl",
+      "context": "",
+      "content_hash": "/b3/fcb226a285/2/content_hash.txt",
+      "prompt": ""
     }
   ],
   "token_usage": {
