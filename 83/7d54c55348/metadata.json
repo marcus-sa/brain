@@ -3,7 +3,7 @@
   "checkpoint_id": "837d54c55348",
   "strategy": "manual-commit",
   "branch": "marcus-sa/analytics-agent",
-  "checkpoints_count": 5,
+  "checkpoints_count": 10,
   "files_touched": [
     "app/src/client/routes/chat-page.tsx",
     "app/src/client/styles.css"
@@ -22,13 +22,20 @@
       "context": "/83/7d54c55348/1/context.md",
       "content_hash": "/83/7d54c55348/1/content_hash.txt",
       "prompt": "/83/7d54c55348/1/prompt.txt"
+    },
+    {
+      "metadata": "/83/7d54c55348/2/metadata.json",
+      "transcript": "/83/7d54c55348/2/full.jsonl",
+      "context": "/83/7d54c55348/2/context.md",
+      "content_hash": "/83/7d54c55348/2/content_hash.txt",
+      "prompt": "/83/7d54c55348/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 282,
-    "cache_creation_tokens": 123966,
-    "cache_read_tokens": 3854096,
-    "output_tokens": 18895,
-    "api_call_count": 61
+    "input_tokens": 317,
+    "cache_creation_tokens": 149556,
+    "cache_read_tokens": 6071264,
+    "output_tokens": 29467,
+    "api_call_count": 88
   }
 }
