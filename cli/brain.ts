@@ -79,7 +79,7 @@ Usage:
   brain system check-updates     Check for graph updates (UserPromptSubmit hook)
   brain system end-session       End agent session (SessionEnd hook)
   brain check-commit             Pre-commit hook: check for task completion
-  brain log-commit               Post-commit hook: log commit to graph
+  brain log-commit               Deprecated no-op (GitHub webhook ingests commits)
   brain mcp                      Start MCP stdio server
 
 Environment:

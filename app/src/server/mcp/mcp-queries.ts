@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { RecordId, type Surreal } from "surrealdb";
+import { requireRawId, toRawId } from "./id-format";
 
 // ---------------------------------------------------------------------------
 // Row types
@@ -20,6 +21,7 @@ type TaskRow = {
   id: RecordId<"task", string>;
   title: string;
   status: string;
+  workspace: RecordId<"workspace", string>;
   priority?: string;
   category?: string;
   description?: string;
@@ -48,10 +50,6 @@ type DependencyRow = {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function toId(record: RecordId<string, string>): string {
-  return `${record.table.name}:${record.id as string}`;
-}
 
 function toIso(value: Date | string | undefined): string {
   if (!value) return "";
@@ -100,7 +98,7 @@ export async function listProjectDecisions(input: {
 
   for (const d of rows) {
     const item: DecisionItem = {
-      id: toId(d.id),
+      id: toRawId(d.id),
       summary: d.summary,
       status: d.status,
       ...(d.rationale ? { rationale: d.rationale } : {}),
@@ -119,6 +117,7 @@ export async function listProjectDecisions(input: {
 /** Get task dependency tree (recursive) */
 export async function getTaskDependencyTree(input: {
   surreal: Surreal;
+  workspaceRecord: RecordId<"workspace", string>;
   taskRecord: RecordId<"task", string>;
 }): Promise<{
   task: { id: string; title: string; status: string };
@@ -128,6 +127,9 @@ export async function getTaskDependencyTree(input: {
 }> {
   const task = await input.surreal.select<TaskRow>(input.taskRecord);
   if (!task) throw new Error(`task not found: ${input.taskRecord.id}`);
+  if ((task.workspace.id as string) !== (input.workspaceRecord.id as string)) {
+    throw new Error("task is outside the current workspace scope");
+  }
 
   const query = `
     -- Tasks this task depends on
@@ -154,15 +156,15 @@ export async function getTaskDependencyTree(input: {
   const [deps, dependents, subtasks] = results;
 
   return {
-    task: { id: toId(task.id), title: task.title, status: task.status },
+    task: { id: toRawId(task.id), title: task.title, status: task.status },
     dependencies: deps.map((d) => ({
-      id: toId(d.id),
+      id: toRawId(d.id),
       title: d.title,
       status: d.status,
       resolved: d.status === "done" || d.status === "completed",
     })),
-    dependents: dependents.map((d) => ({ id: toId(d.id), title: d.title, status: d.status })),
-    subtasks: subtasks.map((s) => ({ id: toId(s.id), title: s.title, status: s.status })),
+    dependents: dependents.map((d) => ({ id: toRawId(d.id), title: d.title, status: d.status })),
+    subtasks: subtasks.map((s) => ({ id: toRawId(s.id), title: s.title, status: s.status })),
   };
 }
 
@@ -307,8 +309,8 @@ export async function createSubtask(input: {
     const existingNormalized = existing.title.toLowerCase().trim();
     if (existingNormalized === normalizedTitle || levenshteinSimilarity(existingNormalized, normalizedTitle) > 0.85) {
       return {
-        task_id: toId(existing.id),
-        parent_task_id: toId(input.parentTaskRecord),
+        task_id: toRawId(existing.id),
+        parent_task_id: toRawId(input.parentTaskRecord),
         already_existed: true,
       };
     }
@@ -317,6 +319,9 @@ export async function createSubtask(input: {
   // Get parent task's category if not specified
   const parentTask = await input.surreal.select<TaskRow>(input.parentTaskRecord);
   if (!parentTask) throw new Error(`parent task not found: ${input.parentTaskRecord.id}`);
+  if ((parentTask.workspace.id as string) !== (input.workspaceRecord.id as string)) {
+    throw new Error("parent task is outside the current workspace scope");
+  }
 
   const now = new Date();
   const taskRecord = new RecordId("task", randomUUID());
@@ -355,8 +360,8 @@ export async function createSubtask(input: {
   }
 
   return {
-    task_id: toId(taskRecord),
-    parent_task_id: toId(input.parentTaskRecord),
+    task_id: toRawId(taskRecord),
+    parent_task_id: toRawId(input.parentTaskRecord),
     already_existed: false,
   };
 }
@@ -364,11 +369,17 @@ export async function createSubtask(input: {
 /** Update task status with subtask rollup */
 export async function updateTaskStatus(input: {
   surreal: Surreal;
+  workspaceRecord: RecordId<"workspace", string>;
   taskRecord: RecordId<"task", string>;
   status: string;
   notes?: string;
 }): Promise<{ task_id: string; status: string; parent_status?: string }> {
   const now = new Date();
+  const task = await input.surreal.select<TaskRow>(input.taskRecord);
+  if (!task) throw new Error(`task not found: ${input.taskRecord.id}`);
+  if ((task.workspace.id as string) !== (input.workspaceRecord.id as string)) {
+    throw new Error("task is outside the current workspace scope");
+  }
 
   await input.surreal.update(input.taskRecord).merge({
     status: input.status,
@@ -399,7 +410,7 @@ export async function updateTaskStatus(input: {
   }
 
   return {
-    task_id: toId(input.taskRecord),
+    task_id: toRawId(input.taskRecord),
     status: input.status,
     ...(parentStatus ? { parent_status: parentStatus } : {}),
   };
@@ -491,30 +502,35 @@ export async function createAgentSession(input: {
     workspace: input.workspaceRecord,
     project: input.projectRecord,
     created_at: now,
-    ...(input.taskId ? { task_id: new RecordId("task", input.taskId) } : {}),
+    ...(input.taskId ? { task_id: new RecordId("task", requireRawId(input.taskId, "task_id")) } : {}),
   });
 
   // If task-scoped, link session to task and auto-promote status
   if (input.taskId) {
-    const taskRecord = new RecordId("task", input.taskId);
+    const taskRecord = new RecordId("task", requireRawId(input.taskId, "task_id"));
     const task = await input.surreal.select<TaskRow>(taskRecord);
-    if (task) {
-      await input.surreal.update(taskRecord).merge({
-        ...(task.status === "todo" || task.status === "ready"
-          ? { status: "in_progress" }
-          : {}),
-        source_session: sessionRecord,
-        updated_at: now,
-      });
+    if (!task) {
+      throw new Error(`task not found: ${input.taskId}`);
     }
+    if ((task.workspace.id as string) !== (input.workspaceRecord.id as string)) {
+      throw new Error("task is outside the current workspace scope");
+    }
+    await input.surreal.update(taskRecord).merge({
+      ...(task.status === "todo" || task.status === "ready"
+        ? { status: "in_progress" }
+        : {}),
+      source_session: sessionRecord,
+      updated_at: now,
+    });
   }
 
-  return { session_id: toId(sessionRecord) };
+  return { session_id: toRawId(sessionRecord) };
 }
 
 /** End an agent session with summary */
 export async function endAgentSession(input: {
   surreal: Surreal;
+  workspaceRecord: RecordId<"workspace", string>;
   sessionId: string;
   summary: string;
   decisionsMade?: string[];
@@ -524,21 +540,28 @@ export async function endAgentSession(input: {
   observationsLogged?: string[];
 }): Promise<{ session_id: string; ended: boolean }> {
   const now = new Date();
-  const sessionRecord = new RecordId("agent_session", input.sessionId);
+  const sessionRecord = new RecordId("agent_session", requireRawId(input.sessionId, "session_id"));
+  const session = await input.surreal.select<{ workspace: RecordId<"workspace", string> }>(sessionRecord);
+  if (!session) {
+    throw new Error(`session not found: ${input.sessionId}`);
+  }
+  if ((session.workspace.id as string) !== (input.workspaceRecord.id as string)) {
+    throw new Error("session is outside the current workspace scope");
+  }
 
   await input.surreal.update(sessionRecord).merge({
     ended_at: now,
     summary: input.summary,
     ...(input.decisionsMade?.length
-      ? { decisions_made: input.decisionsMade.map((id) => new RecordId("decision", id)) }
+      ? { decisions_made: input.decisionsMade.map((id) => new RecordId("decision", requireRawId(id, "decisions_made[]"))) }
       : {}),
     ...(input.questionsAsked?.length
-      ? { questions_asked: input.questionsAsked.map((id) => new RecordId("question", id)) }
+      ? { questions_asked: input.questionsAsked.map((id) => new RecordId("question", requireRawId(id, "questions_asked[]"))) }
       : {}),
     ...(input.tasksProgressed?.length
       ? {
           tasks_progressed: input.tasksProgressed.map((t) => ({
-            task_id: new RecordId("task", t.task_id),
+            task_id: new RecordId("task", requireRawId(t.task_id, "tasks_progressed[].task_id")),
             from_status: t.from_status,
             to_status: t.to_status,
           })),
@@ -546,15 +569,16 @@ export async function endAgentSession(input: {
       : {}),
     ...(input.filesChanged?.length ? { files_changed: input.filesChanged } : {}),
     ...(input.observationsLogged?.length
-      ? { observations_logged: input.observationsLogged.map((id) => new RecordId("observation", id)) }
+      ? { observations_logged: input.observationsLogged.map((id) => new RecordId("observation", requireRawId(id, "observations_logged[]"))) }
       : {}),
   });
 
   // Create session -> entity edges
   if (input.decisionsMade?.length) {
     for (const decisionId of input.decisionsMade) {
+      const rawDecisionId = requireRawId(decisionId, "decisions_made[]");
       await input.surreal
-        .relate(sessionRecord, new RecordId("produced", randomUUID()), new RecordId("decision", decisionId), {
+        .relate(sessionRecord, new RecordId("produced", randomUUID()), new RecordId("decision", rawDecisionId), {
           added_at: now,
         })
         .output("after");
@@ -563,8 +587,9 @@ export async function endAgentSession(input: {
 
   if (input.questionsAsked?.length) {
     for (const questionId of input.questionsAsked) {
+      const rawQuestionId = requireRawId(questionId, "questions_asked[]");
       await input.surreal
-        .relate(sessionRecord, new RecordId("asked", randomUUID()), new RecordId("question", questionId), {
+        .relate(sessionRecord, new RecordId("asked", randomUUID()), new RecordId("question", rawQuestionId), {
           added_at: now,
         })
         .output("after");
@@ -573,8 +598,9 @@ export async function endAgentSession(input: {
 
   if (input.tasksProgressed?.length) {
     for (const t of input.tasksProgressed) {
+      const rawTaskId = requireRawId(t.task_id, "tasks_progressed[].task_id");
       await input.surreal
-        .relate(sessionRecord, new RecordId("progressed", randomUUID()), new RecordId("task", t.task_id), {
+        .relate(sessionRecord, new RecordId("progressed", randomUUID()), new RecordId("task", rawTaskId), {
           from_status: t.from_status,
           to_status: t.to_status,
           added_at: now,
@@ -583,7 +609,7 @@ export async function endAgentSession(input: {
     }
   }
 
-  return { session_id: toId(sessionRecord), ended: true };
+  return { session_id: toRawId(sessionRecord), ended: true };
 }
 
 /** Log a git commit to the graph */
@@ -593,7 +619,6 @@ export async function logCommit(input: {
   projectRecord: RecordId<"project", string>;
   sha: string;
   message: string;
-  filesChanged: Array<{ path: string; change_type: string; lines_added: number; lines_removed: number }>;
   author: string;
   taskUpdates?: Array<{ task_id: string; new_status: string }>;
   relatedTaskIds?: string[];
@@ -605,6 +630,7 @@ export async function logCommit(input: {
   await input.surreal.create(commitRecord).content({
     sha: input.sha,
     message: input.message,
+    author_name: input.author,
     workspace: input.workspaceRecord,
     authored_at: now,
     created_at: now,
@@ -614,7 +640,14 @@ export async function logCommit(input: {
   let tasksUpdated = 0;
   if (input.taskUpdates?.length) {
     for (const update of input.taskUpdates) {
-      const taskRecord = new RecordId("task", update.task_id);
+      const taskRecord = new RecordId("task", requireRawId(update.task_id, "task_updates[].task_id"));
+      const task = await input.surreal.select<{ workspace: RecordId<"workspace", string> }>(taskRecord);
+      if (!task) {
+        throw new Error(`task not found: ${update.task_id}`);
+      }
+      if ((task.workspace.id as string) !== (input.workspaceRecord.id as string)) {
+        throw new Error("task update is outside the current workspace scope");
+      }
       await input.surreal.update(taskRecord).merge({
         status: update.new_status,
         updated_at: now,
@@ -628,18 +661,26 @@ export async function logCommit(input: {
   // Include tasks from task_updates
   if (input.taskUpdates?.length) {
     for (const update of input.taskUpdates) {
-      linkedTaskIds.add(update.task_id);
+      linkedTaskIds.add(requireRawId(update.task_id, "task_updates[].task_id"));
     }
   }
   // Include explicitly declared related tasks
   if (input.relatedTaskIds?.length) {
     for (const taskId of input.relatedTaskIds) {
-      linkedTaskIds.add(taskId);
+      linkedTaskIds.add(requireRawId(taskId, "related_task_ids[]"));
     }
   }
   for (const taskId of linkedTaskIds) {
+    const taskRecord = new RecordId("task", taskId);
+    const task = await input.surreal.select<{ workspace: RecordId<"workspace", string> }>(taskRecord);
+    if (!task) {
+      throw new Error(`task not found: ${taskId}`);
+    }
+    if ((task.workspace.id as string) !== (input.workspaceRecord.id as string)) {
+      throw new Error("task link is outside the current workspace scope");
+    }
     await input.surreal
-      .relate(new RecordId("task", taskId), new RecordId("implemented_by", randomUUID()), commitRecord, {
+      .relate(taskRecord, new RecordId("implemented_by", randomUUID()), commitRecord, {
         commit_sha: input.sha,
         linked_at: now,
       })
@@ -682,7 +723,7 @@ export async function logCommit(input: {
   }
 
   return {
-    commit_id: toId(commitRecord),
+    commit_id: toRawId(commitRecord),
     tasks_updated: tasksUpdated,
     tasks_linked: linkedTaskIds.size,
     decisions_created: decisionsCreated,

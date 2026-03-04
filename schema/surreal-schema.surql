@@ -179,15 +179,42 @@ DEFINE FIELD blocking_task ON question TYPE option<record<task>>;
 DEFINE INDEX idx_question_embedding ON question FIELDS embedding HNSW DIMENSION 1536 DIST COSINE;
 DEFINE INDEX question_workspace ON question FIELDS workspace;
 
+DEFINE TABLE agent_session SCHEMAFULL;
+DEFINE FIELD agent ON agent_session TYPE string;
+DEFINE FIELD directory ON agent_session TYPE string;
+DEFINE FIELD started_at ON agent_session TYPE datetime;
+DEFINE FIELD ended_at ON agent_session TYPE option<datetime>;
+DEFINE FIELD workspace ON agent_session TYPE record<workspace>;
+DEFINE FIELD project ON agent_session TYPE record<project>;
+DEFINE FIELD task_id ON agent_session TYPE option<record<task>>;
+DEFINE FIELD summary ON agent_session TYPE option<string>;
+DEFINE FIELD decisions_made ON agent_session TYPE option<array<record<decision>>>;
+DEFINE FIELD questions_asked ON agent_session TYPE option<array<record<question>>>;
+DEFINE FIELD tasks_progressed ON agent_session TYPE option<array<object>>;
+DEFINE FIELD tasks_progressed[*].task_id ON agent_session TYPE record<task>;
+DEFINE FIELD tasks_progressed[*].from_status ON agent_session TYPE string;
+DEFINE FIELD tasks_progressed[*].to_status ON agent_session TYPE string;
+DEFINE FIELD files_changed ON agent_session TYPE option<array<object>>;
+DEFINE FIELD files_changed[*].path ON agent_session TYPE string;
+DEFINE FIELD files_changed[*].change_type ON agent_session TYPE string ASSERT $value IN ["created", "modified", "deleted"];
+DEFINE FIELD observations_logged ON agent_session TYPE option<array<record<observation>>>;
+DEFINE FIELD created_at ON agent_session TYPE datetime;
+DEFINE INDEX agent_session_workspace ON agent_session FIELDS workspace;
+DEFINE INDEX agent_session_project ON agent_session FIELDS project;
+DEFINE INDEX agent_session_started_at ON agent_session FIELDS started_at;
+
 DEFINE TABLE observation SCHEMAFULL;
 DEFINE FIELD text ON observation TYPE string;
 DEFINE FIELD severity ON observation TYPE string ASSERT $value IN ["info", "warning", "conflict"];
 DEFINE FIELD status ON observation TYPE string ASSERT $value IN ["open", "acknowledged", "resolved"];
 DEFINE FIELD category ON observation TYPE option<string>
   ASSERT $value IN ["engineering", "research", "marketing", "operations", "design", "sales"] OR $value IS NONE;
+DEFINE FIELD observation_type ON observation TYPE option<string>
+  ASSERT $value IN ["contradiction", "duplication", "missing", "deprecated", "pattern", "anomaly"] OR $value IS NONE;
 DEFINE FIELD source_agent ON observation TYPE string;
 DEFINE FIELD workspace ON observation TYPE record<workspace>;
 DEFINE FIELD source_message ON observation TYPE option<record<message>>;
+DEFINE FIELD source_session ON observation TYPE option<record<agent_session>>;
 DEFINE FIELD resolved_at ON observation TYPE option<datetime>;
 DEFINE FIELD resolved_by ON observation TYPE option<record<person>>;
 DEFINE FIELD created_at ON observation TYPE datetime;
@@ -249,6 +276,7 @@ DEFINE FIELD repository ON git_commit TYPE option<string>;
 DEFINE FIELD message ON git_commit TYPE option<string>;
 DEFINE FIELD authored_at ON git_commit TYPE option<datetime>;
 DEFINE FIELD author ON git_commit TYPE option<record<person>>;
+DEFINE FIELD author_name ON git_commit TYPE string;
 DEFINE FIELD url ON git_commit TYPE option<string>;
 DEFINE FIELD workspace ON git_commit TYPE record<workspace>;
 DEFINE FIELD embedding ON git_commit TYPE option<array<float>>;
@@ -288,6 +316,9 @@ DEFINE FIELD added_at ON member_of TYPE datetime;
 DEFINE TABLE depends_on TYPE RELATION IN task | feature OUT task | feature SCHEMAFULL;
 DEFINE FIELD type ON depends_on TYPE string ASSERT $value IN ["blocks", "needs", "soft"];
 DEFINE FIELD added_at ON depends_on TYPE option<datetime>;
+
+DEFINE TABLE subtask_of TYPE RELATION IN task OUT task SCHEMAFULL;
+DEFINE FIELD added_at ON subtask_of TYPE datetime;
 
 DEFINE TABLE extraction_relation TYPE RELATION IN message | document_chunk | git_commit OUT workspace | project | person | feature | task | decision | question SCHEMAFULL;
 DEFINE FIELD confidence ON extraction_relation TYPE float ASSERT $value >= 0 AND $value <= 1;
@@ -331,6 +362,9 @@ DEFINE FIELD added_at ON belongs_to TYPE datetime;
 DEFINE TABLE observes TYPE RELATION IN observation OUT project | feature | task | decision | question SCHEMAFULL;
 DEFINE FIELD added_at ON observes TYPE option<datetime>;
 
+DEFINE TABLE observed_in TYPE RELATION IN observation OUT agent_session SCHEMAFULL;
+DEFINE FIELD added_at ON observed_in TYPE datetime;
+
 DEFINE TABLE touched_by TYPE RELATION IN project OUT conversation SCHEMAFULL;
 DEFINE FIELD first_mention_at ON touched_by TYPE datetime;
 DEFINE FIELD entity_count ON touched_by TYPE int ASSERT $value >= 1;
@@ -346,6 +380,17 @@ DEFINE TABLE implemented_by TYPE RELATION IN decision | task OUT git_commit | pu
 DEFINE FIELD commit_sha ON implemented_by TYPE option<string>;
 DEFINE FIELD pr_url ON implemented_by TYPE option<string>;
 DEFINE FIELD linked_at ON implemented_by TYPE option<datetime>;
+
+DEFINE TABLE produced TYPE RELATION IN agent_session OUT decision SCHEMAFULL;
+DEFINE FIELD added_at ON produced TYPE datetime;
+
+DEFINE TABLE asked TYPE RELATION IN agent_session OUT question SCHEMAFULL;
+DEFINE FIELD added_at ON asked TYPE datetime;
+
+DEFINE TABLE progressed TYPE RELATION IN agent_session OUT task SCHEMAFULL;
+DEFINE FIELD from_status ON progressed TYPE string;
+DEFINE FIELD to_status ON progressed TYPE string;
+DEFINE FIELD added_at ON progressed TYPE datetime;
 
 DEFINE TABLE superseded_by TYPE RELATION IN decision OUT decision SCHEMAFULL;
 DEFINE FIELD reason ON superseded_by TYPE option<string>;

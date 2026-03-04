@@ -29,10 +29,12 @@ import {
   resolveWorkspaceFeatureRecord,
   listDecisionConstraintCandidates,
   searchEntitiesByEmbedding,
+  isEntityInWorkspace,
   type GraphEntityTable,
 } from "../graph/queries";
 import { createEmbeddingVector } from "../graph/embeddings";
 import type { ServerDependencies } from "../runtime/types";
+import { requireRawId } from "./id-format";
 
 type WorkspaceRow = {
   id: RecordId<"workspace", string>;
@@ -97,6 +99,25 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
     return { workspaceRecord, workspace };
   }
 
+  async function requireScopedRecord(record: RecordId<string, string>, workspaceRecord: RecordId<"workspace", string>, label: string): Promise<Response | undefined> {
+    if (record.table.name === "agent_session") {
+      const session = await surreal.select<{ workspace: RecordId<"workspace", string> }>(record as RecordId<"agent_session", string>);
+      if (!session) {
+        return jsonError(`${label} not found`, 404);
+      }
+      if ((session.workspace.id as string) !== (workspaceRecord.id as string)) {
+        return jsonError(`${label} is outside workspace scope`, 404);
+      }
+      return undefined;
+    }
+
+    const scoped = await isEntityInWorkspace(surreal, workspaceRecord, record as RecordId<GraphEntityTable, string>);
+    if (!scoped) {
+      return jsonError(`${label} is outside workspace scope`, 404);
+    }
+    return undefined;
+  }
+
   // =========================================================================
   // Setup
   // =========================================================================
@@ -146,8 +167,24 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
     const body = await parseJsonBody<{ project_id: string; task_id?: string; since?: string; session_id?: string }>(request);
     if (body instanceof Response) return body;
     if (!body.project_id) return jsonError("project_id is required", 400);
+    let projectId: string;
+    let taskId: string | undefined;
+    let sessionId: string | undefined;
+    try {
+      projectId = requireRawId(body.project_id, "project_id");
+      taskId = body.task_id ? requireRawId(body.task_id, "task_id") : undefined;
+      sessionId = body.session_id ? requireRawId(body.session_id, "session_id") : undefined;
+    } catch (error) {
+      return jsonError(error instanceof Error ? error.message : "invalid id format", 400);
+    }
 
-    const projectRecord = new RecordId("project", body.project_id);
+    const projectRecord = new RecordId("project", projectId);
+    const scopedProjectError = await requireScopedRecord(projectRecord, auth.workspaceRecord, "project");
+    if (scopedProjectError) return scopedProjectError;
+    if (taskId) {
+      const scopedTaskError = await requireScopedRecord(new RecordId("task", taskId), auth.workspaceRecord, "task");
+      if (scopedTaskError) return scopedTaskError;
+    }
     const project = await surreal.select<ProjectRow>(projectRecord);
     if (!project) return jsonError("project not found", 404);
 
@@ -157,15 +194,15 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
         workspaceRecord: auth.workspaceRecord,
         workspaceName: auth.workspaceName,
         projectRecord,
-        taskId: body.task_id,
+        ...(taskId ? { taskId } : {}),
         since: body.since,
-        excludeSessionId: body.session_id,
+        ...(sessionId ? { excludeSessionId: sessionId } : {}),
       });
 
       logInfo("mcp.context.built", "MCP context packet assembled", {
         workspaceId,
-        projectId: body.project_id,
-        taskId: body.task_id,
+        projectId,
+        taskId,
         decisionsCount:
           contextPacket.decisions.confirmed.length +
           contextPacket.decisions.provisional.length +
@@ -188,8 +225,15 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
     const body = await parseJsonBody<{ project_id: string; area?: string }>(request);
     if (body instanceof Response) return body;
     if (!body.project_id) return jsonError("project_id is required", 400);
-
-    const projectRecord = new RecordId("project", body.project_id);
+    let projectId: string;
+    try {
+      projectId = requireRawId(body.project_id, "project_id");
+    } catch (error) {
+      return jsonError(error instanceof Error ? error.message : "invalid project_id", 400);
+    }
+    const projectRecord = new RecordId("project", projectId);
+    const scopedProjectError = await requireScopedRecord(projectRecord, auth.workspaceRecord, "project");
+    if (scopedProjectError) return scopedProjectError;
     const decisions = await listProjectDecisions({
       surreal,
       workspaceRecord: auth.workspaceRecord,
@@ -208,9 +252,17 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
     const body = await parseJsonBody<{ task_id: string }>(request);
     if (body instanceof Response) return body;
     if (!body.task_id) return jsonError("task_id is required", 400);
+    let taskId: string;
+    try {
+      taskId = requireRawId(body.task_id, "task_id");
+    } catch (error) {
+      return jsonError(error instanceof Error ? error.message : "invalid task_id", 400);
+    }
 
-    const taskRecord = new RecordId("task", body.task_id);
-    const tree = await getTaskDependencyTree({ surreal, taskRecord });
+    const taskRecord = new RecordId("task", taskId);
+    const scopedTaskError = await requireScopedRecord(taskRecord, auth.workspaceRecord, "task");
+    if (scopedTaskError) return scopedTaskError;
+    const tree = await getTaskDependencyTree({ surreal, workspaceRecord: auth.workspaceRecord, taskRecord });
 
     return jsonResponse(tree, 200);
   }
@@ -223,8 +275,15 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
     const body = await parseJsonBody<{ project_id: string; area?: string }>(request);
     if (body instanceof Response) return body;
     if (!body.project_id) return jsonError("project_id is required", 400);
-
-    const projectRecord = new RecordId("project", body.project_id);
+    let projectId: string;
+    try {
+      projectId = requireRawId(body.project_id, "project_id");
+    } catch (error) {
+      return jsonError(error instanceof Error ? error.message : "invalid project_id", 400);
+    }
+    const projectRecord = new RecordId("project", projectId);
+    const scopedProjectError = await requireScopedRecord(projectRecord, auth.workspaceRecord, "project");
+    if (scopedProjectError) return scopedProjectError;
     const constraints = await listProjectConstraints({
       surreal,
       workspaceRecord: auth.workspaceRecord,
@@ -244,7 +303,19 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
     if (body instanceof Response) return body;
     if (!body.since) return jsonError("since is required", 400);
 
-    const projectRecord = body.project_id ? new RecordId("project", body.project_id) : undefined;
+    let projectRecord: RecordId<"project", string> | undefined;
+    if (body.project_id) {
+      let projectId: string;
+      try {
+        projectId = requireRawId(body.project_id, "project_id");
+      } catch (error) {
+        return jsonError(error instanceof Error ? error.message : "invalid project_id", 400);
+      }
+      const record = new RecordId("project", projectId);
+      const scopedProjectError = await requireScopedRecord(record, auth.workspaceRecord, "project");
+      if (scopedProjectError) return scopedProjectError;
+      projectRecord = record;
+    }
 
     const changes = await listRecentChanges({
       surreal,
@@ -475,7 +546,7 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
     });
 
     return jsonResponse({
-      decision_id: `decision:${decisionRecord.id as string}`,
+      decision_id: decisionRecord.id as string,
       status: "provisional",
       review_required: true,
     }, 201);
@@ -494,6 +565,17 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
     }>(request);
     if (body instanceof Response) return body;
     if (!body.text) return jsonError("text is required", 400);
+
+    let blockingTaskId: string | undefined;
+    if (body.blocking_task) {
+      try {
+        blockingTaskId = requireRawId(body.blocking_task, "blocking_task");
+      } catch (error) {
+        return jsonError(error instanceof Error ? error.message : "invalid blocking_task", 400);
+      }
+      const scopedTaskError = await requireScopedRecord(new RecordId("task", blockingTaskId), auth.workspaceRecord, "task");
+      if (scopedTaskError) return scopedTaskError;
+    }
 
     const projectRecord = body.context?.project
       ? await resolveWorkspaceProjectRecord({ surreal, workspaceRecord: auth.workspaceRecord, projectInput: body.context.project })
@@ -514,23 +596,11 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
     });
 
     // Set coding agent fields directly
-    const now = new Date();
     await surreal.update(questionRecord).merge({
       asked_by: "code-agent",
       ...(body.options?.length ? { options: body.options } : {}),
-      ...(body.blocking_task ? { blocking_task: new RecordId("task", body.blocking_task) } : {}),
+      ...(blockingTaskId ? { blocking_task: new RecordId("task", blockingTaskId) } : {}),
     });
-
-    // If blocking_task, create a blocks edge (question blocks task)
-    if (body.blocking_task) {
-      const taskRecord = new RecordId("task", body.blocking_task);
-      await surreal
-        .relate(questionRecord, new RecordId("depends_on", crypto.randomUUID()), taskRecord, {
-          type: "blocks",
-          added_at: now,
-        })
-        .output("after");
-    }
 
     logInfo("mcp.question.created", "Question created via MCP", {
       workspaceId,
@@ -538,7 +608,7 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
     });
 
     return jsonResponse({
-      question_id: `question:${questionRecord.id as string}`,
+      question_id: questionRecord.id as string,
       status: "asked",
     }, 201);
   }
@@ -552,10 +622,18 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
     if (body instanceof Response) return body;
     if (!body.task_id) return jsonError("task_id is required", 400);
     if (!body.status) return jsonError("status is required", 400);
-
-    const taskRecord = new RecordId("task", body.task_id);
+    let taskId: string;
+    try {
+      taskId = requireRawId(body.task_id, "task_id");
+    } catch (error) {
+      return jsonError(error instanceof Error ? error.message : "invalid task_id", 400);
+    }
+    const taskRecord = new RecordId("task", taskId);
+    const scopedTaskError = await requireScopedRecord(taskRecord, auth.workspaceRecord, "task");
+    if (scopedTaskError) return scopedTaskError;
     const result = await updateTaskStatus({
       surreal,
+      workspaceRecord: auth.workspaceRecord,
       taskRecord,
       status: body.status,
       notes: body.notes,
@@ -578,8 +656,15 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
     if (body instanceof Response) return body;
     if (!body.parent_task_id) return jsonError("parent_task_id is required", 400);
     if (!body.title) return jsonError("title is required", 400);
-
-    const parentTaskRecord = new RecordId("task", body.parent_task_id);
+    let parentTaskId: string;
+    try {
+      parentTaskId = requireRawId(body.parent_task_id, "parent_task_id");
+    } catch (error) {
+      return jsonError(error instanceof Error ? error.message : "invalid parent_task_id", 400);
+    }
+    const parentTaskRecord = new RecordId("task", parentTaskId);
+    const scopedParentError = await requireScopedRecord(parentTaskRecord, auth.workspaceRecord, "parent task");
+    if (scopedParentError) return scopedParentError;
     const result = await createSubtask({
       surreal,
       parentTaskRecord,
@@ -610,13 +695,19 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
     const separatorIdx = body.entity_id.indexOf(":");
     if (separatorIdx === -1) return jsonError("entity_id must be in table:id format", 400);
 
-    const entityTable = body.entity_id.slice(0, separatorIdx);
-    const entityId = body.entity_id.slice(separatorIdx + 1);
+    let entityRecord: RecordId<GraphEntityTable, string>;
+    try {
+      entityRecord = parseRecordIdString(body.entity_id, ENTITY_TABLES);
+    } catch {
+      return jsonError("entity_id must be a valid table:id reference", 400);
+    }
+    const scopedEntityError = await requireScopedRecord(entityRecord, auth.workspaceRecord, "entity");
+    if (scopedEntityError) return scopedEntityError;
 
     const result = await logImplementationNote({
       surreal,
-      entityTable,
-      entityId,
+      entityTable: entityRecord.table.name,
+      entityId: entityRecord.id as string,
       note: body.note,
       filesChanged: body.files_changed,
     });
@@ -658,6 +749,8 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
       } catch {
         return jsonError(`invalid target entity: ${body.target}`, 400);
       }
+      const scopedTargetError = await requireScopedRecord(relatedRecord, auth.workspaceRecord, "target");
+      if (scopedTargetError) return scopedTargetError;
     }
 
     const embedding = await createEmbeddingVector(
@@ -666,9 +759,19 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
       config.embeddingDimension,
     );
 
-    const sourceSessionRecord = body.session_id
-      ? new RecordId("agent_session", body.session_id)
-      : undefined;
+    let sourceSessionRecord: RecordId<"agent_session", string> | undefined;
+    if (body.session_id) {
+      try {
+        const sessionId = requireRawId(body.session_id, "session_id");
+        sourceSessionRecord = new RecordId("agent_session", sessionId);
+      } catch (error) {
+        return jsonError(error instanceof Error ? error.message : "invalid session_id", 400);
+      }
+    }
+    if (sourceSessionRecord) {
+      const scopedSessionError = await requireScopedRecord(sourceSessionRecord, auth.workspaceRecord, "session");
+      if (scopedSessionError) return scopedSessionError;
+    }
 
     const now = new Date();
 
@@ -702,7 +805,7 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
     });
 
     return jsonResponse({
-      observation_id: `observation:${observationRecord.id as string}`,
+      observation_id: observationRecord.id as string,
       severity: body.severity,
       status: "open",
     }, 201);
@@ -727,15 +830,28 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
     if (!body.agent) return jsonError("agent is required", 400);
     if (!body.directory) return jsonError("directory is required", 400);
     if (!body.project_id) return jsonError("project_id is required", 400);
-
-    const projectRecord = new RecordId("project", body.project_id);
+    let projectId: string;
+    let taskId: string | undefined;
+    try {
+      projectId = requireRawId(body.project_id, "project_id");
+      taskId = body.task_id ? requireRawId(body.task_id, "task_id") : undefined;
+    } catch (error) {
+      return jsonError(error instanceof Error ? error.message : "invalid id", 400);
+    }
+    const projectRecord = new RecordId("project", projectId);
+    const scopedProjectError = await requireScopedRecord(projectRecord, auth.workspaceRecord, "project");
+    if (scopedProjectError) return scopedProjectError;
+    if (taskId) {
+      const scopedTaskError = await requireScopedRecord(new RecordId("task", taskId), auth.workspaceRecord, "task");
+      if (scopedTaskError) return scopedTaskError;
+    }
     const result = await createAgentSession({
       surreal,
       agent: body.agent,
       directory: body.directory,
       workspaceRecord: auth.workspaceRecord,
       projectRecord,
-      taskId: body.task_id,
+      ...(taskId ? { taskId } : {}),
     });
 
     return jsonResponse(result, 201);
@@ -758,9 +874,19 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
     if (body instanceof Response) return body;
     if (!body.session_id) return jsonError("session_id is required", 400);
     if (!body.summary) return jsonError("summary is required", 400);
+    try {
+      requireRawId(body.session_id, "session_id");
+      for (const id of body.decisions_made ?? []) requireRawId(id, "decisions_made[]");
+      for (const id of body.questions_asked ?? []) requireRawId(id, "questions_asked[]");
+      for (const id of body.observations_logged ?? []) requireRawId(id, "observations_logged[]");
+      for (const t of body.tasks_progressed ?? []) requireRawId(t.task_id, "tasks_progressed[].task_id");
+    } catch (error) {
+      return jsonError(error instanceof Error ? error.message : "invalid id", 400);
+    }
 
     const result = await endAgentSession({
       surreal,
+      workspaceRecord: auth.workspaceRecord,
       sessionId: body.session_id,
       summary: body.summary,
       decisionsMade: body.decisions_made,
@@ -782,7 +908,6 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
       project_id: string;
       sha: string;
       message: string;
-      files_changed: Array<{ path: string; change_type: string; lines_added: number; lines_removed: number }>;
       author: string;
       task_updates?: Array<{ task_id: string; new_status: string }>;
       related_task_ids?: string[];
@@ -792,15 +917,31 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
     if (!body.sha) return jsonError("sha is required", 400);
     if (!body.message) return jsonError("message is required", 400);
     if (!body.project_id) return jsonError("project_id is required", 400);
-
-    const projectRecord = new RecordId("project", body.project_id);
+    let projectId: string;
+    try {
+      projectId = requireRawId(body.project_id, "project_id");
+      for (const update of body.task_updates ?? []) requireRawId(update.task_id, "task_updates[].task_id");
+      for (const taskId of body.related_task_ids ?? []) requireRawId(taskId, "related_task_ids[]");
+    } catch (error) {
+      return jsonError(error instanceof Error ? error.message : "invalid project_id", 400);
+    }
+    const projectRecord = new RecordId("project", projectId);
+    const scopedProjectError = await requireScopedRecord(projectRecord, auth.workspaceRecord, "project");
+    if (scopedProjectError) return scopedProjectError;
+    for (const update of body.task_updates ?? []) {
+      const scopedTaskError = await requireScopedRecord(new RecordId("task", update.task_id), auth.workspaceRecord, "task");
+      if (scopedTaskError) return scopedTaskError;
+    }
+    for (const taskId of body.related_task_ids ?? []) {
+      const scopedTaskError = await requireScopedRecord(new RecordId("task", taskId), auth.workspaceRecord, "task");
+      if (scopedTaskError) return scopedTaskError;
+    }
     const result = await logCommit({
       surreal,
       workspaceRecord: auth.workspaceRecord,
       projectRecord,
       sha: body.sha,
       message: body.message,
-      filesChanged: body.files_changed ?? [],
       author: body.author ?? "unknown",
       taskUpdates: body.task_updates,
       relatedTaskIds: body.related_task_ids,
@@ -843,8 +984,15 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
     if (body instanceof Response) return body;
     if (!body.project_id) return jsonError("project_id is required", 400);
     if (!body.diff) return jsonError("diff is required", 400);
-
-    const projectRecord = new RecordId("project", body.project_id);
+    let projectId: string;
+    try {
+      projectId = requireRawId(body.project_id, "project_id");
+    } catch (error) {
+      return jsonError(error instanceof Error ? error.message : "invalid project_id", 400);
+    }
+    const projectRecord = new RecordId("project", projectId);
+    const scopedProjectError = await requireScopedRecord(projectRecord, auth.workspaceRecord, "project");
+    if (scopedProjectError) return scopedProjectError;
 
     // Load project context for analysis
     const [decisions, constraints, activeTasks] = await Promise.all([

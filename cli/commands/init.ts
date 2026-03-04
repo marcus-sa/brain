@@ -1,4 +1,4 @@
-import { writeFileSync, existsSync, mkdirSync, chmodSync } from "node:fs";
+import { writeFileSync, readFileSync, existsSync, mkdirSync, chmodSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { saveConfig } from "../config";
 import { BrainHttpClient } from "../http-client";
@@ -43,7 +43,7 @@ export async function runInit(): Promise<void> {
     console.log("");
     console.log("Git hooks installed:");
     console.log("  pre-commit    -> checks if commit resolves tasks");
-    console.log("  post-commit   -> logs commit to graph");
+    console.log("  post-commit   -> not installed (GitHub webhook is commit source of truth)");
   } catch (error) {
     console.error("Failed to connect:", error instanceof Error ? error.message : error);
     process.exit(1);
@@ -76,15 +76,9 @@ function installGitHooks(): void {
 
   const preCommitPath = join(hooksDir, "pre-commit");
   const postCommitPath = join(hooksDir, "post-commit");
-
   const preCommitScript = `#!/bin/sh
 # Brain pre-commit hook: check for task completion and unlogged decisions
 brain check-commit
-`;
-
-  const postCommitScript = `#!/bin/sh
-# Brain post-commit hook: log commit to knowledge graph
-brain log-commit
 `;
 
   // Only install if no existing hook
@@ -94,11 +88,15 @@ brain log-commit
   } else {
     console.log("  pre-commit hook already exists — skipping");
   }
-
-  if (!existsSync(postCommitPath)) {
-    writeFileSync(postCommitPath, postCommitScript);
-    chmodSync(postCommitPath, 0o755);
-  } else {
-    console.log("  post-commit hook already exists — skipping");
+  if (existsSync(postCommitPath)) {
+    const postCommitContent = readFileSync(postCommitPath, "utf-8");
+    const isBrainManagedPostCommit = postCommitContent.includes("Brain post-commit hook")
+      && postCommitContent.includes("brain log-commit");
+    if (isBrainManagedPostCommit) {
+      unlinkSync(postCommitPath);
+      console.log("  removed legacy Brain post-commit hook (webhook is source of truth)");
+    } else {
+      console.log("  existing post-commit hook left unchanged");
+    }
   }
 }

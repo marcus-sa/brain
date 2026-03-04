@@ -221,7 +221,6 @@ export class BrainHttpClient {
     project_id: string;
     sha: string;
     message: string;
-    files_changed: Array<{ path: string; change_type: string; lines_added: number; lines_removed: number }>;
     author: string;
     task_updates?: Array<{ task_id: string; new_status: string }>;
     related_task_ids?: string[];

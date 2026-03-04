@@ -43,13 +43,11 @@ async function handleGitHubWebhook(
 
   const event = JSON.parse(rawBody) as GitHubPushEvent;
 
-  const expectedRef = `refs/heads/${event.repository.default_branch}`;
-  if (event.ref !== expectedRef) {
-    logInfo("webhook.github.skipped", "Non-default branch push ignored", {
+  if (!event.ref.startsWith("refs/heads/")) {
+    logInfo("webhook.github.skipped", "Non-branch push ignored", {
       ref: event.ref,
-      defaultBranch: event.repository.default_branch,
     });
-    return jsonResponse({ accepted: true, reason: "non-default branch" }, 200);
+    return jsonResponse({ accepted: true, reason: "non-branch ref" }, 200);
   }
 
   if (event.commits.length === 0) {

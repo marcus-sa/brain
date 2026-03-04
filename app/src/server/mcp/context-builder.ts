@@ -9,6 +9,7 @@ import type {
   TaskScopeContext,
   RecentChangeContext,
 } from "./types";
+import { toRawId } from "./id-format";
 
 type ProjectRow = {
   id: RecordId<"project", string>;
@@ -87,21 +88,12 @@ type ActiveAgentSessionRow = {
   task_id?: RecordId<"task", string>;
 };
 
-type SessionDecisionRow = {
-  id: RecordId<"decision", string>;
-  summary: string;
-};
-
 type SessionObservationRow = {
   id: RecordId<"observation", string>;
   text: string;
   severity: string;
   source_session: RecordId<"agent_session", string>;
 };
-
-function toId(record: RecordId<string, string>): string {
-  return `${record.table.name}:${record.id as string}`;
-}
 
 function toIso(value: Date | string | undefined): string {
   if (!value) return "";
@@ -167,7 +159,7 @@ export async function buildProjectContext(input: {
 
   for (const d of decisionRows) {
     const ctx: DecisionContext = {
-      id: toId(d.id),
+      id: toRawId(d.id),
       summary: d.summary,
       status: d.status,
       ...(d.rationale ? { rationale: d.rationale } : {}),
@@ -189,19 +181,19 @@ export async function buildProjectContext(input: {
   const activeTasks: TaskContext[] = taskRows
     .filter((t) => t.status !== "done" && t.status !== "completed")
     .map((t) => ({
-      id: toId(t.id),
+      id: toRawId(t.id),
       title: t.title,
       status: t.status,
       ...(t.priority ? { priority: t.priority } : {}),
       ...(t.category ? { category: t.category } : {}),
-      ...(t.source_session ? { source_session: toId(t.source_session) } : {}),
+      ...(t.source_session ? { source_session: toRawId(t.source_session) } : {}),
     }));
 
   // Map questions
   const openQuestions: QuestionContext[] = questionRows
     .filter((q) => q.status !== "answered" && q.status !== "resolved")
     .map((q) => ({
-      id: toId(q.id),
+      id: toRawId(q.id),
       text: q.text,
       status: q.status,
       ...(q.context ? { context: q.context } : {}),
@@ -210,7 +202,7 @@ export async function buildProjectContext(input: {
 
   // Map observations
   const observations: ObservationContext[] = observationRows.map((o) => ({
-    id: toId(o.id),
+    id: toRawId(o.id),
     text: o.text,
     severity: o.severity,
     status: o.status,
@@ -221,6 +213,7 @@ export async function buildProjectContext(input: {
   // Load active sessions on the same project (exclude self)
   const activeSessions = await loadActiveSessions(
     surreal,
+    workspaceRecord,
     projectRecord,
     input.excludeSessionId,
   );
@@ -257,14 +250,17 @@ export async function buildProjectContext(input: {
 /** Build task-scoped context: subtasks, parent feature, siblings, dependencies, related sessions */
 async function buildTaskScope(
   surreal: Surreal,
-  _workspaceRecord: RecordId<"workspace", string>,
+  workspaceRecord: RecordId<"workspace", string>,
   _projectRecord: RecordId<"project", string>,
   taskId: string,
 ): Promise<TaskScopeContext> {
   const taskRecord = new RecordId("task", taskId);
-  const task = await surreal.select<TaskRow>(taskRecord);
+  const task = await surreal.select<TaskRow & { workspace: RecordId<"workspace", string> }>(taskRecord);
   if (!task) {
     throw new Error(`task not found: ${taskId}`);
+  }
+  if ((task.workspace.id as string) !== (workspaceRecord.id as string)) {
+    throw new Error(`task not in workspace: ${taskId}`);
   }
 
   // Load subtasks, parent feature, dependencies, and related sessions in parallel
@@ -303,7 +299,7 @@ async function buildTaskScope(
 
   const parentFeature = featureRows.length > 0
     ? {
-        id: toId(featureRows[0].id),
+        id: toRawId(featureRows[0].id),
         name: featureRows[0].name,
         ...(featureRows[0].description ? { description: featureRows[0].description } : {}),
       }
@@ -323,35 +319,35 @@ async function buildTaskScope(
       .collect<[TaskRow[]]>();
 
     siblingTasks = siblingRows.map((t) => ({
-      id: toId(t.id),
+      id: toRawId(t.id),
       title: t.title,
       status: t.status,
-      ...(t.source_session ? { source_session: toId(t.source_session) } : {}),
+      ...(t.source_session ? { source_session: toRawId(t.source_session) } : {}),
     }));
   }
 
   return {
     task: {
-      id: toId(task.id),
+      id: toRawId(task.id),
       title: task.title,
       ...(task.description ? { description: task.description } : {}),
       status: task.status,
       ...(task.category ? { category: task.category } : {}),
     },
     subtasks: subtaskRows.map((s) => ({
-      id: toId(s.id),
+      id: toRawId(s.id),
       title: s.title,
       status: s.status,
     })),
     parent_feature: parentFeature,
     sibling_tasks: siblingTasks,
     dependencies: dependencyRows.map((d) => ({
-      id: toId(d.id),
+      id: toRawId(d.id),
       title: d.title,
       status: d.status,
     })),
     related_sessions: sessionRows.map((s) => ({
-      id: toId(s.id),
+      id: toRawId(s.id),
       agent: s.agent,
       ended_at: toIso(s.ended_at),
       summary: s.summary ?? "",
@@ -362,6 +358,7 @@ async function buildTaskScope(
 /** Load active agent sessions on the same project, with their provisional decisions and observations */
 async function loadActiveSessions(
   surreal: Surreal,
+  workspaceRecord: RecordId<"workspace", string>,
   projectRecord: RecordId<"project", string>,
   excludeSessionId?: string,
 ): Promise<ActiveSessionContext[]> {
@@ -373,9 +370,9 @@ async function loadActiveSessions(
     .query<[ActiveAgentSessionRow[]]>(
       `SELECT id, agent, directory, started_at, task_id
        FROM agent_session
-       WHERE project = $project AND ended_at = NONE AND id != $exclude
+       WHERE workspace = $workspace AND project = $project AND ended_at = NONE AND id != $exclude
        ORDER BY started_at DESC LIMIT 10;`,
-      { project: projectRecord, exclude: excludeRecord },
+      { workspace: workspaceRecord, project: projectRecord, exclude: excludeRecord },
     )
     .collect<[ActiveAgentSessionRow[]]>();
 
@@ -383,19 +380,15 @@ async function loadActiveSessions(
 
   const sessionIds = sessionRows.map((s) => s.id);
 
-  // Load provisional decisions and observations for all active sessions in parallel
-  const [decisionRows, observationRows] = await surreal
-    .query<[SessionDecisionRow[], SessionObservationRow[]]>(
-      `SELECT id, summary FROM decision
-       WHERE id IN (SELECT VALUE out FROM produced WHERE \`in\` IN $sessions)
-         AND status = "provisional";
-
-       SELECT id, text, severity, source_session FROM observation
+  // Load open observations for all active sessions in one query
+  const [observationRows] = await surreal
+    .query<[SessionObservationRow[]]>(
+      `SELECT id, text, severity, source_session FROM observation
        WHERE source_session IN $sessions
          AND status IN ["open", "acknowledged"];`,
       { sessions: sessionIds },
     )
-    .collect<[SessionDecisionRow[], SessionObservationRow[]]>();
+    .collect<[SessionObservationRow[]]>();
 
   // Load task titles for task-scoped sessions
   const taskIds = sessionRows
@@ -410,25 +403,40 @@ async function loadActiveSessions(
         { tasks: taskIds },
       )
       .collect<[Array<{ id: RecordId<"task", string>; title: string }>]>();
-    taskTitles = new Map(taskRows.map((t) => [toId(t.id), t.title]));
+    taskTitles = new Map(taskRows.map((t) => [toRawId(t.id), t.title]));
   }
 
   // Index observations by session
   const obsBySession = new Map<string, Array<{ id: string; text: string; severity: string }>>();
   for (const o of observationRows) {
-    const sessionKey = toId(o.source_session);
+    const sessionKey = toRawId(o.source_session);
     const arr = obsBySession.get(sessionKey) ?? [];
-    arr.push({ id: toId(o.id), text: o.text, severity: o.severity });
+    arr.push({ id: toRawId(o.id), text: o.text, severity: o.severity });
     obsBySession.set(sessionKey, arr);
   }
 
-  // All provisional decisions are produced via the `produced` relation, not scoped to a specific session
-  // in the query. Since the query already filters by active session ids, we include all results.
-  const allDecisions = decisionRows.map((d) => ({ id: toId(d.id), summary: d.summary }));
+  // Index provisional decisions by session (avoid cross-session misattribution)
+  const decisionsBySession = new Map<string, Array<{ id: string; summary: string }>>();
+  for (const session of sessionRows) {
+    const sessionKey = toRawId(session.id);
+    const [decisionRows] = await surreal
+      .query<[Array<{ id: RecordId<"decision", string>; summary: string }>]>(
+        `SELECT id, summary FROM decision
+         WHERE id IN (SELECT VALUE out FROM produced WHERE \`in\` = $session)
+           AND status = "provisional";`,
+        { session: session.id },
+      )
+      .collect<[Array<{ id: RecordId<"decision", string>; summary: string }>]>();
+
+    decisionsBySession.set(
+      sessionKey,
+      decisionRows.map((d) => ({ id: toRawId(d.id), summary: d.summary })),
+    );
+  }
 
   return sessionRows.map((s) => {
-    const sessionKey = toId(s.id);
-    const taskId = s.task_id ? toId(s.task_id) : undefined;
+    const sessionKey = toRawId(s.id);
+    const taskId = s.task_id ? toRawId(s.task_id) : undefined;
     return {
       id: sessionKey,
       agent: s.agent,
@@ -437,7 +445,7 @@ async function loadActiveSessions(
       ...(taskId && taskTitles.has(taskId)
         ? { task: { id: taskId, title: taskTitles.get(taskId)! } }
         : {}),
-      provisional_decisions: allDecisions,
+      provisional_decisions: decisionsBySession.get(sessionKey) ?? [],
       observations: obsBySession.get(sessionKey) ?? [],
     };
   });

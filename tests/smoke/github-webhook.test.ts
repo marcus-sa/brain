@@ -86,7 +86,7 @@ describe("github webhook smoke", () => {
     expect(body.reason).toBe("event type not processed");
   }, 30_000);
 
-  it("returns 200 for non-default branch pushes", async () => {
+  it("accepts pushes on non-default branches", async () => {
     const { baseUrl } = getRuntime();
 
     const workspace = await fetchJson<{ workspaceId: string }>(`${baseUrl}/api/workspaces`, {
@@ -105,9 +105,35 @@ describe("github webhook smoke", () => {
       body: JSON.stringify(event),
     });
 
+    expect(res.status).toBe(202);
+    const body = await res.json() as { accepted: boolean; commitsQueued: number };
+    expect(body.accepted).toBe(true);
+    expect(body.commitsQueued).toBe(1);
+  }, 30_000);
+
+  it("returns 200 for non-branch refs", async () => {
+    const { baseUrl } = getRuntime();
+
+    const workspace = await fetchJson<{ workspaceId: string }>(`${baseUrl}/api/workspaces`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: `Webhook Smoke ${Date.now()}`, ownerDisplayName: "Marcus" }),
+    });
+
+    const event = makePushEvent({ ref: "refs/tags/v1.2.3", defaultBranch: "main" });
+    const res = await fetch(`${baseUrl}/api/workspaces/${workspace.workspaceId}/webhooks/github`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-github-event": "push",
+      },
+      body: JSON.stringify(event),
+    });
+
     expect(res.status).toBe(200);
     const body = await res.json() as { accepted: boolean; reason: string };
-    expect(body.reason).toBe("non-default branch");
+    expect(body.accepted).toBe(true);
+    expect(body.reason).toBe("non-branch ref");
   }, 30_000);
 
   it("accepts push to default branch and creates git_commit with extraction", async () => {
@@ -184,6 +210,84 @@ describe("github webhook smoke", () => {
     );
 
     expect(edgeRows.length).toBeGreaterThan(0);
+  }, 45_000);
+
+  it("links commit to explicit task ids from commit message", async () => {
+    const { baseUrl, surreal } = getRuntime();
+
+    const workspace = await fetchJson<{ workspaceId: string }>(`${baseUrl}/api/workspaces`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: `Webhook Smoke ${Date.now()}`, ownerDisplayName: "Marcus" }),
+    });
+
+    const workspaceRecord = new RecordId("workspace", workspace.workspaceId);
+    const taskRecord = new RecordId("task", "task-20260304-123");
+    await surreal.create(taskRecord).content({
+      workspace: workspaceRecord,
+      title: "Hook up OAuth callback flow",
+      status: "in_progress",
+      category: "backend",
+      priority: "high",
+      created_at: new Date(),
+      updated_at: new Date(),
+    });
+
+    const sha = "f0f1f2f3f4f5f6f7f8f9f0f1f2f3f4f5f6f7f8f9";
+    const event = makePushEvent({
+      commits: [
+        {
+          id: sha,
+          message: "task:task-20260304-123 finalize oauth callback + token refresh edge cases",
+          timestamp: new Date().toISOString(),
+          url: `https://github.com/acme/brain/commit/${sha}`,
+          author: { name: "Marcus", email: "marcus@acme.com", username: "marcus-sa" },
+        },
+      ],
+    });
+
+    const res = await fetch(`${baseUrl}/api/workspaces/${workspace.workspaceId}/webhooks/github`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-github-event": "push",
+      },
+      body: JSON.stringify(event),
+    });
+
+    expect(res.status).toBe(202);
+
+    const commitRows = await pollForRecord(
+      async () => {
+        const [rows] = await surreal
+          .query<[Array<{ id: RecordId<"git_commit", string>; sha: string }> ]>(
+            "SELECT id, sha FROM git_commit WHERE sha = $sha AND workspace = $workspace;",
+            { sha, workspace: workspaceRecord },
+          )
+          .collect<[Array<{ id: RecordId<"git_commit", string>; sha: string }>]>();
+        return rows;
+      },
+      20_000,
+    );
+
+    expect(commitRows.length).toBe(1);
+    const commit = commitRows[0]!;
+
+    const linkRows = await pollForRecord(
+      async () => {
+        const [rows] = await surreal
+          .query<[Array<{ id: RecordId; commit_sha?: string }> ]>(
+            "SELECT id, commit_sha FROM implemented_by WHERE `in` = $task AND out = $commit;",
+            { task: taskRecord, commit: commit.id },
+          )
+          .collect<[Array<{ id: RecordId; commit_sha?: string }>]>();
+        return rows;
+      },
+      20_000,
+    );
+
+    expect(linkRows.length).toBeGreaterThan(0);
+    expect(linkRows[0]?.commit_sha).toBe(sha);
   }, 45_000);
 
   it("returns 404 for unknown workspace", async () => {

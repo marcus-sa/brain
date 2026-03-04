@@ -220,18 +220,84 @@ export async function runEndSession(): Promise<void> {
     let questionsAsked: string[] | undefined;
     let tasksProgressed: Array<{ task_id: string; from_status: string; to_status: string }> | undefined;
     let filesChanged: Array<{ path: string; change_type: string }> | undefined;
+    let observationsLogged: string[] | undefined;
 
     if (stdinText) {
-      try {
-        const parsed = JSON.parse(stdinText);
-        summary = parsed.summary || stdinText;
+      const parsed = JSON.parse(stdinText) as Record<string, unknown>;
+      if (parsed.decision === "block") {
+        const reason = typeof parsed.reason === "string" ? parsed.reason : "Stop hook returned block decision";
+        throw new Error(`Session end blocked: ${reason}`);
+      }
+      if (parsed.decision !== "approve") {
+        throw new Error("Stop hook payload must include decision=\"approve\" or decision=\"block\"");
+      }
+      if (typeof parsed.summary !== "string" || parsed.summary.trim().length === 0) {
+        throw new Error("Stop hook payload must include a non-empty string summary");
+      }
+      summary = parsed.summary.trim();
+
+      if (parsed.decisions_made !== undefined) {
+        if (!Array.isArray(parsed.decisions_made) || !parsed.decisions_made.every((v) => typeof v === "string")) {
+          throw new Error("decisions_made must be an array of string ids");
+        }
         decisionsMade = parsed.decisions_made;
+      }
+
+      if (parsed.questions_asked !== undefined) {
+        if (!Array.isArray(parsed.questions_asked) || !parsed.questions_asked.every((v) => typeof v === "string")) {
+          throw new Error("questions_asked must be an array of string ids");
+        }
         questionsAsked = parsed.questions_asked;
-        tasksProgressed = parsed.tasks_progressed;
-        filesChanged = parsed.files_changed;
-      } catch {
-        // JSON parse failed — use raw text as summary
-        summary = stdinText;
+      }
+
+      if (parsed.tasks_progressed !== undefined) {
+        if (!Array.isArray(parsed.tasks_progressed)) {
+          throw new Error("tasks_progressed must be an array");
+        }
+        tasksProgressed = parsed.tasks_progressed.map((entry) => {
+          if (!entry || typeof entry !== "object") {
+            throw new Error("tasks_progressed entries must be objects");
+          }
+          const row = entry as Record<string, unknown>;
+          if (
+            typeof row.task_id !== "string" ||
+            typeof row.from_status !== "string" ||
+            typeof row.to_status !== "string"
+          ) {
+            throw new Error("tasks_progressed entries must include string task_id, from_status, and to_status");
+          }
+          return {
+            task_id: row.task_id,
+            from_status: row.from_status,
+            to_status: row.to_status,
+          };
+        });
+      }
+
+      if (parsed.files_changed !== undefined) {
+        if (!Array.isArray(parsed.files_changed)) {
+          throw new Error("files_changed must be an array");
+        }
+        filesChanged = parsed.files_changed.map((entry) => {
+          if (!entry || typeof entry !== "object") {
+            throw new Error("files_changed entries must be objects");
+          }
+          const row = entry as Record<string, unknown>;
+          if (typeof row.path !== "string" || typeof row.change_type !== "string") {
+            throw new Error("files_changed entries must include string path and change_type");
+          }
+          if (!["created", "modified", "deleted"].includes(row.change_type)) {
+            throw new Error("files_changed.change_type must be one of: created, modified, deleted");
+          }
+          return { path: row.path, change_type: row.change_type };
+        });
+      }
+
+      if (parsed.observations_logged !== undefined) {
+        if (!Array.isArray(parsed.observations_logged) || !parsed.observations_logged.every((v) => typeof v === "string")) {
+          throw new Error("observations_logged must be an array of string ids");
+        }
+        observationsLogged = parsed.observations_logged;
       }
     }
 
@@ -253,6 +319,7 @@ export async function runEndSession(): Promise<void> {
       questions_asked: questionsAsked,
       tasks_progressed: tasksProgressed,
       files_changed: filesChanged,
+      observations_logged: observationsLogged,
     });
 
     // Clear session_id from cache
