@@ -5,7 +5,22 @@
   "branch": "marcus-sa/analytics-agent",
   "checkpoints_count": 1,
   "files_touched": [
-    "app/src/client/routes/chat-page.tsx"
+    "app/src/client/chat-component-catalog.tsx",
+    "app/src/client/chat-theme.ts",
+    "app/src/client/components/chat/EntityLink.tsx",
+    "app/src/client/hooks/use-chat-session.ts",
+    "app/src/client/hooks/use-workspace.ts",
+    "app/src/client/main.tsx",
+    "app/src/client/routes/chat-page.tsx",
+    "app/src/client/stores/workspace-state.ts",
+    "app/src/client/styles.css",
+    "app/src/server/chat/chat-component-system-prompt.ts",
+    "app/src/server/chat/chat-route.ts",
+    "app/src/server/chat/context.ts",
+    "app/src/server/onboarding/onboarding-reply.ts",
+    "app/src/server/runtime/start-server.ts",
+    "bun.lock",
+    "package.json"
   ],
   "sessions": [
     {
@@ -14,6 +29,13 @@
       "context": "/16/c50f851693/0/context.md",
       "content_hash": "/16/c50f851693/0/content_hash.txt",
       "prompt": "/16/c50f851693/0/prompt.txt"
+    },
+    {
+      "metadata": "/16/c50f851693/1/metadata.json",
+      "transcript": "/16/c50f851693/1/full.jsonl",
+      "context": "",
+      "content_hash": "/16/c50f851693/1/content_hash.txt",
+      "prompt": ""
     }
   ],
   "token_usage": {
