@@ -1,0 +1,47 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "8bef12ef21da",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/coding-agent-integration",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "app/src/server/mcp/api-key.ts",
+    "app/src/server/mcp/auth.ts",
+    "app/src/server/mcp/context-builder.ts",
+    "app/src/server/mcp/mcp-queries.ts",
+    "app/src/server/mcp/mcp-route.ts",
+    "app/src/server/runtime/start-server.ts",
+    "bun.lock",
+    "cli/brain.ts",
+    "cli/commands/git-hooks.ts",
+    "cli/commands/init.ts",
+    "cli/commands/system.ts",
+    "cli/config.ts",
+    "cli/http-client.ts",
+    "cli/mcp-server.ts",
+    "package.json",
+    "plugin/.claude-plugin/marketplace.json",
+    "plugin/CLAUDE.md",
+    "plugin/hooks/hooks.json",
+    "plugin/skills/brain-start-task/brain-start-task.md",
+    "plugin/skills/brain-status/brain-status.md",
+    "schema/migrations/20260304_mcp_auth_and_question_fields.surql",
+    "schema/surreal-schema.surql"
+  ],
+  "sessions": [
+    {
+      "metadata": "/8b/ef12ef21da/0/metadata.json",
+      "transcript": "/8b/ef12ef21da/0/full.jsonl",
+      "context": "/8b/ef12ef21da/0/context.md",
+      "content_hash": "/8b/ef12ef21da/0/content_hash.txt",
+      "prompt": "/8b/ef12ef21da/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 2719,
+    "cache_creation_tokens": 140710,
+    "cache_read_tokens": 9056546,
+    "output_tokens": 47866,
+    "api_call_count": 72
+  }
+}

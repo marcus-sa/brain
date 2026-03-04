@@ -1,0 +1,51 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "8bef12ef21da",
+  "session_id": "1cd8ed20-2cad-4b62-99a1-53ab08249625",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-04T11:39:03.89406Z",
+  "branch": "marcus-sa/coding-agent-integration",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "app/src/server/mcp/api-key.ts",
+    "app/src/server/mcp/auth.ts",
+    "app/src/server/mcp/context-builder.ts",
+    "app/src/server/mcp/mcp-queries.ts",
+    "app/src/server/mcp/mcp-route.ts",
+    "app/src/server/runtime/start-server.ts",
+    "bun.lock",
+    "cli/brain.ts",
+    "cli/commands/git-hooks.ts",
+    "cli/commands/init.ts",
+    "cli/commands/system.ts",
+    "cli/config.ts",
+    "cli/http-client.ts",
+    "cli/mcp-server.ts",
+    "package.json",
+    "plugin/.claude-plugin/marketplace.json",
+    "plugin/CLAUDE.md",
+    "plugin/hooks/hooks.json",
+    "plugin/skills/brain-start-task/brain-start-task.md",
+    "plugin/skills/brain-status/brain-status.md",
+    "schema/migrations/20260304_mcp_auth_and_question_fields.surql",
+    "schema/surreal-schema.surql"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "5ff3a39e8974",
+  "token_usage": {
+    "input_tokens": 2719,
+    "cache_creation_tokens": 140710,
+    "cache_read_tokens": 9056546,
+    "output_tokens": 47866,
+    "api_call_count": 72
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-04T11:39:03.592427Z",
+    "agent_lines": 2836,
+    "human_added": 0,
+    "human_modified": 45,
+    "human_removed": 3,
+    "total_committed": 2881,
+    "agent_percentage": 98.4380423464075
+  }
+}
