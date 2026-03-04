@@ -14,6 +14,9 @@ type SearchEntityRow = {
   similarity: number;
 };
 
+const MIN_SIMILARITY = 0.25;
+const TEXT_MATCH_BOOST = 0.3;
+
 export function createEntitySearchHandler(deps: ServerDependencies): (url: URL) => Promise<Response> {
   return (url: URL) => handleEntitySearch(deps, url);
 }
@@ -96,14 +99,24 @@ async function handleEntitySearch(deps: ServerDependencies, url: URL): Promise<R
         )
         .collect<[SearchEntityRow[]]>();
 
-  const responseRows = rows.map((row) => ({
-    id: row.id.id as string,
-    kind: row.kind,
-    text: row.text,
-    confidence: row.similarity,
-    sourceId: "",
-    sourceKind: "message",
-  } satisfies SearchEntityResponse));
+  const queryLower = query.toLowerCase();
+  const responseRows = rows
+    .map((row) => {
+      const textMatch = row.text.toLowerCase().includes(queryLower);
+      const boosted = textMatch
+        ? Math.min(row.similarity + TEXT_MATCH_BOOST, 1)
+        : row.similarity;
+      return {
+        id: row.id.id as string,
+        kind: row.kind,
+        text: row.text,
+        confidence: boosted,
+        sourceId: "",
+        sourceKind: "message",
+      } satisfies SearchEntityResponse;
+    })
+    .filter((row) => row.confidence >= MIN_SIMILARITY)
+    .sort((a, b) => b.confidence - a.confidence);
 
   logInfo("entity.search.completed", "Entity search completed", {
     workspaceId,

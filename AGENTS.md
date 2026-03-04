@@ -233,6 +233,21 @@ When the PM agent suggests work items, the chat agent renders them as `WorkItemS
   - `GraphEntityRecord` and `SourceRecord` are `RecordId<UnionOfTables, string>` aliases.
 - Use `record.table.name` for table branching (the SDK's public API; `.tb` is an undeclared internal field that may break on upgrade).
 
+## SurrealDB KNN + WHERE Bug (v2.6)
+
+- SurrealDB v2.6 query planner silently returns empty results when a WHERE clause combines a KNN operator (`<|K, COSINE|>`, which uses the HNSW index) with a condition covered by a regular B-tree index (e.g. `workspace = $ws` when a `workspace` index exists).
+- Tables WITHOUT a B-tree index on the filtered field work fine with KNN + WHERE in the same clause.
+- Workaround: split into two steps — KNN in a `LET` subquery (HNSW index only), then filter by workspace in a second query (B-tree index only):
+  ```sql
+  -- BROKEN: both indexes conflict
+  SELECT ... FROM task WHERE workspace = $ws AND embedding <|20, COSINE|> $vec;
+
+  -- WORKS: separate index usage
+  LET $candidates = SELECT ..., workspace FROM task WHERE embedding <|20, COSINE|> $vec;
+  SELECT ... FROM $candidates WHERE workspace = $ws ORDER BY similarity DESC LIMIT $limit;
+  ```
+- Apply this pattern to ALL KNN queries on tables that have a regular index on the filtered field.
+
 ## SurrealDB SDK v2
 
 Reference: https://surrealdb.com/learn/fundamentals/schemafull/define-fields
