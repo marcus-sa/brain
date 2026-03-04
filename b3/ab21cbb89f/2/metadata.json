@@ -1,0 +1,39 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "b3ab21cbb89f",
+  "session_id": "e68f4869-26d3-4000-92be-a53718f2de0a",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-04T14:53:01.470732Z",
+  "branch": "marcus-sa/coding-agent-integration",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "schema/migrations/0004_mcp_auth_and_question_fields.surql",
+    "schema/migrations/0005_observation_coding_agent_fields.surql",
+    "schema/migrations/0006_task_implemented_by.surql",
+    "schema/migrations/0007_task_source_session.surql",
+    "AGENTS.md",
+    "schema/migrations/0001_agent_session_and_subtask.surql",
+    "schema/migrations/0002_fulltext_search_indexes.surql",
+    "schema/migrations/0003_git_commit_metadata_fields.surql"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "f5e0f8b4628d",
+  "checkpoint_transcript_start": 23,
+  "transcript_lines_at_start": 23,
+  "token_usage": {
+    "input_tokens": 0,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 0,
+    "output_tokens": 0,
+    "api_call_count": 0
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-04T14:53:01.445104Z",
+    "agent_lines": 0,
+    "human_added": 141,
+    "human_modified": 2,
+    "human_removed": 0,
+    "total_committed": 141,
+    "agent_percentage": 0
+  }
+}
