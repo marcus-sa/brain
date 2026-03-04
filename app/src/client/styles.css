@@ -1156,28 +1156,6 @@ body {
   opacity: 0.2 !important;
 }
 
-.branch-message-btn {
-  position: relative;
-}
-
-.branch-message-btn[data-tooltip]:hover::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  left: 50%;
-  top: 100%;
-  transform: translateX(-50%);
-  margin-top: 4px;
-  padding: 4px 8px;
-  font-size: 0.72rem;
-  white-space: nowrap;
-  color: var(--foreground, #222);
-  background: var(--muted, #f5f5f5);
-  border: 1px solid var(--border, #d0d0d0);
-  border-radius: 4px;
-  pointer-events: none;
-  z-index: 10;
-}
-
 /* --- Thinking Block --- */
 
 .thinking-block {
