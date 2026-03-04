@@ -33,6 +33,32 @@
 - Do NOT write data migration or backfill scripts. Old data is discarded on schema changes.
 - New fields should be required (not optional) from the start — no need for `option<...>` to accommodate pre-existing records.
 
+### SurrealDB Schema Migration Workflow
+
+- Create a versioned `.surql` migration script for each schema change (for example `schema/migrations/20260304_add_task_priority.surql`).
+- Validate migration scripts before apply with `surreal validate <migration-file>`.
+- Apply migrations with `surreal import --ns <namespace> --db <database> <migration-file>`.
+- Prefer `DEFINE ... OVERWRITE` or `ALTER TABLE` / `ALTER FIELD` for schema evolution; reserve `IF NOT EXISTS` for bootstrap-only creation.
+- When removing fields, update schema and stored rows in the same migration (`REMOVE FIELD ...; UPDATE ... UNSET ...;`).
+- Wrap multi-statement changes in `BEGIN TRANSACTION; ... COMMIT TRANSACTION;` when they must succeed together.
+- Verify applied schema with `INFO FOR TABLE <table>;` in the target namespace/database.
+
+### SurrealDB Existing Data Migration (Explicit Exception Only)
+
+- Default project policy is still no backfills; only run existing-data migrations when explicitly requested by the user.
+- Snapshot before mutation with `surreal export --ns <namespace> --db <database> <backup-file>`.
+- Run data transforms in versioned `.surql` scripts applied via `surreal import`.
+- Use a transaction for multi-step migrations:
+  - `BEGIN TRANSACTION;`
+  - apply schema updates (`DEFINE ... OVERWRITE` / `ALTER`)
+  - backfill with `UPDATE ... WHERE ...`
+  - rewrite relationships with `RELATE` (do NOT use `CREATE` for `TYPE RELATION` tables)
+  - clean old keys with `REMOVE FIELD ...; UPDATE ... UNSET ...;`
+  - `COMMIT TRANSACTION;`
+- In this codebase, represent missing values as omitted fields / `NONE` (never `null`) during data transforms.
+- Validate scripts with `surreal validate <migration-file>` before apply.
+- Verify result counts and shape after apply (`SELECT count() ...`, `INFO FOR TABLE ...`).
+
 ## Failure Handling
 
 - Do NOT add fallback logic that masks invalid state, malformed payloads, or contract violations.
@@ -268,6 +294,27 @@ Curated links for coding agents building the AI-native business management platf
 - **DEFINE INDEX (unique, full-text, vector):** https://surrealdb.com/docs/surrealql/statements/define/indexes
 - **DEFINE EVENT (triggers on record changes):** https://surrealdb.com/docs/surrealql/statements/define/event
 - **DEFINE FUNCTION (reusable SurrealQL functions):** https://surrealdb.com/docs/surrealql/statements/define/function
+
+## Schema Migrations
+
+- **CLI Reference:** https://surrealdb.com/docs/surrealdb/cli
+- **Validate migration files (`surreal validate`):** https://surrealdb.com/docs/surrealdb/cli/validate
+- **Apply migrations (`surreal import`):** https://surrealdb.com/docs/surrealdb/cli/import
+- **Export backup snapshots (`surreal export`):** https://surrealdb.com/docs/surrealdb/cli/export
+- **ALTER statement:** https://surrealdb.com/docs/surrealql/statements/alter
+- **REMOVE statement:** https://surrealdb.com/docs/surrealql/statements/remove
+- **BEGIN / COMMIT transaction:** https://surrealdb.com/docs/surrealql/statements/begin
+- **INFO statement (post-migration verification):** https://surrealdb.com/docs/surrealql/statements/info
+
+## Data Migrations
+
+- **Export backups (`surreal export`):** https://surrealdb.com/docs/surrealdb/cli/export
+- **Apply migration scripts (`surreal import`):** https://surrealdb.com/docs/surrealdb/cli/import
+- **UPDATE statement (bulk row transforms):** https://surrealdb.com/docs/surrealql/statements/update
+- **FOR statement (iterative transforms):** https://surrealdb.com/docs/surrealql/statements/for
+- **RELATE statement (edge rewrites):** https://surrealdb.com/docs/surrealql/statements/relate
+- **REMOVE statement (drop old fields):** https://surrealdb.com/docs/surrealql/statements/remove
+- **BEGIN / COMMIT transaction:** https://surrealdb.com/docs/surrealql/statements/begin
 
 ## Graph Relationships (Critical for our data model)
 
