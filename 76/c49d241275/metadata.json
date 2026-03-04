@@ -19,6 +19,13 @@
       "context": "/76/c49d241275/0/context.md",
       "content_hash": "/76/c49d241275/0/content_hash.txt",
       "prompt": "/76/c49d241275/0/prompt.txt"
+    },
+    {
+      "metadata": "/76/c49d241275/1/metadata.json",
+      "transcript": "/76/c49d241275/1/full.jsonl",
+      "context": "/76/c49d241275/1/context.md",
+      "content_hash": "/76/c49d241275/1/content_hash.txt",
+      "prompt": "/76/c49d241275/1/prompt.txt"
     }
   ],
   "token_usage": {
