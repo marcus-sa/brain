@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "12a5ec3f8e56",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/coding-agent-integration",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "app/src/server/mcp/context-builder.ts",
+    "app/src/server/mcp/mcp-queries.ts",
+    "app/src/server/mcp/mcp-route.ts",
+    "app/src/server/mcp/types.ts",
+    "cli/commands/system.ts",
+    "cli/http-client.ts",
+    "schema/migrations/0001_agent_session_and_subtask.surql",
+    "schema/surreal-schema.surql"
+  ],
+  "sessions": [
+    {
+      "metadata": "/12/a5ec3f8e56/0/metadata.json",
+      "transcript": "/12/a5ec3f8e56/0/full.jsonl",
+      "context": "/12/a5ec3f8e56/0/context.md",
+      "content_hash": "/12/a5ec3f8e56/0/content_hash.txt",
+      "prompt": "/12/a5ec3f8e56/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 18,
+    "cache_creation_tokens": 58142,
+    "cache_read_tokens": 657418,
+    "output_tokens": 5423,
+    "api_call_count": 14
+  }
+}
