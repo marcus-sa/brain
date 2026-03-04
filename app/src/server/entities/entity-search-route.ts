@@ -7,11 +7,11 @@ import type { ServerDependencies } from "../runtime/types";
 import { resolveWorkspaceProjectRecord, resolveWorkspaceRecord } from "../workspace/workspace-scope";
 
 type SearchEntityRow = {
-  id: RecordId<"task" | "decision" | "question", string>;
-  kind: "task" | "decision" | "question";
+  id: RecordId<"task" | "decision" | "question" | "feature" | "project" | "person", string>;
+  kind: "task" | "decision" | "question" | "feature" | "project" | "person";
   text: string;
   confidence: number;
-  sourceMessage: RecordId<"message", string>;
+  sourceMessage?: RecordId<"message", string>;
 };
 
 export function createEntitySearchHandler(deps: ServerDependencies): (url: URL) => Promise<Response> {
@@ -106,7 +106,7 @@ async function handleEntitySearch(deps: ServerDependencies, url: URL): Promise<R
       kind: row.kind,
       text: row.text,
       confidence: row.confidence,
-      sourceId: row.sourceMessage.id as string,
+      sourceId: row.sourceMessage ? (row.sourceMessage.id as string) : "",
       sourceKind: "message",
     } satisfies SearchEntityResponse))
     .slice(0, limit);

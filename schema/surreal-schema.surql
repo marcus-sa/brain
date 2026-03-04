@@ -364,11 +364,9 @@ DEFINE FUNCTION fn::entity_search_workspace($q: string, $limit: int, $workspace:
     title AS text,
     extraction_confidence AS confidence,
     source_message AS sourceMessage,
-    priority,
     created_at
   FROM task
   WHERE workspace = $workspace
-    AND extraction_confidence != NONE
     AND string::contains(string::lowercase(title), $query)
   ORDER BY created_at DESC
   LIMIT $safe_limit;
@@ -379,11 +377,9 @@ DEFINE FUNCTION fn::entity_search_workspace($q: string, $limit: int, $workspace:
     summary AS text,
     extraction_confidence AS confidence,
     source_message AS sourceMessage,
-    priority,
     created_at
   FROM decision
   WHERE workspace = $workspace
-    AND extraction_confidence != NONE
     AND string::contains(string::lowercase(summary), $query)
   ORDER BY created_at DESC
   LIMIT $safe_limit;
@@ -394,16 +390,51 @@ DEFINE FUNCTION fn::entity_search_workspace($q: string, $limit: int, $workspace:
     text AS text,
     extraction_confidence AS confidence,
     source_message AS sourceMessage,
-    priority,
     created_at
   FROM question
   WHERE workspace = $workspace
-    AND extraction_confidence != NONE
     AND string::contains(string::lowercase(text), $query)
   ORDER BY created_at DESC
   LIMIT $safe_limit;
 
-  RETURN array::flatten([$task_rows, $decision_rows, $question_rows]);
+  LET $feature_rows = SELECT
+    id,
+    "feature" AS kind,
+    name AS text,
+    0.0 AS confidence,
+    NONE AS sourceMessage,
+    created_at
+  FROM feature
+  WHERE string::contains(string::lowercase(name), $query)
+  ORDER BY created_at DESC
+  LIMIT $safe_limit;
+
+  LET $project_rows = SELECT
+    id,
+    "project" AS kind,
+    name AS text,
+    0.0 AS confidence,
+    source_message AS sourceMessage,
+    created_at
+  FROM project
+  WHERE workspace = $workspace
+    AND string::contains(string::lowercase(name), $query)
+  ORDER BY created_at DESC
+  LIMIT $safe_limit;
+
+  LET $person_rows = SELECT
+    id,
+    "person" AS kind,
+    name AS text,
+    0.0 AS confidence,
+    NONE AS sourceMessage,
+    created_at
+  FROM person
+  WHERE string::contains(string::lowercase(name), $query)
+  ORDER BY created_at DESC
+  LIMIT $safe_limit;
+
+  RETURN array::flatten([$task_rows, $decision_rows, $question_rows, $feature_rows, $project_rows, $person_rows]);
 };
 
 DEFINE FUNCTION fn::entity_search_project($q: string, $limit: int, $workspace: record<workspace>, $project: record<project>) {
@@ -417,11 +448,9 @@ DEFINE FUNCTION fn::entity_search_project($q: string, $limit: int, $workspace: r
     title AS text,
     extraction_confidence AS confidence,
     source_message AS sourceMessage,
-    priority,
     created_at
   FROM task
   WHERE workspace = $workspace
-    AND extraction_confidence != NONE
     AND id IN $project_entity_ids
     AND string::contains(string::lowercase(title), $query)
   ORDER BY created_at DESC
@@ -433,11 +462,9 @@ DEFINE FUNCTION fn::entity_search_project($q: string, $limit: int, $workspace: r
     summary AS text,
     extraction_confidence AS confidence,
     source_message AS sourceMessage,
-    priority,
     created_at
   FROM decision
   WHERE workspace = $workspace
-    AND extraction_confidence != NONE
     AND id IN $project_entity_ids
     AND string::contains(string::lowercase(summary), $query)
   ORDER BY created_at DESC
@@ -449,17 +476,28 @@ DEFINE FUNCTION fn::entity_search_project($q: string, $limit: int, $workspace: r
     text AS text,
     extraction_confidence AS confidence,
     source_message AS sourceMessage,
-    priority,
     created_at
   FROM question
   WHERE workspace = $workspace
-    AND extraction_confidence != NONE
     AND id IN $project_entity_ids
     AND string::contains(string::lowercase(text), $query)
   ORDER BY created_at DESC
   LIMIT $safe_limit;
 
-  RETURN array::flatten([$task_rows, $decision_rows, $question_rows]);
+  LET $feature_rows = SELECT
+    id,
+    "feature" AS kind,
+    name AS text,
+    0.0 AS confidence,
+    NONE AS sourceMessage,
+    created_at
+  FROM feature
+  WHERE id IN $project_entity_ids
+    AND string::contains(string::lowercase(name), $query)
+  ORDER BY created_at DESC
+  LIMIT $safe_limit;
+
+  RETURN array::flatten([$task_rows, $decision_rows, $question_rows, $feature_rows]);
 };
 
 DEFINE FUNCTION fn::conversation_recent($conversation: record<conversation>, $limit: int) {
