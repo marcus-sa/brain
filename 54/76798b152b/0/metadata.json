@@ -1,0 +1,52 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "5476798b152b",
+  "session_id": "a36ff8d8-7068-49a1-9b92-feaf389f510b",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-04T14:35:54.418405Z",
+  "branch": "marcus-sa/coding-agent-integration",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "app/src/server/mcp/context-builder.ts",
+    "app/src/server/webhook/github-commit-processor.ts",
+    "cli/brain.ts",
+    "cli/commands/system.ts",
+    "cli/http-client.ts",
+    "tests/smoke/github-webhook.test.ts",
+    "app/src/server/mcp/id-format.ts",
+    "app/src/server/mcp/mcp-route.ts",
+    "app/src/server/webhook/commit-task-refs.ts",
+    "app/src/server/webhook/github-webhook-route.ts",
+    "schema/migrations/20260304_git_commit_metadata_fields.surql",
+    "schema/migrations/20260304_task_implemented_by.surql",
+    "tests/unit/mcp-record-id-contract.test.ts",
+    "cli/commands/init.ts",
+    "plugin/CLAUDE.md",
+    "schema/surreal-schema.surql",
+    "AGENTS.md",
+    "app/src/server/mcp/mcp-queries.ts",
+    "cli/commands/git-hooks.ts",
+    "plugin/hooks/hooks.json",
+    "tests/unit/commit-task-refs.test.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "e75a4edca44a",
+  "checkpoint_transcript_start": 43,
+  "transcript_lines_at_start": 43,
+  "token_usage": {
+    "input_tokens": 0,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 0,
+    "output_tokens": 0,
+    "api_call_count": 0
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-04T14:35:54.231054Z",
+    "agent_lines": 0,
+    "human_added": 544,
+    "human_modified": 232,
+    "human_removed": 0,
+    "total_committed": 544,
+    "agent_percentage": 0
+  }
+}
