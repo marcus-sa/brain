@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "9f24ad99ca23",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/analytics-agent",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "app/src/server/entities/entity-search-route.ts",
+    "schema/surreal-schema.surql"
+  ],
+  "sessions": [
+    {
+      "metadata": "/9f/24ad99ca23/0/metadata.json",
+      "transcript": "/9f/24ad99ca23/0/full.jsonl",
+      "context": "/9f/24ad99ca23/0/context.md",
+      "content_hash": "/9f/24ad99ca23/0/content_hash.txt",
+      "prompt": "/9f/24ad99ca23/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 21,
+    "cache_creation_tokens": 46342,
+    "cache_read_tokens": 924621,
+    "output_tokens": 8036,
+    "api_call_count": 17
+  }
+}
