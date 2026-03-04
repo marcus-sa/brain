@@ -18,6 +18,8 @@ import {
   endAgentSession,
   logCommit,
 } from "./mcp-queries";
+import { createObservation } from "../observation/queries";
+import { OBSERVATION_TYPES, type ObservationType, type ObservationSeverity } from "../../shared/contracts";
 import {
   createDecisionRecord,
   createQuestionRecord,
@@ -621,6 +623,90 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
     return jsonResponse(result, 200);
   }
 
+  /** POST /api/mcp/:workspaceId/observations — Log a codebase observation */
+  async function handleLogObservation(workspaceId: string, request: Request): Promise<Response> {
+    const auth = await requireAuth(request, workspaceId);
+    if (auth instanceof Response) return auth;
+
+    const body = await parseJsonBody<{
+      text: string;
+      category: string;
+      severity: string;
+      target?: string;
+      session_id?: string;
+    }>(request);
+    if (body instanceof Response) return body;
+    if (!body.text) return jsonError("text is required", 400);
+    if (!body.category) return jsonError("category is required", 400);
+    if (!body.severity) return jsonError("severity is required", 400);
+
+    if (!OBSERVATION_TYPES.includes(body.category as ObservationType)) {
+      return jsonError(`invalid category: must be one of ${OBSERVATION_TYPES.join(", ")}`, 400);
+    }
+
+    const validSeverities = ["info", "warning", "conflict"];
+    if (!validSeverities.includes(body.severity)) {
+      return jsonError("invalid severity: must be info, warning, or conflict", 400);
+    }
+
+    type ObserveTable = "project" | "feature" | "task" | "decision" | "question";
+    let relatedRecord: RecordId<ObserveTable, string> | undefined;
+    if (body.target) {
+      try {
+        relatedRecord = parseRecordIdString(body.target, ["project", "feature", "task", "decision", "question"] as const);
+      } catch {
+        return jsonError(`invalid target entity: ${body.target}`, 400);
+      }
+    }
+
+    const embedding = await createEmbeddingVector(
+      deps.embeddingModel,
+      body.text,
+      config.embeddingDimension,
+    );
+
+    const sourceSessionRecord = body.session_id
+      ? new RecordId("agent_session", body.session_id)
+      : undefined;
+
+    const now = new Date();
+
+    const observationRecord = await createObservation({
+      surreal,
+      workspaceRecord: auth.workspaceRecord,
+      text: body.text,
+      severity: body.severity as ObservationSeverity,
+      observationType: body.category as ObservationType,
+      sourceAgent: "code-agent",
+      now,
+      ...(sourceSessionRecord ? { sourceSessionRecord } : {}),
+      ...(relatedRecord ? { relatedRecord } : {}),
+      ...(embedding ? { embedding } : {}),
+    });
+
+    // Create observed_in edge: observation -> agent_session
+    if (sourceSessionRecord) {
+      await surreal
+        .relate(observationRecord, new RecordId("observed_in", crypto.randomUUID()), sourceSessionRecord, {
+          added_at: now,
+        })
+        .output("after");
+    }
+
+    logInfo("mcp.observation.created", "Observation logged via MCP", {
+      workspaceId,
+      observationId: observationRecord.id as string,
+      observationType: body.category,
+      severity: body.severity,
+    });
+
+    return jsonResponse({
+      observation_id: `observation:${observationRecord.id as string}`,
+      severity: body.severity,
+      status: "open",
+    }, 201);
+  }
+
   // =========================================================================
   // Lifecycle
   // =========================================================================
@@ -666,6 +752,7 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
       questions_asked?: string[];
       tasks_progressed?: Array<{ task_id: string; from_status: string; to_status: string }>;
       files_changed?: Array<{ path: string; change_type: string }>;
+      observations_logged?: string[];
     }>(request);
     if (body instanceof Response) return body;
     if (!body.session_id) return jsonError("session_id is required", 400);
@@ -679,6 +766,7 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
       questionsAsked: body.questions_asked,
       tasksProgressed: body.tasks_progressed,
       filesChanged: body.files_changed,
+      observationsLogged: body.observations_logged,
     });
 
     return jsonResponse(result, 200);
@@ -843,6 +931,7 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
     handleUpdateTaskStatus,
     handleCreateSubtask,
     handleLogNote,
+    handleLogObservation,
     // Lifecycle
     handleSessionStart,
     handleSessionEnd,

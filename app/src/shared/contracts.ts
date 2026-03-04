@@ -42,12 +42,16 @@ export type OnboardingAction = "finalize_onboarding" | "continue_onboarding";
 export type ObservationSeverity = "info" | "warning" | "conflict";
 export type ObservationStatus = "open" | "acknowledged" | "resolved";
 
+export const OBSERVATION_TYPES = ["contradiction", "duplication", "missing", "deprecated", "pattern", "anomaly"] as const;
+export type ObservationType = (typeof OBSERVATION_TYPES)[number];
+
 export type ObservationSummary = {
   id: string;
   text: string;
   severity: ObservationSeverity;
   status: ObservationStatus;
   category?: EntityCategory;
+  observationType?: ObservationType;
   sourceAgent: string;
   createdAt: string;
 };

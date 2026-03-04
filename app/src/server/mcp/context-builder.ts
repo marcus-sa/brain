@@ -49,6 +49,7 @@ type ObservationRow = {
   severity: string;
   status: string;
   category?: string;
+  observation_type?: string;
 };
 
 type AgentSessionRow = {
@@ -121,7 +122,7 @@ export async function buildProjectContext(input: {
     WHERE workspace = $workspace AND id IN $project_entity_ids
     ORDER BY created_at DESC LIMIT 30;
 
-    SELECT id, text, severity, status, category
+    SELECT id, text, severity, status, category, observation_type
     FROM observation
     WHERE workspace = $workspace AND status IN ["open", "acknowledged"]
     ORDER BY created_at DESC LIMIT 20;
@@ -190,6 +191,7 @@ export async function buildProjectContext(input: {
     severity: o.severity,
     status: o.status,
     ...(o.category ? { category: o.category } : {}),
+    ...(o.observation_type ? { observation_type: o.observation_type } : {}),
   }));
 
   // Build recent changes if `since` provided

@@ -154,6 +154,22 @@ export class BrainHttpClient {
     return res.json();
   }
 
+  async logObservation(body: {
+    text: string;
+    category: string;
+    severity: string;
+    target?: string;
+    session_id?: string;
+  }): Promise<unknown> {
+    const res = await fetch(this.url("/observations"), {
+      method: "POST",
+      headers: this.headers(),
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`Failed to log observation: ${res.status} ${await res.text()}`);
+    return res.json();
+  }
+
   async sessionStart(body: { agent: string; directory: string; project_id: string; task_id?: string }): Promise<{ session_id: string }> {
     const res = await fetch(this.url("/sessions/start"), {
       method: "POST",
@@ -171,6 +187,7 @@ export class BrainHttpClient {
     questions_asked?: string[];
     tasks_progressed?: Array<{ task_id: string; from_status: string; to_status: string }>;
     files_changed?: Array<{ path: string; change_type: string }>;
+    observations_logged?: string[];
   }): Promise<unknown> {
     const res = await fetch(this.url("/sessions/end"), {
       method: "POST",

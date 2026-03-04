@@ -518,6 +518,7 @@ export async function endAgentSession(input: {
   questionsAsked?: string[];
   tasksProgressed?: Array<{ task_id: string; from_status: string; to_status: string }>;
   filesChanged?: Array<{ path: string; change_type: string }>;
+  observationsLogged?: string[];
 }): Promise<{ session_id: string; ended: boolean }> {
   const now = new Date();
   const sessionRecord = new RecordId("agent_session", input.sessionId);
@@ -541,6 +542,9 @@ export async function endAgentSession(input: {
         }
       : {}),
     ...(input.filesChanged?.length ? { files_changed: input.filesChanged } : {}),
+    ...(input.observationsLogged?.length
+      ? { observations_logged: input.observationsLogged.map((id) => new RecordId("observation", id)) }
+      : {}),
   });
 
   // Create session -> entity edges

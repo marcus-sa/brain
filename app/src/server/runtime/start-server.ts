@@ -226,6 +226,11 @@ export async function startServer(): Promise<void> {
           mcpHandlers.handleLogNote(request.params.workspaceId, request),
         ),
       },
+      "/api/mcp/:workspaceId/observations": {
+        POST: withRequestLogging("POST /api/mcp/:workspaceId/observations", "POST", (request) =>
+          mcpHandlers.handleLogObservation(request.params.workspaceId, request),
+        ),
+      },
       // MCP — Lifecycle
       "/api/mcp/:workspaceId/sessions/start": {
         POST: withRequestLogging("POST /api/mcp/:workspaceId/sessions/start", "POST", (request) =>

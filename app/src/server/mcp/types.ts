@@ -70,4 +70,5 @@ export type ObservationContext = {
   severity: string;
   status: string;
   category?: string;
+  observation_type?: string;
 };

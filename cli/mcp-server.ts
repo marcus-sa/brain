@@ -221,6 +221,30 @@ export async function runMcpServer(): Promise<void> {
     },
   );
 
+  server.tool(
+    "log_observation",
+    "Log a codebase observation to the knowledge graph. Use when you notice contradictions between code and decisions, duplicated logic, missing implementations, deprecated patterns, recurring patterns, or anomalies. Creates an observation entity visible in the feed and to other agents.",
+    {
+      text: z.string().describe("What you observed — include file paths and specifics so a human can act on it"),
+      category: z
+        .enum(["contradiction", "duplication", "missing", "deprecated", "pattern", "anomaly"])
+        .describe(
+          "contradiction: code contradicts a decision or spec. duplication: same logic in multiple places. missing: expected thing is absent (tests, error handling, docs). deprecated: outdated dependency or pattern. pattern: recurring pattern worth noting. anomaly: something unexpected.",
+        ),
+      severity: z
+        .enum(["info", "warning", "conflict"])
+        .describe(
+          "info: awareness-level, no action needed. warning: risk that should be addressed. conflict: contradiction needing human resolution.",
+        ),
+      target: z.string().optional().describe("Entity this observation is about, in table:id format (e.g. decision:abc123, task:def456)"),
+      session_id: z.string().optional().describe("Current agent session ID to link this observation to"),
+    },
+    async (input) => {
+      const result = await client.logObservation(input);
+      return { content: [{ type: "text" as const, text: JSON.stringify(result, undefined, 2) }] };
+    },
+  );
+
   // =========================================================================
   // Connect via stdio
   // =========================================================================

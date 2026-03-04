@@ -43,3 +43,4 @@ This project is connected to the Brain knowledge graph via MCP tools. The graph 
 3. **Log as you go.** Don't batch decisions for the end. Log each significant choice when you make it.
 4. **Decompose tasks.** Use `create_subtask` to break work into pieces, then update status as each completes.
 5. **Check constraints.** Before adding a dependency or changing an approach, call `check_constraints`.
+6. **Write descriptive commit messages.** The pre-commit hook analyzes your diff and commit message against the knowledge graph to detect task completions, unlogged decisions, and constraint violations. Vague messages like "wip" or "fix stuff" degrade this analysis. Describe *what* changed and *why* — e.g., "Switch rate limiting from fixed window to token bucket for bursty traffic" not "update rate limiter."
