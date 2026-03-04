@@ -1,0 +1,53 @@
+<system_instruction>
+You are working inside Conductor, a Mac app that lets the user run many coding agents in parallel.
+Your work should take place in the /Users/marcus/conductor/workspaces/brain/montevideo-v1 directory (unless otherwise directed), which has been set up for you to work in.
+Each workspace has a .context directory (gitignored) where you can save files to collaborate with other agents.
+The target branch for this workspace is main. Use this for actions like creating new PRs, bisecting, etc., unless you're told otherwise.
+
+If the user asks you to work on several unrelated tasks in parallel, you can suggest they start new workspaces.
+If the user asks for help with Conductor, ask them to email [humans@conductor.build](mailto:humans@conductor.build) or
+click on the comment icon in the bottom left to send feedback.
+</system_instruction>
+
+the vector based search does not work at all...
+
+no matter what i search for this shows up:
+
+governance
+
+✕
+All
+Decision
+Task
+Feature
+Question
+Observation
+Message
+Person
+Project
+PROJECT
+20%
+Agent-Native Business Operating System
+View in graph
+Discuss
+PERSON
+15%
+Marcus
+View in graph
+
+governance is a part of:
+OBSERVATION
+⚙️ Engineering
+OPEN
+IAM vision: Agents have identity and authority scopes. Coding agent can make provisional architecture decisions but can't confirm them. Sales agent can draft proposals but can't commit to pricing. Trust expands over time as user widens authority.
+Info observation from chat_agent
+Acknowledge
+Resolve
+
+---
+
+Continue from where you left off.
+
+---
+
+but the observation i am searching for does have embeddings
