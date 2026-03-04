@@ -1808,6 +1808,55 @@ body {
   padding: 0.5rem 0;
 }
 
+/* Chat suggestion pills (empty state) */
+
+.chat-suggestion-pills {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 2rem 0.5rem 1rem;
+  align-self: center;
+  max-width: 480px;
+  width: 100%;
+}
+
+.chat-suggestion-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.chat-suggestion-group-label {
+  font-size: 0.67rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted-foreground);
+}
+
+.chat-suggestion-group-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.chat-suggestion-pill {
+  border: 1px solid;
+  border-radius: 0;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-suggestion-pill:hover {
+  filter: brightness(1.2);
+}
+
 .chat-message {
   display: flex;
   flex-direction: column;

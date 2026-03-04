@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useMatch, useSearch } from "@tanstack/react-router";
 import Markdown from "react-markdown";
+import { ChatSuggestionPills } from "../components/chat/ChatSuggestionPills";
 import { DiscussEntityCard } from "../components/chat/DiscussEntityCard";
 import { EntityLink } from "../components/chat/EntityLink";
 import type { DiscussEntitySummary } from "../../shared/contracts";
 import { useWorkspaceState } from "../stores/workspace-state";
 import { useChatSession } from "../hooks/use-chat-session";
+import { useGovernanceFeed } from "../hooks/use-governance-feed";
 
 export function ChatPage() {
   const onboardingState = useWorkspaceState((s) => s.onboardingState);
@@ -19,7 +21,8 @@ export function ChatPage() {
   const search = useSearch({ strict: false });
   const messageParam = (search as { message?: string })?.message;
 
-  const chat = useChatSession();
+  const chat = useChatSession(routeConversationId);
+  const { feed } = useGovernanceFeed();
 
   // Keep a ref to the latest chat handlers so the effect below doesn't
   // depend on unstable function references.
@@ -84,6 +87,12 @@ export function ChatPage() {
       ) : undefined}
 
       <div className="chat-messages">
+        {chat.messages.length === 0
+          && onboardingState === "complete"
+          && !chat.discussEntity
+          && !chat.conversationDiscussEntity ? (
+          <ChatSuggestionPills feed={feed} />
+        ) : undefined}
         {chat.messages.map((message) => (
           <div
             key={message.id}

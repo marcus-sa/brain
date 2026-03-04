@@ -47,7 +47,7 @@ function bootstrapMessagesToUIMessages(messages: WorkspaceBootstrapMessage[]): C
   }));
 }
 
-export function useChatSession(): UseChatSessionReturn {
+export function useChatSession(routeConversationId?: string): UseChatSessionReturn {
   const store = useWorkspaceState();
   const workspaceId = store.workspaceId;
   const bootstrapPayload = store.bootstrapPayload;
@@ -128,7 +128,7 @@ export function useChatSession(): UseChatSessionReturn {
 
   const isLoading = chat.status === "streaming" || chat.status === "submitted";
 
-  // Apply bootstrap payload when it arrives
+  // Apply bootstrap payload when it arrives — only load messages when on /chat/:id
   const appliedBootstrapRef = useRef<BootstrapPayload | undefined>(undefined);
   useEffect(() => {
     if (!bootstrapPayload || bootstrapPayload === appliedBootstrapRef.current) {
@@ -136,10 +136,15 @@ export function useChatSession(): UseChatSessionReturn {
     }
     appliedBootstrapRef.current = bootstrapPayload;
 
+    // On /chat (new conversation), skip loading bootstrap messages
+    if (!routeConversationId) {
+      return;
+    }
+
     chat.setMessages(bootstrapPayload.messages as ChatUIMessage[]);
     setActiveConversationId(store.conversationId);
     conversationIdRef.current = store.conversationId;
-  }, [bootstrapPayload]);
+  }, [bootstrapPayload, routeConversationId]);
 
   async function refreshSidebar(wsId: string) {
     try {
