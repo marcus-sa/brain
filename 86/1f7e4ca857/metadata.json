@@ -3,11 +3,9 @@
   "checkpoint_id": "861f7e4ca857",
   "strategy": "manual-commit",
   "branch": "marcus-sa/graph-dir-mapping",
-  "checkpoints_count": 2,
+  "checkpoints_count": 1,
   "files_touched": [
-    "cli/brain.ts",
-    "cli/commands/init-content.ts",
-    "cli/commands/map.ts"
+    "USER_STORIES.md"
   ],
   "sessions": [
     {
@@ -19,10 +17,10 @@
     }
   ],
   "token_usage": {
-    "input_tokens": 197,
-    "cache_creation_tokens": 317418,
-    "cache_read_tokens": 2781896,
-    "output_tokens": 20594,
-    "api_call_count": 39
+    "input_tokens": 42,
+    "cache_creation_tokens": 102316,
+    "cache_read_tokens": 1048052,
+    "output_tokens": 3897,
+    "api_call_count": 10
   }
 }

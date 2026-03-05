@@ -63,3 +63,11 @@ The user has attached these files. Read them before proceeding.
 
 
 Create a PR
+
+---
+
+create user stories in USER_STORIES.md
+
+---
+
+amend commit and push

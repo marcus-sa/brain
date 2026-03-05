@@ -52,3 +52,11 @@ The user has attached these files. Read them before proceeding.
 
 Create a PR
 
+### Prompt 10
+
+create user stories in USER_STORIES.md
+
+### Prompt 11
+
+amend commit and push
+
