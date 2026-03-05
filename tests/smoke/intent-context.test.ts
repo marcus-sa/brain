@@ -237,14 +237,18 @@ describe("intent-context integration", () => {
     const billing = await seedProject(surreal, ws.workspaceRecord, "Billing Service");
     const docs = await seedProject(surreal, ws.workspaceRecord, "Documentation Site");
 
-    // Seed tasks with real embeddings so vector search can match
-    const [billingEmb, docsEmb] = await Promise.all([
-      embedText("Implement Stripe invoice generation and payment webhooks"),
+    // Seed a realistic graph — tasks, decisions, questions with real embeddings
+    const [invoiceEmb, webhookEmb, docsEmb, decisionEmb] = await Promise.all([
+      embedText("Implement Stripe invoice generation for recurring subscriptions"),
+      embedText("Handle Stripe payment webhook events and update order status"),
       embedText("Write getting started guide and API reference docs"),
+      embedText("Use Stripe Billing API instead of custom invoice logic"),
     ]);
 
-    await seedTask(surreal, ws.workspaceRecord, billing, "Implement Stripe invoice generation and payment webhooks", billingEmb);
+    await seedTask(surreal, ws.workspaceRecord, billing, "Implement Stripe invoice generation for recurring subscriptions", invoiceEmb);
+    await seedTask(surreal, ws.workspaceRecord, billing, "Handle Stripe payment webhook events and update order status", webhookEmb);
     await seedTask(surreal, ws.workspaceRecord, docs, "Write getting started guide and API reference docs", docsEmb);
+    await seedDecision(surreal, ws.workspaceRecord, billing, "Use Stripe Billing API instead of custom invoice logic", "confirmed", decisionEmb);
 
     // Agent describes billing work — no task ID, no project ID, no cwd
     const result = await postContext(baseUrl, ws.workspaceId, ws.apiKey, {
@@ -258,6 +262,9 @@ describe("intent-context integration", () => {
       expect(data.task_scope.task.title).toContain("Stripe");
     } else {
       expect(data.project.name).toBe("Billing Service");
+      expect(data.active_tasks.length).toBe(2);
+      expect(data.decisions.confirmed.length).toBe(1);
+      expect(data.decisions.confirmed[0].summary).toContain("Stripe Billing API");
     }
   }, 60_000);
 
