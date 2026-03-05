@@ -482,6 +482,52 @@ describe("better-auth SurrealDB v2 adapter", () => {
       await testHelpers.deleteUser(saved.id);
     });
 
+    test("linking GitHub account to existing email/password person", async () => {
+      // 1. Sign up with email/password — creates person + credential account
+      const signUp = await auth.api.signUpEmail({
+        body: {
+          email: "existing-user@example.com",
+          name: "Existing User",
+          password: "password-123",
+        },
+      });
+      const personId = signUp.user.id;
+
+      // 2. Simulate OAuth callback linking via internalAdapter.linkAccount
+      const ctx = await auth.$context;
+      await ctx.internalAdapter.linkAccount({
+        userId: personId,
+        providerId: "github",
+        accountId: "gh-existing-99",
+        accessToken: "gho_linked_token",
+        refreshToken: "ghr_linked_refresh",
+        scope: "read:user",
+      });
+
+      // 3. Verify both accounts exist for the same person in SurrealDB
+      const [accounts] = await surreal.query<
+        [Array<{ provider_id: string; person_id: RecordId; account_id: string }>]
+      >(
+        `SELECT provider_id, person_id, account_id FROM account WHERE person_id = $personId ORDER BY provider_id;`,
+        { personId: new RecordId("person", personId) },
+      );
+
+      expect(accounts).toHaveLength(2);
+      const providers = accounts.map((a) => a.provider_id).sort();
+      expect(providers).toEqual(["credential", "github"]);
+
+      // Both accounts point to the same person
+      for (const acc of accounts) {
+        expect(acc.person_id).toBeInstanceOf(RecordId);
+        expect((acc.person_id as RecordId).id).toBe(personId);
+      }
+
+      const ghAccount = accounts.find((a) => a.provider_id === "github")!;
+      expect(ghAccount.account_id).toBe("gh-existing-99");
+
+      await testHelpers.deleteUser(personId);
+    });
+
     test("listUserAccounts returns linked OAuth accounts", async () => {
       const user = testHelpers.createUser({
         email: "linked-user@example.com",
