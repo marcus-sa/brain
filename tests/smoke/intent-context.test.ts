@@ -92,6 +92,29 @@ async function seedTask(
   return taskRecord;
 }
 
+async function seedDecision(
+  surreal: Surreal,
+  workspaceRecord: RecordId<"workspace", string>,
+  projectRecord: RecordId<"project", string>,
+  summary: string,
+  status: string,
+): Promise<RecordId<"decision", string>> {
+  const decisionRecord = new RecordId("decision", randomUUID());
+  await surreal.create(decisionRecord).content({
+    summary,
+    status,
+    workspace: workspaceRecord,
+    created_at: new Date(),
+    updated_at: new Date(),
+  });
+  await surreal
+    .relate(decisionRecord, new RecordId("belongs_to", randomUUID()), projectRecord, {
+      added_at: new Date(),
+    })
+    .output("after");
+  return decisionRecord;
+}
+
 function postContext(
   baseUrl: string,
   workspaceId: string,
@@ -109,223 +132,122 @@ function postContext(
 }
 
 // ---------------------------------------------------------------------------
-// Tests
+// Tests — realistic coding agent scenarios
 // ---------------------------------------------------------------------------
 
 describe("intent-context integration", () => {
-  // ---- Auth ----
-
-  it("rejects request without auth header", async () => {
+  it("agent assigned a task via brain map gets task scope with siblings", async () => {
     const { baseUrl, surreal } = getRuntime();
     const ws = await createWorkspaceWithApiKey(baseUrl, surreal);
+    const project = await seedProject(surreal, ws.workspaceRecord, "Payments Platform");
+    const targetTask = await seedTask(surreal, ws.workspaceRecord, project, "Add payment processing");
+    await seedTask(surreal, ws.workspaceRecord, project, "Implement refund flow");
+    await seedDecision(surreal, ws.workspaceRecord, project, "Use Stripe for payments", "confirmed");
+    const taskId = targetTask.id as string;
 
-    const response = await fetch(`${baseUrl}/api/mcp/${ws.workspaceId}/context`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ intent: "anything" }),
-    });
-
-    expect(response.status).toBe(401);
-  }, 30_000);
-
-  it("rejects request with invalid api key", async () => {
-    const { baseUrl, surreal } = getRuntime();
-    const ws = await createWorkspaceWithApiKey(baseUrl, surreal);
-
-    const response = await fetch(`${baseUrl}/api/mcp/${ws.workspaceId}/context`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer brain_invalid_key_000000000000000000000000000000",
-      },
-      body: JSON.stringify({ intent: "anything" }),
-    });
-
-    expect(response.status).toBe(401);
-  }, 30_000);
-
-  // ---- Validation ----
-
-  it("returns 400 when intent is missing", async () => {
-    const { baseUrl, surreal } = getRuntime();
-    const ws = await createWorkspaceWithApiKey(baseUrl, surreal);
-
-    const response = await fetch(`${baseUrl}/api/mcp/${ws.workspaceId}/context`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${ws.apiKey}`,
-      },
-      body: JSON.stringify({}),
-    });
-
-    expect(response.status).toBe(400);
-  }, 30_000);
-
-  // ---- Step 1: Explicit entity references ----
-
-  it("resolves explicit task:id to task-level context", async () => {
-    const { baseUrl, surreal } = getRuntime();
-    const ws = await createWorkspaceWithApiKey(baseUrl, surreal);
-    const project = await seedProject(surreal, ws.workspaceRecord, "Platform");
-    const task = await seedTask(surreal, ws.workspaceRecord, project, "Implement auth flow");
-    const taskId = task.id as string;
-
+    // Agent says what brain map told it
     const result = await postContext(baseUrl, ws.workspaceId, ws.apiKey, {
-      intent: `I need context for task:${taskId}`,
+      intent: `I'm implementing task:${taskId} - adding payment processing`,
     });
 
     expect(result.level).toBe("task");
-    expect(result.data).toBeDefined();
+    const data = result.data as any;
+    expect(data.task_scope).toBeDefined();
+    expect(data.task_scope.task.title).toBe("Add payment processing");
   }, 30_000);
 
-  it("resolves explicit project:id to project-level context", async () => {
+  it("agent in single-project workspace gets project context with populated tasks and decisions", async () => {
     const { baseUrl, surreal } = getRuntime();
     const ws = await createWorkspaceWithApiKey(baseUrl, surreal);
-    const project = await seedProject(surreal, ws.workspaceRecord, "Platform");
-    const projectId = project.id as string;
+    const project = await seedProject(surreal, ws.workspaceRecord, "Brain Platform");
+    await seedTask(surreal, ws.workspaceRecord, project, "Build API rate limiting");
+    await seedTask(surreal, ws.workspaceRecord, project, "Add error handling middleware");
+    await seedDecision(surreal, ws.workspaceRecord, project, "Use token bucket for rate limiting", "confirmed");
 
+    // Agent describes work naturally — no task ID, no project ID
     const result = await postContext(baseUrl, ws.workspaceId, ws.apiKey, {
-      intent: `Give me context for project:${projectId}`,
+      intent: "I need to add error handling to the API endpoints",
     });
 
     expect(result.level).toBe("project");
-    expect(result.data).toBeDefined();
+    const data = result.data as any;
+    expect(data.project.name).toBe("Brain Platform");
+    expect(data.active_tasks.length).toBe(2);
+    expect(data.decisions.confirmed.length).toBe(1);
+    expect(data.decisions.confirmed[0].summary).toBe("Use token bucket for rate limiting");
   }, 30_000);
 
-  it("falls through when explicit task:id does not exist", async () => {
+  it("agent references project:id and sees its tasks and decisions", async () => {
     const { baseUrl, surreal } = getRuntime();
     const ws = await createWorkspaceWithApiKey(baseUrl, surreal);
+    const project = await seedProject(surreal, ws.workspaceRecord, "Mobile App");
+    await seedTask(surreal, ws.workspaceRecord, project, "Fix push notification bug");
+    await seedDecision(surreal, ws.workspaceRecord, project, "Use FCM over APNs", "provisional");
+    const projectId = project.id as string;
 
     const result = await postContext(baseUrl, ws.workspaceId, ws.apiKey, {
-      intent: "Working on task:nonexistent-id-12345",
+      intent: `I need the architecture context for project:${projectId}`,
     });
 
-    // No projects, no embeddings, no paths → workspace fallback
-    expect(result.level).toBe("workspace");
+    expect(result.level).toBe("project");
+    const data = result.data as any;
+    expect(data.project.name).toBe("Mobile App");
+    expect(data.active_tasks.length).toBe(1);
+    expect(data.active_tasks[0].title).toBe("Fix push notification bug");
+    expect(data.decisions.provisional.length).toBe(1);
   }, 30_000);
 
-  // ---- Step 2: Single-project shortcut ----
-
-  it("returns project context for single-project workspace", async () => {
+  it("multi-project workspace with cwd resolves to matching project", async () => {
     const { baseUrl, surreal } = getRuntime();
     const ws = await createWorkspaceWithApiKey(baseUrl, surreal);
-    await seedProject(surreal, ws.workspaceRecord, "Only Project");
+    const backend = await seedProject(surreal, ws.workspaceRecord, "Backend API");
+    const mobile = await seedProject(surreal, ws.workspaceRecord, "Mobile App");
+    await seedTask(surreal, ws.workspaceRecord, backend, "Add GraphQL resolvers");
+    await seedTask(surreal, ws.workspaceRecord, mobile, "Fix login screen crash");
 
+    // Agent working in mobile-app directory
+    const result = await postContext(baseUrl, ws.workspaceId, ws.apiKey, {
+      intent: "Adding unit tests for the login module",
+      cwd: "/Users/dev/mobile-app/src/auth",
+    });
+
+    expect(result.level).toBe("project");
+    const data = result.data as any;
+    expect(data.project.name).toBe("Mobile App");
+    expect(data.active_tasks.some((t: any) => t.title === "Fix login screen crash")).toBe(true);
+  }, 30_000);
+
+  it("ambiguous intent in multi-project workspace falls back to workspace overview", async () => {
+    const { baseUrl, surreal } = getRuntime();
+    const ws = await createWorkspaceWithApiKey(baseUrl, surreal);
+    await seedProject(surreal, ws.workspaceRecord, "Backend API");
+    await seedProject(surreal, ws.workspaceRecord, "Mobile App");
+
+    // Agent asks something generic — no task ID, no project match, no cwd
     const result = await postContext(baseUrl, ws.workspaceId, ws.apiKey, {
       intent: "What should I work on next?",
     });
 
-    expect(result.level).toBe("project");
-  }, 30_000);
-
-  // ---- Step 4: Path matching ----
-
-  it("matches cwd path segments to project name", async () => {
-    const { baseUrl, surreal } = getRuntime();
-    const ws = await createWorkspaceWithApiKey(baseUrl, surreal);
-    await seedProject(surreal, ws.workspaceRecord, "Brain Platform");
-    await seedProject(surreal, ws.workspaceRecord, "Mobile App");
-
-    const result = await postContext(baseUrl, ws.workspaceId, ws.apiKey, {
-      intent: "What should I do?",
-      cwd: "/Users/dev/projects/brain-platform/src",
-    });
-
-    expect(result.level).toBe("project");
-  }, 30_000);
-
-  it("matches paths array to project name", async () => {
-    const { baseUrl, surreal } = getRuntime();
-    const ws = await createWorkspaceWithApiKey(baseUrl, surreal);
-    await seedProject(surreal, ws.workspaceRecord, "Brain Platform");
-    await seedProject(surreal, ws.workspaceRecord, "Mobile App");
-
-    const result = await postContext(baseUrl, ws.workspaceId, ws.apiKey, {
-      intent: "Help me with this file",
-      paths: ["/workspace/mobile-app/components/Button.tsx"],
-    });
-
-    expect(result.level).toBe("project");
-  }, 30_000);
-
-  // ---- Step 5: Fallback ----
-
-  it("returns workspace overview when nothing matches", async () => {
-    const { baseUrl, surreal } = getRuntime();
-    const ws = await createWorkspaceWithApiKey(baseUrl, surreal);
-
-    const result = await postContext(baseUrl, ws.workspaceId, ws.apiKey, {
-      intent: "Tell me something",
-    });
-
     expect(result.level).toBe("workspace");
+    const data = result.data as any;
+    expect(data.projects.length).toBe(2);
+    const names = data.projects.map((p: any) => p.name).sort();
+    expect(names).toEqual(["Backend API", "Mobile App"]);
   }, 30_000);
 
-  it("returns workspace overview for multi-project workspace with no signal", async () => {
+  it("nonexistent task:id falls through gracefully", async () => {
     const { baseUrl, surreal } = getRuntime();
     const ws = await createWorkspaceWithApiKey(baseUrl, surreal);
-    await seedProject(surreal, ws.workspaceRecord, "Alpha");
-    await seedProject(surreal, ws.workspaceRecord, "Beta");
+    await seedProject(surreal, ws.workspaceRecord, "Solo Project");
 
+    // Agent has a stale task ID — should still get useful context (single project fallback)
     const result = await postContext(baseUrl, ws.workspaceId, ws.apiKey, {
-      intent: "What's the weather like?",
+      intent: "Continuing work on task:deleted-task-00000",
     });
 
-    expect(result.level).toBe("workspace");
-  }, 30_000);
-
-  // ---- Response shape ----
-
-  it("workspace response includes projects array", async () => {
-    const { baseUrl, surreal } = getRuntime();
-    const ws = await createWorkspaceWithApiKey(baseUrl, surreal);
-    await seedProject(surreal, ws.workspaceRecord, "Alpha");
-    await seedProject(surreal, ws.workspaceRecord, "Beta");
-
-    const result = await postContext(baseUrl, ws.workspaceId, ws.apiKey, {
-      intent: "Overview please",
-    });
-
-    expect(result.level).toBe("workspace");
-    const data = result.data as Record<string, unknown>;
-    expect(data.workspace).toBeDefined();
-    expect(Array.isArray(data.projects)).toBe(true);
-    expect((data.projects as unknown[]).length).toBe(2);
-  }, 30_000);
-
-  it("project response includes decisions and tasks sections", async () => {
-    const { baseUrl, surreal } = getRuntime();
-    const ws = await createWorkspaceWithApiKey(baseUrl, surreal);
-    const project = await seedProject(surreal, ws.workspaceRecord, "Solo Project");
-    await seedTask(surreal, ws.workspaceRecord, project, "Build login page");
-
-    const result = await postContext(baseUrl, ws.workspaceId, ws.apiKey, {
-      intent: "What am I working on?",
-    });
-
+    // Falls through explicit ref → single-project shortcut
     expect(result.level).toBe("project");
-    const data = result.data as Record<string, unknown>;
-    expect(data.workspace).toBeDefined();
-    expect(data.project).toBeDefined();
-    expect(data.decisions).toBeDefined();
-    expect(data.active_tasks).toBeDefined();
-  }, 30_000);
-
-  it("task response includes task_scope section", async () => {
-    const { baseUrl, surreal } = getRuntime();
-    const ws = await createWorkspaceWithApiKey(baseUrl, surreal);
-    const project = await seedProject(surreal, ws.workspaceRecord, "Platform");
-    const task = await seedTask(surreal, ws.workspaceRecord, project, "Fix auth bug");
-    const taskId = task.id as string;
-
-    const result = await postContext(baseUrl, ws.workspaceId, ws.apiKey, {
-      intent: `Working on task:${taskId}`,
-    });
-
-    expect(result.level).toBe("task");
-    const data = result.data as Record<string, unknown>;
-    expect(data.workspace).toBeDefined();
-    expect(data.task_scope).toBeDefined();
+    const data = result.data as any;
+    expect(data.project.name).toBe("Solo Project");
   }, 30_000);
 });

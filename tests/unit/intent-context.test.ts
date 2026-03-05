@@ -22,35 +22,17 @@ const PROJECT_B = {
 
 const TASK_CONTEXT = {
   workspace: { id: "ws1", name: WS_NAME },
-  project: { id: "proj-a", name: "Brain Platform", status: "active" },
-  task_scope: {
-    task: { id: "task1", title: "Implement auth", status: "open" },
-    subtasks: [],
-    sibling_tasks: [],
-    dependencies: [],
-    related_sessions: [],
-  },
-  hot_items: { contested_decisions: [], open_observations: [], pending_suggestions: [] },
-  active_sessions: [],
+  task_scope: { task: { id: "task1", title: "Implement auth", status: "open" } },
 };
 
 const PROJECT_CONTEXT = {
   workspace: { id: "ws1", name: WS_NAME },
   project: { id: "proj-a", name: "Brain Platform", status: "active" },
-  decisions: { confirmed: [], provisional: [], contested: [] },
-  active_tasks: [],
-  open_questions: [],
-  recent_changes: [],
-  observations: [],
-  pending_suggestions: [],
-  active_sessions: [],
 };
 
 const WORKSPACE_OVERVIEW = {
   workspace: { id: "ws1", name: WS_NAME },
   projects: [],
-  hot_items: { contested_decisions: [], open_observations: [], pending_suggestions: [] },
-  active_sessions: [],
 };
 
 // ---------------------------------------------------------------------------
@@ -93,16 +75,12 @@ function createMockSurreal(config: {
   return {
     query: mock((_sql: string) => ({
       collect: mock(() => {
-        if (_sql.includes("FROM project")) {
-          return Promise.resolve([config.projects ?? []]);
-        }
+        if (_sql.includes("FROM project")) return Promise.resolve([config.projects ?? []]);
         if (_sql.includes("FROM has_feature")) {
-          const rows = config.featureProjectIn ? [{ in: config.featureProjectIn }] : [];
-          return Promise.resolve([rows]);
+          return Promise.resolve([config.featureProjectIn ? [{ in: config.featureProjectIn }] : []]);
         }
         if (_sql.includes("FROM belongs_to")) {
-          const rows = config.belongsToProjectOut ? [{ out: config.belongsToProjectOut }] : [];
-          return Promise.resolve([rows]);
+          return Promise.resolve([config.belongsToProjectOut ? [{ out: config.belongsToProjectOut }] : []]);
         }
         return Promise.resolve([[]]);
       }),
@@ -123,7 +101,7 @@ function makeInput(overrides: Record<string, any> = {}) {
 }
 
 // ---------------------------------------------------------------------------
-// Tests
+// Tests — only logic that integration tests cannot reach
 // ---------------------------------------------------------------------------
 
 describe("resolveIntentContext", () => {
@@ -141,139 +119,41 @@ describe("resolveIntentContext", () => {
     mockCreateEmbeddingVector.mockImplementation(() => Promise.resolve(undefined));
   });
 
-  // -----------------------------------------------------------------------
-  // Step 1: Explicit entity references
-  // -----------------------------------------------------------------------
+  // ---- Entity ref parsing edge cases (regex behavior) ----
 
-  describe("explicit entity references", () => {
-    it("returns task context for task:id in intent", async () => {
-      const result = await resolveIntentContext(
-        makeInput({ intent: "I'm working on task:abc123 right now" }),
-      );
-
-      expect(result.level).toBe("task");
-      expect(mockBuildTaskContext).toHaveBeenCalledTimes(1);
-      expect(mockBuildTaskContext.mock.calls[0][0]).toMatchObject({ taskId: "abc123" });
-    });
-
-    it("returns project context for project:id in intent", async () => {
-      const result = await resolveIntentContext(
-        makeInput({ intent: "Give me context for project:proj-a" }),
-      );
-
-      expect(result.level).toBe("project");
-      expect(mockBuildProjectContext).toHaveBeenCalledTimes(1);
-      const arg = mockBuildProjectContext.mock.calls[0][0] as any;
-      expect(arg.projectRecord.table.name).toBe("project");
-      expect(arg.projectRecord.id).toBe("proj-a");
-    });
-
-    it("extracts hyphenated ids", async () => {
-      await resolveIntentContext(makeInput({ intent: "Check task:my-long-task-id" }));
-
-      expect(mockBuildTaskContext.mock.calls[0][0]).toMatchObject({ taskId: "my-long-task-id" });
-    });
-
-    it("matches entity refs case-insensitively", async () => {
-      await resolveIntentContext(makeInput({ intent: "Working on Task:ABC123" }));
-
-      expect(mockBuildTaskContext.mock.calls[0][0]).toMatchObject({ taskId: "ABC123" });
-    });
-
-    it("falls through when explicit task is not found", async () => {
-      mockBuildTaskContext.mockImplementation(() => Promise.reject(new Error("not found")));
-
-      const result = await resolveIntentContext(
-        makeInput({ intent: "Working on task:nonexistent" }),
-      );
-
-      expect(result.level).toBe("workspace");
-    });
-
-    it("falls through when explicit project is not found", async () => {
-      mockBuildProjectContext.mockImplementation(() => Promise.reject(new Error("not found")));
-
-      const result = await resolveIntentContext(
-        makeInput({ intent: "Context for project:nonexistent" }),
-      );
-
-      expect(result.level).toBe("workspace");
-    });
-
-    it("does not match entity refs embedded in longer words", async () => {
-      const result = await resolveIntentContext(
-        makeInput({ intent: "Check mytask:abc status" }),
-      );
-
+  describe("entity ref parsing", () => {
+    it("does not match refs embedded in longer words", async () => {
+      await resolveIntentContext(makeInput({ intent: "Check mytask:abc status" }));
       expect(mockBuildTaskContext).not.toHaveBeenCalled();
-      expect(result.level).toBe("workspace");
+    });
+
+    it("matches case-insensitively", async () => {
+      await resolveIntentContext(makeInput({ intent: "Working on Task:ABC123" }));
+      expect(mockBuildTaskContext.mock.calls[0][0]).toMatchObject({ taskId: "ABC123" });
     });
 
     it("prefers task over project when both present", async () => {
       const result = await resolveIntentContext(
         makeInput({ intent: "Working on task:t1 in project:p1" }),
       );
-
       expect(result.level).toBe("task");
-      expect(mockBuildTaskContext.mock.calls[0][0]).toMatchObject({ taskId: "t1" });
       expect(mockBuildProjectContext).not.toHaveBeenCalled();
     });
 
-    it("tries project ref when task ref fails", async () => {
+    it("falls back to project ref when task ref fails", async () => {
       mockBuildTaskContext.mockImplementation(() => Promise.reject(new Error("not found")));
-
       const result = await resolveIntentContext(
         makeInput({ intent: "task:missing in project:proj-a" }),
       );
-
       expect(result.level).toBe("project");
-      const arg = mockBuildProjectContext.mock.calls[0][0] as any;
-      expect(arg.projectRecord.id).toBe("proj-a");
+      expect((mockBuildProjectContext.mock.calls[0][0] as any).projectRecord.id).toBe("proj-a");
     });
   });
 
-  // -----------------------------------------------------------------------
-  // Step 2: Single-project shortcut
-  // -----------------------------------------------------------------------
-
-  describe("single-project shortcut", () => {
-    it("returns project context when workspace has exactly one project", async () => {
-      const surreal = createMockSurreal({ projects: [PROJECT_A] });
-
-      const result = await resolveIntentContext(
-        makeInput({ surreal, intent: "What should I work on?" }),
-      );
-
-      expect(result.level).toBe("project");
-      const arg = mockBuildProjectContext.mock.calls[0][0] as any;
-      expect(arg.projectRecord).toBe(PROJECT_A.id);
-    });
-
-    it("does not shortcut when workspace has multiple projects", async () => {
-      const surreal = createMockSurreal({ projects: [PROJECT_A, PROJECT_B] });
-
-      const result = await resolveIntentContext(
-        makeInput({ surreal, intent: "What should I work on?" }),
-      );
-
-      expect(result.level).toBe("workspace");
-    });
-
-    it("does not shortcut when workspace has no projects", async () => {
-      const result = await resolveIntentContext(
-        makeInput({ intent: "What should I work on?" }),
-      );
-
-      expect(result.level).toBe("workspace");
-    });
-  });
-
-  // -----------------------------------------------------------------------
-  // Step 3: Vector search
-  // -----------------------------------------------------------------------
+  // ---- Vector search (cannot test in smoke — requires real embeddings) ----
 
   describe("vector search", () => {
-    it("returns task context for high-scoring task match", async () => {
+    it("resolves high-scoring task match to task context", async () => {
       const surreal = createMockSurreal({ projects: [PROJECT_A, PROJECT_B] });
       mockCreateEmbeddingVector.mockImplementation(() => Promise.resolve([0.1, 0.2, 0.3]));
       mockSearchEntitiesByEmbedding.mockImplementation(() =>
@@ -283,27 +163,8 @@ describe("resolveIntentContext", () => {
       const result = await resolveIntentContext(
         makeInput({ surreal, intent: "implement login authentication" }),
       );
-
       expect(result.level).toBe("task");
       expect(mockBuildTaskContext.mock.calls[0][0]).toMatchObject({ taskId: "task1" });
-    });
-
-    it("returns project context for high-scoring project match", async () => {
-      const surreal = createMockSurreal({ projects: [PROJECT_A, PROJECT_B] });
-      mockCreateEmbeddingVector.mockImplementation(() => Promise.resolve([0.1, 0.2, 0.3]));
-      mockSearchEntitiesByEmbedding.mockImplementation(() =>
-        Promise.resolve([
-          { id: "project:proj-a", kind: "project", name: "Brain Platform", score: 0.7 },
-        ]),
-      );
-
-      const result = await resolveIntentContext(
-        makeInput({ surreal, intent: "brain platform status" }),
-      );
-
-      expect(result.level).toBe("project");
-      const arg = mockBuildProjectContext.mock.calls[0][0] as any;
-      expect(arg.projectRecord.id).toBe("proj-a");
     });
 
     it("resolves feature match to parent project via has_feature", async () => {
@@ -313,34 +174,10 @@ describe("resolveIntentContext", () => {
       });
       mockCreateEmbeddingVector.mockImplementation(() => Promise.resolve([0.1, 0.2, 0.3]));
       mockSearchEntitiesByEmbedding.mockImplementation(() =>
-        Promise.resolve([
-          { id: "feature:feat1", kind: "feature", name: "Auth Feature", score: 0.6 },
-        ]),
+        Promise.resolve([{ id: "feature:feat1", kind: "feature", name: "Auth Feature", score: 0.6 }]),
       );
 
-      const result = await resolveIntentContext(
-        makeInput({ surreal, intent: "authentication feature" }),
-      );
-
-      expect(result.level).toBe("project");
-    });
-
-    it("resolves decision match to project via belongs_to", async () => {
-      const surreal = createMockSurreal({
-        projects: [PROJECT_A, PROJECT_B],
-        belongsToProjectOut: PROJECT_A.id,
-      });
-      mockCreateEmbeddingVector.mockImplementation(() => Promise.resolve([0.1, 0.2, 0.3]));
-      mockSearchEntitiesByEmbedding.mockImplementation(() =>
-        Promise.resolve([
-          { id: "decision:dec1", kind: "decision", name: "Use JWT tokens", score: 0.5 },
-        ]),
-      );
-
-      const result = await resolveIntentContext(
-        makeInput({ surreal, intent: "JWT authentication decision" }),
-      );
-
+      const result = await resolveIntentContext(makeInput({ surreal, intent: "auth feature" }));
       expect(result.level).toBe("project");
     });
 
@@ -351,53 +188,29 @@ describe("resolveIntentContext", () => {
       });
       mockCreateEmbeddingVector.mockImplementation(() => Promise.resolve([0.1, 0.2, 0.3]));
       mockSearchEntitiesByEmbedding.mockImplementation(() =>
-        Promise.resolve([
-          { id: "task:missing-task", kind: "task", name: "Missing Task", score: 0.8 },
-        ]),
+        Promise.resolve([{ id: "task:missing", kind: "task", name: "Missing", score: 0.8 }]),
       );
       mockBuildTaskContext.mockImplementation(() => Promise.reject(new Error("not found")));
 
-      const result = await resolveIntentContext(
-        makeInput({ surreal, intent: "work on missing task" }),
-      );
-
+      const result = await resolveIntentContext(makeInput({ surreal, intent: "missing task" }));
       expect(result.level).toBe("project");
     });
 
-    it("ignores results at the 0.3 threshold (not strictly above)", async () => {
+    it("ignores results at exactly 0.3 threshold", async () => {
       const surreal = createMockSurreal({ projects: [PROJECT_A, PROJECT_B] });
       mockCreateEmbeddingVector.mockImplementation(() => Promise.resolve([0.1, 0.2, 0.3]));
       mockSearchEntitiesByEmbedding.mockImplementation(() =>
-        Promise.resolve([{ id: "task:task1", kind: "task", name: "Some Task", score: 0.3 }]),
+        Promise.resolve([{ id: "task:task1", kind: "task", name: "Task", score: 0.3 }]),
       );
 
-      const result = await resolveIntentContext(
-        makeInput({ surreal, intent: "something vague" }),
-      );
-
+      const result = await resolveIntentContext(makeInput({ surreal, intent: "vague" }));
       expect(result.level).toBe("workspace");
       expect(mockBuildTaskContext).not.toHaveBeenCalled();
     });
 
-    it("falls through when no search results returned", async () => {
+    it("skips search entirely when embedding fails", async () => {
       const surreal = createMockSurreal({ projects: [PROJECT_A, PROJECT_B] });
-      mockCreateEmbeddingVector.mockImplementation(() => Promise.resolve([0.1, 0.2, 0.3]));
-
-      const result = await resolveIntentContext(
-        makeInput({ surreal, intent: "something" }),
-      );
-
-      expect(result.level).toBe("workspace");
-    });
-
-    it("skips vector search entirely when embedding fails", async () => {
-      const surreal = createMockSurreal({ projects: [PROJECT_A, PROJECT_B] });
-
-      const result = await resolveIntentContext(
-        makeInput({ surreal, intent: "something" }),
-      );
-
-      expect(result.level).toBe("workspace");
+      await resolveIntentContext(makeInput({ surreal, intent: "something" }));
       expect(mockSearchEntitiesByEmbedding).not.toHaveBeenCalled();
     });
 
@@ -405,79 +218,19 @@ describe("resolveIntentContext", () => {
       const surreal = createMockSurreal({ projects: [PROJECT_A, PROJECT_B] });
       mockCreateEmbeddingVector.mockImplementation(() => Promise.resolve([0.1, 0.2, 0.3]));
       mockSearchEntitiesByEmbedding.mockImplementation(() =>
-        Promise.resolve([{ id: "task1-no-prefix", kind: "task", name: "Auth task", score: 0.8 }]),
+        Promise.resolve([{ id: "task1-raw", kind: "task", name: "Auth", score: 0.8 }]),
       );
 
-      const result = await resolveIntentContext(
-        makeInput({ surreal, intent: "implement auth" }),
-      );
-
-      expect(result.level).toBe("task");
-      expect(mockBuildTaskContext.mock.calls[0][0]).toMatchObject({ taskId: "task1-no-prefix" });
+      await resolveIntentContext(makeInput({ surreal, intent: "auth" }));
+      expect(mockBuildTaskContext.mock.calls[0][0]).toMatchObject({ taskId: "task1-raw" });
     });
   });
 
-  // -----------------------------------------------------------------------
-  // Step 4: Path matching
-  // -----------------------------------------------------------------------
+  // ---- Path matching token logic ----
 
   describe("path matching", () => {
-    it("matches cwd directory segments to project name", async () => {
-      const surreal = createMockSurreal({ projects: [PROJECT_A, PROJECT_B] });
-
-      const result = await resolveIntentContext(
-        makeInput({
-          surreal,
-          intent: "what should I do?",
-          cwd: "/Users/marcus/projects/brain-platform/src",
-        }),
-      );
-
-      expect(result.level).toBe("project");
-      const arg = mockBuildProjectContext.mock.calls[0][0] as any;
-      expect(arg.projectRecord).toBe(PROJECT_A.id);
-    });
-
-    it("matches paths array to project name", async () => {
-      const surreal = createMockSurreal({ projects: [PROJECT_A, PROJECT_B] });
-
-      const result = await resolveIntentContext(
-        makeInput({
-          surreal,
-          intent: "what files?",
-          paths: ["/workspace/mobile-app/components/Button.tsx"],
-        }),
-      );
-
-      expect(result.level).toBe("project");
-      const arg = mockBuildProjectContext.mock.calls[0][0] as any;
-      expect(arg.projectRecord).toBe(PROJECT_B.id);
-    });
-
-    it("combines cwd and paths for matching", async () => {
-      const surreal = createMockSurreal({ projects: [PROJECT_A, PROJECT_B] });
-
-      const result = await resolveIntentContext(
-        makeInput({
-          surreal,
-          intent: "help",
-          cwd: "/some/dir",
-          paths: ["/workspace/brain-platform/index.ts"],
-        }),
-      );
-
-      expect(result.level).toBe("project");
-      const arg = mockBuildProjectContext.mock.calls[0][0] as any;
-      expect(arg.projectRecord).toBe(PROJECT_A.id);
-    });
-
-    it("ignores path tokens with 2 or fewer characters", async () => {
+    it("ignores tokens with 2 or fewer characters", async () => {
       const surreal = createMockSurreal({
-        projects: [{ id: new RecordId("project", "proj-x"), name: "XY Tool", status: "active" }],
-      });
-
-      // Single project would trigger shortcut, so need 2+ projects
-      const surreal2 = createMockSurreal({
         projects: [
           { id: new RecordId("project", "proj-x"), name: "XY Tool", status: "active" },
           PROJECT_B,
@@ -485,27 +238,8 @@ describe("resolveIntentContext", () => {
       });
 
       const result = await resolveIntentContext(
-        makeInput({
-          surreal: surreal2,
-          intent: "help",
-          cwd: "/a/xy/b/cd",
-        }),
+        makeInput({ surreal, intent: "help", cwd: "/a/xy/b/cd" }),
       );
-
-      expect(result.level).toBe("workspace");
-    });
-
-    it("does not match when paths have no overlap with project names", async () => {
-      const surreal = createMockSurreal({ projects: [PROJECT_A, PROJECT_B] });
-
-      const result = await resolveIntentContext(
-        makeInput({
-          surreal,
-          intent: "help",
-          cwd: "/Users/marcus/completely/unrelated/directory",
-        }),
-      );
-
       expect(result.level).toBe("workspace");
     });
 
@@ -513,75 +247,21 @@ describe("resolveIntentContext", () => {
       const surreal = createMockSurreal({
         projects: [
           { id: new RecordId("project", "proj-1"), name: "Brain Core", status: "active" },
-          {
-            id: new RecordId("project", "proj-2"),
-            name: "Brain Platform Services",
-            status: "active",
-          },
+          { id: new RecordId("project", "proj-2"), name: "Brain Platform Services", status: "active" },
         ],
       });
 
       const result = await resolveIntentContext(
-        makeInput({
-          surreal,
-          intent: "help",
-          cwd: "/workspace/brain-platform-services/src",
-        }),
+        makeInput({ surreal, intent: "help", cwd: "/workspace/brain-platform-services/src" }),
       );
-
       expect(result.level).toBe("project");
-      const arg = mockBuildProjectContext.mock.calls[0][0] as any;
-      expect(arg.projectRecord.id).toBe("proj-2");
+      expect((mockBuildProjectContext.mock.calls[0][0] as any).projectRecord.id).toBe("proj-2");
     });
   });
 
-  // -----------------------------------------------------------------------
-  // Step 5: Fallback
-  // -----------------------------------------------------------------------
-
-  describe("fallback", () => {
-    it("returns workspace overview when no step matches", async () => {
-      const result = await resolveIntentContext(
-        makeInput({ intent: "something completely generic" }),
-      );
-
-      expect(result.level).toBe("workspace");
-      expect(result.data).toBe(WORKSPACE_OVERVIEW);
-      expect(mockBuildWorkspaceOverview).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  // -----------------------------------------------------------------------
-  // Waterfall priority ordering
-  // -----------------------------------------------------------------------
+  // ---- Waterfall priority (vector > path can't be tested in smoke) ----
 
   describe("waterfall priority", () => {
-    it("explicit ref beats single-project shortcut", async () => {
-      const surreal = createMockSurreal({ projects: [PROJECT_A] });
-
-      const result = await resolveIntentContext(
-        makeInput({ surreal, intent: "task:specific-task context" }),
-      );
-
-      expect(result.level).toBe("task");
-      expect(mockBuildTaskContext.mock.calls[0][0]).toMatchObject({ taskId: "specific-task" });
-    });
-
-    it("single-project shortcut beats vector search", async () => {
-      const surreal = createMockSurreal({ projects: [PROJECT_A] });
-      mockCreateEmbeddingVector.mockImplementation(() => Promise.resolve([0.1, 0.2, 0.3]));
-      mockSearchEntitiesByEmbedding.mockImplementation(() =>
-        Promise.resolve([{ id: "task:task1", kind: "task", name: "Task", score: 0.9 }]),
-      );
-
-      const result = await resolveIntentContext(
-        makeInput({ surreal, intent: "implement authentication" }),
-      );
-
-      expect(result.level).toBe("project");
-      expect(mockSearchEntitiesByEmbedding).not.toHaveBeenCalled();
-    });
-
     it("vector search beats path matching", async () => {
       const surreal = createMockSurreal({
         projects: [PROJECT_A, PROJECT_B],
@@ -589,9 +269,7 @@ describe("resolveIntentContext", () => {
       });
       mockCreateEmbeddingVector.mockImplementation(() => Promise.resolve([0.1, 0.2, 0.3]));
       mockSearchEntitiesByEmbedding.mockImplementation(() =>
-        Promise.resolve([
-          { id: "decision:dec1", kind: "decision", name: "Mobile-first approach", score: 0.7 },
-        ]),
+        Promise.resolve([{ id: "decision:dec1", kind: "decision", name: "Mobile-first", score: 0.7 }]),
       );
 
       const result = await resolveIntentContext(
@@ -602,10 +280,8 @@ describe("resolveIntentContext", () => {
         }),
       );
 
-      // Vector search resolves to PROJECT_B, not PROJECT_A from path
       expect(result.level).toBe("project");
-      const arg = mockBuildProjectContext.mock.calls[0][0] as any;
-      expect(arg.projectRecord).toBe(PROJECT_B.id);
+      expect((mockBuildProjectContext.mock.calls[0][0] as any).projectRecord).toBe(PROJECT_B.id);
     });
   });
 });
