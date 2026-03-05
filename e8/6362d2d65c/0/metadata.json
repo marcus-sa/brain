@@ -1,0 +1,35 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "e86362d2d65c",
+  "session_id": "4588eb5b-9e44-4453-9686-c68728cdb681",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-05T10:45:51.16651Z",
+  "branch": "marcus-sa/cli-schema-in-claude-md",
+  "checkpoints_count": 9,
+  "files_touched": [
+    "cli/brain.ts",
+    "cli/commands/git-hooks.ts",
+    "cli/commands/init-content.ts",
+    "cli/commands/init.ts",
+    "cli/commands/system.ts",
+    "cli/config.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "cae2890ecafd",
+  "token_usage": {
+    "input_tokens": 93,
+    "cache_creation_tokens": 389648,
+    "cache_read_tokens": 6174064,
+    "output_tokens": 30690,
+    "api_call_count": 75
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-05T10:45:50.960391Z",
+    "agent_lines": 65,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 65,
+    "agent_percentage": 100
+  }
+}
