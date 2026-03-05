@@ -35,6 +35,9 @@ If you cannot log required items (for example MCP unavailable), respond with:
 {"decision":"block","reason":"Log these items first: ..."}`,
     },
   ],
+  SessionEnd: [
+    { type: "command", command: "brain system end-session" },
+  ],
 };
 
 // ---------------------------------------------------------------------------
@@ -59,6 +62,7 @@ At session start you receive a list of workspace projects with their IDs. Most M
 - **SessionStart** loads workspace info (available projects and IDs)
 - **UserPromptSubmit** checks for workspace-level graph updates
 - **Stop** catches unlogged decisions before the session ends
+- **SessionEnd** logs session summary to the graph
 
 ## Data Model
 
@@ -94,8 +98,12 @@ The knowledge graph has these entity types. Use this to pick the right MCP tools
 
 ## MCP Tools Available
 
+### Context (progressive detail)
+- \`get_workspace_context\` — Workspace overview: projects with entity counts, hot items, active sessions. Already loaded at session start.
+- \`get_project_context\` — Full project context: decisions, tasks, questions, observations, suggestions. Requires project_id.
+- \`get_task_context\` — Task-focused: subgraph (subtasks, deps, siblings) + project hot items. Requires task_id, resolves project automatically.
+
 ### Read (use freely)
-- \`get_project_context\` — Refresh full project context (decisions, tasks, constraints, questions)
 - \`get_active_decisions\` — Decisions grouped by status (confirmed/provisional/contested)
 - \`get_task_dependencies\` — Dependency tree for a task (depends on, depended by, subtasks)
 - \`get_architecture_constraints\` — Hard and soft constraints from decisions and observations

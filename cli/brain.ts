@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import { runInit } from "./commands/init";
-import { runLoadContext, runCheckUpdates } from "./commands/system";
+import { runLoadContext, runCheckUpdates, runEndSession } from "./commands/system";
 import { runLogCommit } from "./commands/git-hooks";
 
 const args = process.argv.slice(2);
@@ -22,9 +22,12 @@ async function main(): Promise<void> {
         case "check-updates":
           await runCheckUpdates();
           break;
+        case "end-session":
+          await runEndSession();
+          break;
         default:
           console.error(`Unknown system subcommand: ${subcommand}`);
-          console.error("Available: load-context, check-updates");
+          console.error("Available: load-context, check-updates, end-session");
           process.exit(1);
       }
       break;
@@ -63,6 +66,7 @@ Usage:
   brain init                     Set up Brain integration (auth, MCP, hooks, skills, git hooks)
   brain system load-context      Load workspace info (SessionStart hook)
   brain system check-updates     Check for graph updates (UserPromptSubmit hook)
+  brain system end-session       End agent session (SessionEnd hook)
   brain check-commit             Deprecated no-op (kept for existing git hooks)
   brain log-commit               Deprecated no-op (kept for existing git hooks)
   brain mcp                      Start MCP stdio server
