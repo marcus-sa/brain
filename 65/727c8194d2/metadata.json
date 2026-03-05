@@ -1,0 +1,36 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "65727c8194d2",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/better-auth-surrealdb",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".nwave/des-config.json",
+    "app/src/server/auth/adapter.ts",
+    "app/src/server/auth/config.ts",
+    "app/src/server/runtime/config.ts",
+    "app/src/server/runtime/dependencies.ts",
+    "app/src/server/runtime/start-server.ts",
+    "app/src/server/runtime/types.ts",
+    "bun.lock",
+    "package.json",
+    "schema/migrations/0010_better_auth_tables.surql",
+    "schema/surreal-schema.surql"
+  ],
+  "sessions": [
+    {
+      "metadata": "/65/727c8194d2/0/metadata.json",
+      "transcript": "/65/727c8194d2/0/full.jsonl",
+      "context": "/65/727c8194d2/0/context.md",
+      "content_hash": "/65/727c8194d2/0/content_hash.txt",
+      "prompt": "/65/727c8194d2/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 647,
+    "cache_creation_tokens": 333872,
+    "cache_read_tokens": 8180187,
+    "output_tokens": 37042,
+    "api_call_count": 89
+  }
+}

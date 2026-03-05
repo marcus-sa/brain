@@ -1,0 +1,40 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "65727c8194d2",
+  "session_id": "4367354f-995e-4a6a-b3c3-a73060bd4c71",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-05T15:14:26.368666Z",
+  "branch": "marcus-sa/better-auth-surrealdb",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".nwave/des-config.json",
+    "app/src/server/auth/adapter.ts",
+    "app/src/server/auth/config.ts",
+    "app/src/server/runtime/config.ts",
+    "app/src/server/runtime/dependencies.ts",
+    "app/src/server/runtime/start-server.ts",
+    "app/src/server/runtime/types.ts",
+    "bun.lock",
+    "package.json",
+    "schema/migrations/0010_better_auth_tables.surql",
+    "schema/surreal-schema.surql"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "a10cc512b2b0",
+  "token_usage": {
+    "input_tokens": 647,
+    "cache_creation_tokens": 333872,
+    "cache_read_tokens": 8180187,
+    "output_tokens": 37042,
+    "api_call_count": 89
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-05T15:14:25.736695Z",
+    "agent_lines": 492,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 492,
+    "agent_percentage": 100
+  }
+}
