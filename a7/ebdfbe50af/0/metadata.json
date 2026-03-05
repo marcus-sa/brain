@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "a7ebdfbe50af",
+  "session_id": "4367354f-995e-4a6a-b3c3-a73060bd4c71",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-05T16:41:03.408909Z",
+  "branch": "marcus-sa/better-auth-surrealdb",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "docs/plans/iam/README.md",
+    "docs/plans/iam/phase-1.md",
+    "docs/plans/iam/phase-2.md",
+    "docs/plans/iam/phase-3.md"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "172b8eeb8650",
+  "token_usage": {
+    "input_tokens": 3632,
+    "cache_creation_tokens": 815709,
+    "cache_read_tokens": 18175779,
+    "output_tokens": 71129,
+    "api_call_count": 197
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-05T16:41:01.302327Z",
+    "agent_lines": 469,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 469,
+    "agent_percentage": 100
+  }
+}
