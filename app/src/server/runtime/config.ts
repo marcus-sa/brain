@@ -25,6 +25,10 @@ export type ServerConfig = {
   surrealDatabase: string;
   port: number;
   githubWebhookSecret?: string;
+  betterAuthSecret?: string;
+  betterAuthUrl?: string;
+  githubClientId?: string;
+  githubClientSecret?: string;
 };
 
 export function loadServerConfig(): ServerConfig {
@@ -61,6 +65,10 @@ export function loadServerConfig(): ServerConfig {
 
   const port = parsePositiveInteger(requireEnv("PORT"), "PORT");
   const githubWebhookSecret = Bun.env.GITHUB_WEBHOOK_SECRET?.trim() || undefined;
+  const betterAuthSecret = Bun.env.BETTER_AUTH_SECRET?.trim() || undefined;
+  const betterAuthUrl = Bun.env.BETTER_AUTH_URL?.trim() || undefined;
+  const githubClientId = Bun.env.GITHUB_CLIENT_ID?.trim() || undefined;
+  const githubClientSecret = Bun.env.GITHUB_CLIENT_SECRET?.trim() || undefined;
 
   return {
     openRouterApiKey,
@@ -80,6 +88,10 @@ export function loadServerConfig(): ServerConfig {
     surrealDatabase,
     port,
     ...(githubWebhookSecret ? { githubWebhookSecret } : {}),
+    ...(betterAuthSecret ? { betterAuthSecret } : {}),
+    ...(betterAuthUrl ? { betterAuthUrl } : {}),
+    ...(githubClientId ? { githubClientId } : {}),
+    ...(githubClientSecret ? { githubClientSecret } : {}),
   };
 }
 

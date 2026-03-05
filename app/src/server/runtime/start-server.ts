@@ -29,6 +29,7 @@ export async function startServer(): Promise<void> {
     config,
     surreal: runtime.surreal,
     analyticsSurreal: runtime.analyticsSurreal,
+    auth: runtime.auth,
     chatAgentModel: runtime.chatAgentModel,
     extractionModel: runtime.extractionModel,
     pmAgentModel: runtime.pmAgentModel,
@@ -282,6 +283,10 @@ export async function startServer(): Promise<void> {
         POST: withRequestLogging("POST /api/mcp/:workspaceId/commits/check", "POST", (request) =>
           mcpHandlers.handleCheckCommit(request.params.workspaceId, request),
         ),
+      },
+      "/api/auth/*": async (request) => {
+        if (!deps.auth) return new Response("Auth not configured", { status: 501 });
+        return deps.auth.handler(request);
       },
       "/": appHtml,
       "/*": appHtml,
