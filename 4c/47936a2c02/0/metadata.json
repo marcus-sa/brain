@@ -1,0 +1,43 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "4c47936a2c02",
+  "session_id": "4588eb5b-9e44-4453-9686-c68728cdb681",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-05T13:06:55.767701Z",
+  "branch": "marcus-sa/cli-schema-in-claude-md",
+  "checkpoints_count": 8,
+  "files_touched": [
+    "app/src/server/mcp/context-builder.ts",
+    "app/src/server/mcp/mcp-queries.ts",
+    "app/src/server/mcp/mcp-route.ts",
+    "app/src/server/mcp/types.ts",
+    "app/src/server/runtime/start-server.ts",
+    "cli/brain.ts",
+    "cli/commands/init-content.ts",
+    "cli/commands/system.ts",
+    "cli/http-client.ts",
+    "cli/mcp-server.ts",
+    "schema/migrations/0009_optional_session_project.surql",
+    "schema/surreal-schema.surql"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "f707cce9ad88",
+  "checkpoint_transcript_start": 829,
+  "transcript_lines_at_start": 829,
+  "token_usage": {
+    "input_tokens": 207,
+    "cache_creation_tokens": 386195,
+    "cache_read_tokens": 16116242,
+    "output_tokens": 60720,
+    "api_call_count": 151
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-05T13:06:54.265376Z",
+    "agent_lines": 621,
+    "human_added": 101,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 722,
+    "agent_percentage": 86.01108033240997
+  }
+}
