@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, chmodSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { findGitRoot, saveRepoConfig, loadGlobalConfig } from "../config";
 import { BrainHttpClient } from "../http-client";
@@ -38,6 +38,9 @@ export async function runInit(): Promise<void> {
 
   // Step 5: Skills
   await setupSkills(gitRoot);
+
+  // Step 6: Git hooks
+  installGitHooks(gitRoot);
 
   console.log(`\nDone. Restart Claude Code to activate.`);
 }
@@ -166,6 +169,48 @@ async function setupClaudeMd(gitRoot: string): Promise<void> {
 // ---------------------------------------------------------------------------
 // Step 5: Skills
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Step 6: Git hooks
+// ---------------------------------------------------------------------------
+
+export function installGitHooks(gitRoot?: string): void {
+  const root = gitRoot ?? findGitRoot(process.cwd());
+  if (!root) {
+    console.log("  No .git directory found — skipping git hook installation.");
+    return;
+  }
+
+  const hooksDir = join(root, ".git", "hooks");
+  if (!existsSync(hooksDir)) mkdirSync(hooksDir, { recursive: true });
+
+  const preCommitPath = join(hooksDir, "pre-commit");
+  const postCommitPath = join(hooksDir, "post-commit");
+  const preCommitScript = `#!/bin/sh
+# Brain pre-commit hook: check for task completion and unlogged decisions
+brain check-commit
+`;
+
+  if (!existsSync(preCommitPath)) {
+    Bun.writeSync(Bun.openSync(preCommitPath, "w"), preCommitScript);
+    chmodSync(preCommitPath, 0o755);
+    console.log("✓ Git: pre-commit hook installed");
+  } else {
+    console.log("✓ Git: pre-commit hook already exists");
+  }
+
+  // Remove legacy Brain post-commit hook
+  if (existsSync(postCommitPath)) {
+    const postCommitContent = Bun.file(postCommitPath).textSync();
+    const isBrainManaged =
+      postCommitContent.includes("Brain post-commit hook") &&
+      postCommitContent.includes("brain log-commit");
+    if (isBrainManaged) {
+      unlinkSync(postCommitPath);
+      console.log("  Removed legacy Brain post-commit hook");
+    }
+  }
+}
 
 async function setupSkills(gitRoot: string): Promise<void> {
   const commandsDir = join(gitRoot, ".claude", "commands");

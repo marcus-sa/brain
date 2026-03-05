@@ -2,7 +2,7 @@
 
 import { runInit } from "./commands/init";
 import { runLoadContext, runCheckUpdates, runEndSession } from "./commands/system";
-import { runLogCommit } from "./commands/git-hooks";
+import { runCheckCommit, runLogCommit } from "./commands/git-hooks";
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -33,6 +33,9 @@ async function main(): Promise<void> {
       break;
 
     case "check-commit":
+      await runCheckCommit();
+      break;
+
     case "log-commit":
       await runLogCommit();
       break;
@@ -67,8 +70,8 @@ Usage:
   brain system load-context      Load workspace info (SessionStart hook)
   brain system check-updates     Check for graph updates (UserPromptSubmit hook)
   brain system end-session       End agent session (SessionEnd hook)
-  brain check-commit             Deprecated no-op (kept for existing git hooks)
-  brain log-commit               Deprecated no-op (kept for existing git hooks)
+  brain check-commit             Pre-commit hook: check for task completion
+  brain log-commit               Deprecated no-op (GitHub webhook ingests commits)
   brain mcp                      Start MCP stdio server
 
 Environment:
