@@ -5,6 +5,7 @@ import { jsonError, jsonResponse } from "../http/response";
 import { logError, logInfo } from "../http/observability";
 import { buildWorkspaceOverview, buildProjectContext, buildTaskContext } from "./context-builder";
 import { authenticateMcpRequest, type McpAuthResult } from "./auth";
+import { checkAuthority, checkAuthorityOrError } from "../iam/authority";
 import { generateApiKey, hashApiKey } from "./api-key";
 import {
   listProjectDecisions,
@@ -429,6 +430,9 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
   async function handleResolveDecision(workspaceId: string, request: Request): Promise<Response> {
     const auth = await requireAuth(request, workspaceId);
     if (auth instanceof Response) return auth;
+    const perm = await checkAuthority({ surreal, agentType: auth.agentType, action: "create_decision", workspaceRecord: auth.workspaceRecord });
+    const denied = checkAuthorityOrError(perm, "create_decision", auth.agentType);
+    if (denied) return denied;
 
     const body = await parseJsonBody<{
       question: string;
@@ -583,6 +587,9 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
   async function handleCreateProvisionalDecision(workspaceId: string, request: Request): Promise<Response> {
     const auth = await requireAuth(request, workspaceId);
     if (auth instanceof Response) return auth;
+    const perm = await checkAuthority({ surreal, agentType: auth.agentType, action: "create_decision", workspaceRecord: auth.workspaceRecord });
+    const denied = checkAuthorityOrError(perm, "create_decision", auth.agentType);
+    if (denied) return denied;
 
     const body = await parseJsonBody<{
       name: string;
@@ -631,6 +638,9 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
   async function handleAskQuestion(workspaceId: string, request: Request): Promise<Response> {
     const auth = await requireAuth(request, workspaceId);
     if (auth instanceof Response) return auth;
+    const perm = await checkAuthority({ surreal, agentType: auth.agentType, action: "create_question", workspaceRecord: auth.workspaceRecord });
+    const denied = checkAuthorityOrError(perm, "create_question", auth.agentType);
+    if (denied) return denied;
 
     const body = await parseJsonBody<{
       text: string;
@@ -692,6 +702,9 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
   async function handleUpdateTaskStatus(workspaceId: string, request: Request): Promise<Response> {
     const auth = await requireAuth(request, workspaceId);
     if (auth instanceof Response) return auth;
+    const perm = await checkAuthority({ surreal, agentType: auth.agentType, action: "complete_task", workspaceRecord: auth.workspaceRecord });
+    const denied = checkAuthorityOrError(perm, "complete_task", auth.agentType);
+    if (denied) return denied;
 
     const body = await parseJsonBody<{ task_id: string; status: string; notes?: string }>(request);
     if (body instanceof Response) return body;
@@ -721,6 +734,9 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
   async function handleCreateSubtask(workspaceId: string, request: Request): Promise<Response> {
     const auth = await requireAuth(request, workspaceId);
     if (auth instanceof Response) return auth;
+    const perm = await checkAuthority({ surreal, agentType: auth.agentType, action: "create_task", workspaceRecord: auth.workspaceRecord });
+    const denied = checkAuthorityOrError(perm, "create_task", auth.agentType);
+    if (denied) return denied;
 
     const body = await parseJsonBody<{
       parent_task_id: string;
@@ -794,6 +810,9 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
   async function handleLogObservation(workspaceId: string, request: Request): Promise<Response> {
     const auth = await requireAuth(request, workspaceId);
     if (auth instanceof Response) return auth;
+    const perm = await checkAuthority({ surreal, agentType: auth.agentType, action: "create_observation", workspaceRecord: auth.workspaceRecord });
+    const denied = checkAuthorityOrError(perm, "create_observation", auth.agentType);
+    if (denied) return denied;
 
     const body = await parseJsonBody<{
       text: string;
@@ -1366,6 +1385,9 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
   async function handleConvertSuggestion(workspaceId: string, request: Request): Promise<Response> {
     const auth = await requireAuth(request, workspaceId);
     if (auth instanceof Response) return auth;
+    const perm = await checkAuthority({ surreal, agentType: auth.agentType, action: "create_task", workspaceRecord: auth.workspaceRecord });
+    const denied = checkAuthorityOrError(perm, "create_task", auth.agentType);
+    if (denied) return denied;
 
     const body = await parseJsonBody<{
       suggestion_id: string;

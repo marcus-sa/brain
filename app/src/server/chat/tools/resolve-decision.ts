@@ -11,7 +11,7 @@ import {
   resolveWorkspaceProjectRecord,
   type GraphEntityRecord,
 } from "../../graph/queries";
-import { requireToolContext } from "./helpers";
+import { requireAuthorizedContext } from "../../iam/authority";
 import type { ChatToolDeps } from "./types";
 
 const resolveDecisionInputSchema = z.object({
@@ -32,7 +32,7 @@ export function createResolveDecisionTool(deps: ChatToolDeps) {
       "Infer an answer to a decision question from graph context. Returns resolved/inferred/unresolved with rationale and sources.",
     inputSchema: resolveDecisionInputSchema,
     execute: async (input, options) => {
-      const context = requireToolContext(options);
+      const { context } = await requireAuthorizedContext(options, "create_decision", deps);
       const queryEmbedding = await createEmbeddingVector(deps.embeddingModel, input.question, deps.embeddingDimension);
       if (!queryEmbedding) {
         throw new Error("failed to create query embedding for resolve_decision");

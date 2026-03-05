@@ -5,7 +5,7 @@ import { ENTITY_CATEGORIES } from "../../../shared/contracts";
 import { createEmbeddingVector } from "../../graph/embeddings";
 import { isEntityInWorkspace, parseRecordIdString } from "../../graph/queries";
 import { createObservation } from "../../observation/queries";
-import { requireToolContext } from "./helpers";
+import { requireAuthorizedContext } from "../../iam/authority";
 import type { ChatToolDeps } from "./types";
 
 export function createCreateObservationTool(deps: ChatToolDeps) {
@@ -26,7 +26,7 @@ export function createCreateObservationTool(deps: ChatToolDeps) {
         .describe("Optional related entity id (project/feature/task/decision/question)"),
     }),
     execute: async (input, options) => {
-      const context = requireToolContext(options);
+      const { context } = await requireAuthorizedContext(options, "create_observation", deps);
 
       const relatedRecord = input.related_entity_id
         ? parseRecordIdString(

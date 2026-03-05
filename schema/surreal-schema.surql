@@ -442,6 +442,24 @@ DEFINE TABLE attended_by TYPE RELATION IN meeting OUT person SCHEMAFULL;
 DEFINE FIELD role ON attended_by TYPE option<string> ASSERT $value = NONE OR $value IN ["organizer", "attendee"];
 DEFINE FIELD added_at ON attended_by TYPE option<datetime>;
 
+-- Authority scopes: per-agent-type permission matrix
+DEFINE TABLE authority_scope SCHEMAFULL;
+DEFINE FIELD agent_type ON authority_scope TYPE string
+  ASSERT $value IN ["code_agent", "architect", "management", "design_partner", "observer"];
+DEFINE FIELD action ON authority_scope TYPE string
+  ASSERT $value IN [
+    "create_decision", "confirm_decision",
+    "create_task", "complete_task",
+    "create_observation", "acknowledge_observation", "resolve_observation",
+    "create_question", "create_suggestion"
+  ];
+DEFINE FIELD permission ON authority_scope TYPE string
+  ASSERT $value IN ["auto", "provisional", "propose", "blocked"];
+DEFINE FIELD workspace ON authority_scope TYPE option<record<workspace>>;
+DEFINE FIELD created_at ON authority_scope TYPE datetime;
+DEFINE INDEX authority_scope_lookup ON authority_scope
+  FIELDS agent_type, action, workspace UNIQUE;
+
 DEFINE FUNCTION fn::entity_search_workspace($q: string, $limit: int, $workspace: record<workspace>) {
   LET $query = string::lowercase(string::trim($q));
   LET $safe_limit = math::min([math::max([$limit, 1]), 100]);

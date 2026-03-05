@@ -1,6 +1,7 @@
 import { RecordId, type Surreal } from "surrealdb";
 import { verifyApiKey } from "./api-key";
 import { jsonError } from "../http/response";
+import type { AgentType } from "../chat/tools/types";
 
 type WorkspaceRow = {
   id: RecordId<"workspace", string>;
@@ -8,9 +9,14 @@ type WorkspaceRow = {
   api_key_hash?: string;
 };
 
+const VALID_AGENT_TYPES = new Set<AgentType>([
+  "code_agent", "architect", "management", "design_partner", "observer",
+]);
+
 export type McpAuthResult = {
   workspaceRecord: RecordId<"workspace", string>;
   workspaceName: string;
+  agentType: AgentType;
 };
 
 /**
@@ -48,8 +54,14 @@ export async function authenticateMcpRequest(
     return jsonError("invalid API key", 401);
   }
 
+  const rawAgentType = request.headers.get("x-agent-type") ?? "code_agent";
+  if (!VALID_AGENT_TYPES.has(rawAgentType as AgentType)) {
+    return jsonError(`invalid X-Agent-Type: ${rawAgentType}`, 400);
+  }
+
   return {
     workspaceRecord,
     workspaceName: workspace.name,
+    agentType: rawAgentType as AgentType,
   };
 }

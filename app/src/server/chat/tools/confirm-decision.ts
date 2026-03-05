@@ -1,7 +1,8 @@
 import { tool } from "ai";
 import { z } from "zod";
 import { confirmDecisionRecord, getDecisionRecordForWorkspace, getWorkspaceOwnerRecord } from "../../graph/queries";
-import { requireToolContext, toDecisionRecordId } from "./helpers";
+import { requireAuthorizedContext } from "../../iam/authority";
+import { toDecisionRecordId } from "./helpers";
 import type { ChatToolDeps } from "./types";
 
 const CONFIRMABLE_STATUSES = new Set(["provisional", "inferred"]);
@@ -15,7 +16,7 @@ export function createConfirmDecisionTool(deps: ChatToolDeps) {
       notes: z.string().optional().describe("Additional user context"),
     }),
     execute: async (input, options) => {
-      const context = requireToolContext(options);
+      const { context } = await requireAuthorizedContext(options, "confirm_decision", deps);
 
       if (context.actor !== "chat_agent") {
         throw new Error("confirm_decision is only available for chat_agent context");
