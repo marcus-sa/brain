@@ -1,0 +1,277 @@
+<system_instruction>
+You are working inside Conductor, a Mac app that lets the user run many coding agents in parallel.
+Your work should take place in the /Users/marcus/conductor/workspaces/brain/riga directory (unless otherwise directed), which has been set up for you to work in.
+Each workspace has a .context directory (gitignored) where you can save files to collaborate with other agents.
+The target branch for this workspace is main. Use this for actions like creating new PRs, bisecting, etc., unless you're told otherwise.
+
+If the user asks you to work on several unrelated tasks in parallel, you can suggest they start new workspaces.
+If the user asks for help with Conductor, ask them to email [humans@conductor.build](mailto:humans@conductor.build) or
+click on the comment icon in the bottom left to send feedback.
+</system_instruction>
+
+plan whats missing in: docs/plans/iam-phase-1.md — MVP: what’s done (better-auth), what’s left (identity resolution, MCP API key, authority scopes, human_present, extraction name resolution)
+
+11 tool calls, 7 messages
+Now I have a clear picture. Here’s the gap analysis:
+
+Phase 1 Gap Analysis
+
+Done (confirmed in codebase)
+Item	Evidence
+Person table with auth fields	Schema has contact_email, email_verified, image, updated_at
+better-auth + SurrealDB v2 adapter	auth/adapter.ts, auth/config.ts
+GitHub OAuth configured	Auth env vars (GITHUB_CLIENT_ID/SECRET) in runtime/config.ts
+session/account/verification tables	Schema + migration 0010_better_auth_tables.surql
+Account linking	Tests in tests/smoke/better-auth-adapter.test.ts
+MCP API key auth (workspace-scoped)	mcp/auth.ts — Bearer token validates against workspace.api_key_hash
+Extraction name resolution (partial)	extraction/person.ts — findWorkspacePersonByName() does exact case-insensitive match against person.name in workspace scope. Unresolved names stored as decided_by_name, owner_name, assigned_to_name
+Not Started (zero code exists)
+Item	What’s needed	Complexity
+Identity Resolution functions	fn::resolve_identity (provider match) and fn::resolve_by_email (cross-provider). Plan shows SurrealQL stored functions querying person.identities[] and contact_email. Nothing exists — the identities field is defined in schema but never queried.	Low — 2 stored functions + TS caller
+Authority Scopes	authority_scope table, workspace_permission table, fn::check_authority. No schema, no code, no migration. The hardcoded permission matrix (code_agent/architect/management/design_partner/observer × 9 actions) needs to be seeded.	Medium — schema + migration + seed + enforcement middleware
+human_present flag	AgentIdentity type with human_present: boolean. Zero references in codebase. The ChatToolExecutionContext.actor field distinguishes chat_agent vs mcp but doesn’t carry human_present or authority scope.	Low — type addition + set true for web chat, false for MCP
+Authority enforcement in tools	Tools currently execute unconditionally. Need to check fn::check_authority before each tool action and return provisional/blocked/propose status. This is the wiring that makes scopes mean something.	Medium — touches every tool’s execute path
+Web Chat session auth	Chat endpoints (POST /api/chat/messages) have no authentication. Need to validate better-auth session cookie and resolve to Person.	Low-Medium — middleware + session lookup
+MCP API key → Person + scopes	Current MCP auth resolves to workspace only (no Person, no agent_type, no scopes). Plan says API key should map to workspace + fixed scopes matching the authority table.	Low — extend McpAuthResult with person + agent_type
+Partially Done
+Item	What exists	What’s missing
+Extraction name resolution	findWorkspacePersonByName does exact name match → links owner/decided_by/assigned_to to Person RecordId. Unresolved names stored as _name string fields.	No cross-provider resolution (email/provider_id match from Identity Resolution). No suggestion surfaced in feed for unresolved names.
+GitHub OAuth flow	better-auth handles OAuth redirect + account linking	No “Connect GitHub” UI in workspace settings (plan step 1). No explicit account→Person linking flow for already-logged-in users.
+Suggested Implementation Order
+human_present + AgentIdentity type — smallest change, unblocks authority enforcement design
+Authority schema + seed migration — authority_scope, workspace_permission tables + hardcoded defaults
+fn::check_authority — stored function or TS-side lookup
+Authority enforcement in tools — gate tool execution on scope check
+Web chat session auth — validate session cookie, resolve Person
+MCP auth → Person + scopes — extend current McpAuthResult
+Identity Resolution functions — resolve_identity + resolve_by_email
+Extraction name resolution upgrade — wire identity resolution into extraction pipeline, surface unresolved suggestions
+Items 1-4 are the core authority system. Items 5-6 connect auth to authority. Items 7-8 complete the identity story.
+
+----
+
+how is authority scopes and workspace permissions gonna work with "OAuth 2.1 for MCP, brain init browser flow, Slack/Google identity, authority config UI, connected agent management"
+
+---
+
+plan implementation for remaning phase 1 gaps
+
+---
+
+This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.
+
+Analysis:
+Let me chronologically analyze the conversation:
+
+1. **Initial context**: The user is working on a project called "riga" - an AI-native business management platform using SurrealDB, TypeScript/Bun, and Vercel AI SDK. The branch is `marcus-sa/better-auth-surrealdb`.
+
+2. **First user message**: "plan whats missing in: docs/plans/iam-phase-1.md" - asking for a gap analysis of IAM Phase 1. This was already completed before the conversation started (context shows a detailed gap analysis was provided).
+
+3. **Second user message**: "how is authority scopes and workspace permissions gonna work with 'OAuth 2.1 for MCP, brain init browser flow, Slack/Google identity, authority config UI, connected agent management'" - asking how Phase 1 design integrates with Phase 2 features. This was answered with a detailed architectural analysis using sequential thinking.
+
+4. **Third user message**: "plan implementation for remaining phase 1 gaps" - entered plan mode. The user approved entering plan mode.
+
+5. **Plan phase**: Three Explore agents were launched in parallel to examine:
+   - Tool enforcement surface (ChatToolExecutionContext, requireToolContext, all write tools, MCP route bypass)
+   - Auth and identity surface (better-auth config, adapter, chat ingress, schema, migrations)
+   - Test infrastructure (smoke test patterns, better-auth tests)
+
+6. A Plan agent was launched to design the implementation.
+
+7. The plan was written to `/Users/marcus/.claude/plans/streamed-herding-hellman.md` with 7 steps and approved by the user.
+
+8. **Implementation phase**: Tasks were created and executed:
+   - Task 1: Extend ChatToolExecutionContext ✅
+   - Task 2: Create migration 0011 ✅
+   - Task 3: Create IAM authority module ✅
+   - Task 4: Wire authority into 10 write tools + fix PM agent ✅
+   - Task 5: Wire authority into MCP routes + extend McpAuthResult ✅
+   - Task 6: Add web chat session auth ✅
+   - Task 7: Create identity resolution + wire into extraction ✅
+   - Task 8: Write tests - IN PROGRESS
+
+9. **Errors encountered**:
+   - Edit tool failures: Files read earlier in context expired, requiring re-reads
+   - Migration 0011: `DEFINE TABLE OVERWRITE authority_scope SCHEMAFULL` inside transaction failed
+   - Fixed to `DEFINE TABLE authority_scope IF NOT EXISTS SCHEMAFULL` - but SurrealDB syntax requires `IF NOT EXISTS` before table name: `DEFINE TABLE IF NOT EXISTS authority_scope SCHEMAFULL`
+   - Smoke test setup: `setupSmokeSuite` applies all migrations and older migrations (0001, 0003, 0005, 0006, 0007, 0008) fail because base schema already contains those definitions. Fixed by switching to direct setup (like better-auth tests) with try/catch around migrations.
+
+10. **Current state**: The smoke test file was rewritten with direct DB setup. The test hasn't been run yet after the rewrite.
+
+Let me be thorough about the code changes and files.
+
+Summary:
+1. Primary Request and Intent:
+   The user requested implementation of the remaining IAM Phase 1 gaps for their AI-native business management platform. This included:
+   - Gap analysis of what's done vs missing in IAM Phase 1
+   - Architectural analysis of how Phase 1 authority scopes integrate with Phase 2 features (OAuth 2.1, brain init, Slack/Google identity, authority config UI)
+   - Planning and implementing the remaining Phase 1 gaps: AgentIdentity type, authority_scope schema, checkAuthority function, authority enforcement in tools and MCP routes, web chat session auth, identity resolution, and extraction pipeline wiring
+
+2. Key Technical Concepts:
+   - SurrealDB v2 SDK with RecordId objects, SCHEMAFULL tables, TYPE RELATION tables
+   - Vercel AI SDK's `experimental_context` for passing actor context to tools
+   - Authority scoping: permission matrix (5 agent types × 9 actions) with levels: auto, provisional, propose, blocked
+   - `humanPresent` flag: web chat = true (bypasses authority), MCP = false (enforced)
+   - Two enforcement paths: chat tools (via `requireAuthorizedContext` wrapper) and MCP routes (via `checkAuthority` + `checkAuthorityOrError`)
+   - Identity resolution chain: exact name match → email match (Phase 1), provider match + fuzzy (Phase 2)
+   - Workspace-specific authority overrides: nullable workspace field enables Phase 2 config UI without schema changes
+   - better-auth session resolution for chat authentication
+
+3. Files and Code Sections:
+
+   - **`app/src/server/chat/tools/types.ts`** - Core type definitions for tool execution context
+     - Added `AgentType` union and 3 optional fields to `ChatToolExecutionContext`
+     ```typescript
+     export type AgentType = "code_agent" | "architect" | "management" | "design_partner" | "observer";
+     // Added to ChatToolExecutionContext:
+     agentType?: AgentType;
+     humanPresent?: boolean;
+     personRecord?: RecordId<"person", string>;
+     ```
+
+   - **`schema/migrations/0011_authority_scope.surql`** - New migration for authority_scope table + 45-row seed
+     - Uses `DEFINE TABLE IF NOT EXISTS` and `DEFINE FIELD OVERWRITE` pattern
+     - Seeds all 5 agent types × 9 actions with permission levels
+     - Wrapped in `BEGIN TRANSACTION; ... COMMIT TRANSACTION;`
+
+   - **`schema/surreal-schema.surql`** - Base schema updated with authority_scope table definition
+     - Inserted after `attended_by` table, before `DEFINE FUNCTION fn::entity_search_workspace`
+     - Includes ASSERT constraints on agent_type, action, and permission fields
+     - UNIQUE index on (agent_type, action, workspace)
+
+   - **`app/src/server/iam/authority.ts`** - NEW: Core authority enforcement module
+     ```typescript
+     export type AuthorityAction = "create_decision" | "confirm_decision" | "create_task" | "complete_task" | "create_observation" | "acknowledge_observation" | "resolve_observation" | "create_question" | "create_suggestion";
+     export type AuthorityPermission = "auto" | "provisional" | "propose" | "blocked";
+     export class AuthorityError extends Error { ... }
+     export async function checkAuthority(input: { surreal, agentType, action, workspaceRecord? }): Promise<AuthorityPermission>
+     export async function requireAuthorizedContext(options, action, deps): Promise<AuthorizedContext>
+     export function checkAuthorityOrError(permission, action, agentType): Response | undefined
+     ```
+     - `checkAuthority`: queries workspace-specific override first, falls back to global (workspace IS NONE), then blocked
+     - `requireAuthorizedContext`: wraps `requireToolContext`, bypasses for `humanPresent`, maps actor to agentType via `ACTOR_DEFAULT_AGENT_TYPE` (pm_agent→management, analytics_agent→observer), throws AuthorityError for blocked/propose
+     - `checkAuthorityOrError`: MCP route helper returning 403 Response
+
+   - **`app/src/server/iam/identity.ts`** - NEW: Identity resolution functions
+     ```typescript
+     export async function resolveIdentity(input: { surreal, provider, providerId, workspaceRecord }): Promise<RecordId<"person"> | undefined>
+     export async function resolveByEmail(input: { surreal, email, workspaceRecord }): Promise<RecordId<"person"> | undefined>
+     ```
+     - Both scope queries to workspace via `member_of` edge
+     - `resolveByEmail` uses case-insensitive matching via `string::lowercase`
+
+   - **`app/src/server/agents/pm/agent.ts`** - Fixed PM agent actor propagation
+     - Changed line 86: `experimental_context: input.context` → `experimental_context: { ...input.context, actor: "pm_agent" as const }`
+
+   - **10 write tool files** - All updated from `requireToolContext` to `requireAuthorizedContext`:
+     - `create-provisional-decision.ts` → `"create_decision"`
+     - `confirm-decision.ts` → `"confirm_decision"` (kept existing actor check too)
+     - `resolve-decision.ts` → `"create_decision"`
+     - `create-observation.ts` → `"create_observation"`
+     - `acknowledge-observation.ts` → `"acknowledge_observation"`
+     - `resolve-observation.ts` → `"resolve_observation"`
+     - `create-question.ts` → `"create_question"`
+     - `create-work-item.ts` → `"create_task"`
+     - `suggest-work-items.ts` → `"create_suggestion"`
+     - `create-suggestion.ts` → `"create_suggestion"`
+     - Pattern: changed import from `"./helpers"` to `"../../iam/authority"`, changed `const context = requireToolContext(options)` to `const { context } = await requireAuthorizedContext(options, "action_name", deps)`
+
+   - **`app/src/server/mcp/auth.ts`** - Extended McpAuthResult with agentType
+     ```typescript
+     export type McpAuthResult = {
+       workspaceRecord: RecordId<"workspace", string>;
+       workspaceName: string;
+       agentType: AgentType;  // NEW
+     };
+     ```
+     - Added `VALID_AGENT_TYPES` Set, reads `X-Agent-Type` header with default `"code_agent"`, validates against allowed values
+
+   - **`app/src/server/mcp/mcp-route.ts`** - Added authority checks to 7 write handlers
+     - Added import: `import { checkAuthority, checkAuthorityOrError } from "../iam/authority";`
+     - Handlers updated: `handleResolveDecision`, `handleCreateProvisionalDecision`, `handleAskQuestion`, `handleUpdateTaskStatus`, `handleCreateSubtask`, `handleLogObservation`, `handleConvertSuggestion`
+     - Pattern inserted after `requireAuth`:
+     ```typescript
+     const perm = await checkAuthority({ surreal, agentType: auth.agentType, action: "...", workspaceRecord: auth.workspaceRecord });
+     const denied = checkAuthorityOrError(perm, "...", auth.agentType);
+     if (denied) return denied;
+     ```
+
+   - **`app/src/server/chat/chat-ingress.ts`** - Added session resolution before processChatMessage
+     ```typescript
+     let personRecord: RecordId<"person", string> | undefined;
+     try {
+       const session = await deps.auth.api.getSession({ headers: request.headers });
+       if (session?.user?.id) {
+         personRecord = new RecordId("person", session.user.id);
+       }
+     } catch { }
+     ```
+     - Passed `personRecord` into `processChatMessage` call
+
+   - **`app/src/server/chat/chat-processor.ts`** - Threaded personRecord
+     - Added `personRecord?: RecordId<"person", string>` to input type
+     - Passed to `runChatAgent`: `...(input.personRecord ? { personRecord: input.personRecord } : {})`
+
+   - **`app/src/server/chat/handler.ts`** - Set humanPresent and personRecord on context
+     - Added `personRecord?: RecordId<"person", string>` to runChatAgent input type
+     - Added to `experimental_context`: `humanPresent: true` and personRecord spread
+
+   - **`app/src/server/extraction/person.ts`** - Added composite resolver
+     ```typescript
+     export async function resolveWorkspacePerson(input: {
+       surreal: Surreal;
+       workspaceRecord: RecordId<"workspace", string>;
+       personName: string;
+     }): Promise<RecordId<"person", string> | undefined> {
+       const byName = await findWorkspacePersonByName(input);
+       if (byName) return byName;
+       if (input.personName.includes("@")) {
+         return resolveByEmail({ surreal: input.surreal, email: input.personName, workspaceRecord: input.workspaceRecord });
+       }
+       return undefined;
+     }
+     ```
+
+   - **`app/src/server/extraction/persist-extraction.ts`** - Wired composite resolver
+     - Changed import from `findWorkspacePersonByName` to `resolveWorkspacePerson`
+     - Changed call site at line 266
+
+   - **`tests/smoke/authority.test.ts`** - NEW: Smoke tests for authority + identity
+     - Uses direct DB setup (not `setupSmokeSuite`) with try/catch around migrations
+     - Tests: checkAuthority for all permission levels, workspace-specific override, unknown action fallback
+     - Tests: resolveByEmail case-insensitive, non-member returns undefined, resolveWorkspacePerson chain
+
+4. Errors and fixes:
+   - **Edit tool "file not read" errors**: Files read earlier in the conversation expired from context cache. Fixed by re-reading the specific lines needed before editing.
+   - **Migration DEFINE TABLE OVERWRITE in transaction**: `DEFINE TABLE OVERWRITE authority_scope SCHEMAFULL` inside `BEGIN TRANSACTION` failed when table already existed from base schema. First tried `DEFINE TABLE authority_scope IF NOT EXISTS SCHEMAFULL` — wrong syntax. SurrealDB requires `DEFINE TABLE IF NOT EXISTS authority_scope SCHEMAFULL`. Fixed with correct keyword ordering.
+   - **Smoke test setupSmokeSuite failures**: The shared `setupSmokeSuite` helper applies all migrations sequentially using `.collect()` which throws on transaction failures. Older migrations (0001, 0003, 0005, 0006, 0007, 0008) fail because their schema already exists in the base schema file. Fixed by switching to direct setup pattern (like better-auth-adapter.test.ts) with individual try/catch around each migration.
+   - **TypeScript compilation**: Verified clean with `npx tsc --noEmit` after all edits — no errors.
+
+5. Problem Solving:
+   - Designed authority_scope schema with nullable workspace field to support Phase 2 workspace-specific overrides without schema changes
+   - Chose TS-side authority checking over SurrealDB stored functions due to known limitations (search::score doesn't work in functions, parameter binding issues)
+   - Used `requireAuthorizedContext` wrapper pattern instead of per-tool inline checks for DRY enforcement
+   - PM agent actor propagation fixed by spreading context with overridden actor
+   - Session resolution in chat-ingress is non-blocking (try/catch) so unauthenticated chat still works during transition
+
+6. All user messages:
+   - "plan whats missing in: docs/plans/iam-phase-1.md — MVP: what's done (better-auth), what's left (identity resolution, MCP API key, authority scopes, human_present, extraction name resolution)" (with 11 tool calls, 7 messages context)
+   - "how is authority scopes and workspace permissions gonna work with 'OAuth 2.1 for MCP, brain init browser flow, Slack/Google identity, authority config UI, connected agent management'"
+   - "plan implementation for remaning phase 1 gaps" (entered plan mode)
+
+7. Pending Tasks:
+   - Task #8: Write unit and smoke tests for authority + identity — IN PROGRESS
+     - Smoke test file has been rewritten with direct DB setup pattern but needs to be run to verify it passes
+
+8. Current Work:
+   The smoke test file `tests/smoke/authority.test.ts` was just rewritten to use direct DB setup (bypassing the problematic `setupSmokeSuite` helper). The test needs to be run with `bun test tests/smoke/authority.test.ts` to verify all 10 test cases pass. The previous two attempts failed due to migration transaction errors in the setup phase.
+
+9. Optional Next Step:
+   Run `bun test tests/smoke/authority.test.ts` to verify the rewritten smoke tests pass. The last action was writing the updated test file, and the task "Write unit and smoke tests for authority + identity" (Task #8) is still in_progress. If tests pass, mark Task #8 complete and the full implementation is done.
+
+If you need specific details from before compaction (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/marcus/.claude/projects/-Users-marcus-conductor-workspaces-brain-riga/db43942e-7fbf-4411-a06c-6b94846c2e5a.jsonl
+Please continue the conversation from where we left off without asking the user any further questions. Continue with the last task that you were asked to work on.
+
+---
+
+if everything in phase 1 is done, mark it as done in file
