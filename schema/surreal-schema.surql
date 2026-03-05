@@ -52,7 +52,6 @@ DEFINE FIELD onboarding_started_at ON workspace TYPE datetime;
 DEFINE FIELD onboarding_completed_at ON workspace TYPE option<datetime>;
 DEFINE FIELD created_at ON workspace TYPE datetime;
 DEFINE FIELD updated_at ON workspace TYPE option<datetime>;
-DEFINE FIELD api_key_hash ON workspace TYPE option<string>;
 DEFINE INDEX workspace_name ON workspace FIELDS name;
 
 DEFINE TABLE project SCHEMAFULL;
@@ -621,6 +620,85 @@ DEFINE FIELD expires_at ON verification TYPE datetime;
 DEFINE FIELD created_at ON verification TYPE datetime;
 DEFINE FIELD updated_at ON verification TYPE datetime;
 DEFINE INDEX verification_identifier ON verification FIELDS identifier;
+
+-- OAuth Provider: client registrations (camelCase to match better-auth defaults)
+DEFINE TABLE oauthClient SCHEMAFULL;
+DEFINE FIELD clientId ON oauthClient TYPE string;
+DEFINE FIELD clientSecret ON oauthClient TYPE option<string>;
+DEFINE FIELD disabled ON oauthClient TYPE option<bool> DEFAULT false;
+DEFINE FIELD skipConsent ON oauthClient TYPE option<bool>;
+DEFINE FIELD enableEndSession ON oauthClient TYPE option<bool>;
+DEFINE FIELD scopes ON oauthClient TYPE option<string>;
+DEFINE FIELD userId ON oauthClient TYPE option<record<person>>;
+DEFINE FIELD referenceId ON oauthClient TYPE option<string>;
+DEFINE FIELD createdAt ON oauthClient TYPE option<datetime>;
+DEFINE FIELD updatedAt ON oauthClient TYPE option<datetime>;
+DEFINE FIELD expiresAt ON oauthClient TYPE option<datetime>;
+DEFINE FIELD name ON oauthClient TYPE option<string>;
+DEFINE FIELD uri ON oauthClient TYPE option<string>;
+DEFINE FIELD icon ON oauthClient TYPE option<string>;
+DEFINE FIELD contacts ON oauthClient TYPE option<string>;
+DEFINE FIELD tos ON oauthClient TYPE option<string>;
+DEFINE FIELD policy ON oauthClient TYPE option<string>;
+DEFINE FIELD softwareId ON oauthClient TYPE option<string>;
+DEFINE FIELD softwareVersion ON oauthClient TYPE option<string>;
+DEFINE FIELD softwareStatement ON oauthClient TYPE option<string>;
+DEFINE FIELD redirectUris ON oauthClient TYPE string;
+DEFINE FIELD postLogoutRedirectUris ON oauthClient TYPE option<string>;
+DEFINE FIELD tokenEndpointAuthMethod ON oauthClient TYPE option<string>;
+DEFINE FIELD grantTypes ON oauthClient TYPE option<string>;
+DEFINE FIELD responseTypes ON oauthClient TYPE option<string>;
+DEFINE FIELD public ON oauthClient TYPE option<bool>;
+DEFINE FIELD requirePKCE ON oauthClient TYPE option<bool>;
+DEFINE FIELD metadata ON oauthClient TYPE option<string>;
+DEFINE INDEX oauthClient_clientId ON oauthClient FIELDS clientId UNIQUE;
+DEFINE INDEX oauthClient_userId ON oauthClient FIELDS userId;
+
+-- OAuth Provider: access tokens
+DEFINE TABLE oauthAccessToken SCHEMAFULL;
+DEFINE FIELD token ON oauthAccessToken TYPE string;
+DEFINE FIELD clientId ON oauthAccessToken TYPE string;
+DEFINE FIELD sessionId ON oauthAccessToken TYPE option<record<session>>;
+DEFINE FIELD userId ON oauthAccessToken TYPE option<record<person>>;
+DEFINE FIELD referenceId ON oauthAccessToken TYPE option<string>;
+DEFINE FIELD refreshId ON oauthAccessToken TYPE option<record<oauthRefreshToken>>;
+DEFINE FIELD scopes ON oauthAccessToken TYPE string;
+DEFINE FIELD expiresAt ON oauthAccessToken TYPE datetime;
+DEFINE FIELD createdAt ON oauthAccessToken TYPE datetime;
+DEFINE INDEX oauthAccessToken_token ON oauthAccessToken FIELDS token UNIQUE;
+DEFINE INDEX oauthAccessToken_clientId ON oauthAccessToken FIELDS clientId;
+
+-- OAuth Provider: refresh tokens
+DEFINE TABLE oauthRefreshToken SCHEMAFULL;
+DEFINE FIELD token ON oauthRefreshToken TYPE string;
+DEFINE FIELD clientId ON oauthRefreshToken TYPE string;
+DEFINE FIELD sessionId ON oauthRefreshToken TYPE option<record<session>>;
+DEFINE FIELD userId ON oauthRefreshToken TYPE option<record<person>>;
+DEFINE FIELD referenceId ON oauthRefreshToken TYPE option<string>;
+DEFINE FIELD scopes ON oauthRefreshToken TYPE string;
+DEFINE FIELD revoked ON oauthRefreshToken TYPE option<datetime>;
+DEFINE FIELD authTime ON oauthRefreshToken TYPE option<datetime>;
+DEFINE FIELD createdAt ON oauthRefreshToken TYPE datetime;
+DEFINE FIELD expiresAt ON oauthRefreshToken TYPE datetime;
+DEFINE INDEX oauthRefreshToken_token ON oauthRefreshToken FIELDS token UNIQUE;
+DEFINE INDEX oauthRefreshToken_clientId ON oauthRefreshToken FIELDS clientId;
+
+-- OAuth Provider: consent records
+DEFINE TABLE oauthConsent SCHEMAFULL;
+DEFINE FIELD clientId ON oauthConsent TYPE string;
+DEFINE FIELD userId ON oauthConsent TYPE option<record<person>>;
+DEFINE FIELD referenceId ON oauthConsent TYPE option<string>;
+DEFINE FIELD scopes ON oauthConsent TYPE string;
+DEFINE FIELD createdAt ON oauthConsent TYPE datetime;
+DEFINE FIELD updatedAt ON oauthConsent TYPE datetime;
+DEFINE INDEX oauthConsent_clientId_userId ON oauthConsent FIELDS clientId, userId;
+
+-- OAuth Provider: JWKS signing keys
+DEFINE TABLE jwks SCHEMAFULL;
+DEFINE FIELD publicKey ON jwks TYPE string;
+DEFINE FIELD privateKey ON jwks TYPE string;
+DEFINE FIELD createdAt ON jwks TYPE datetime;
+DEFINE FIELD expiresAt ON jwks TYPE option<datetime>;
 
 -- Analytics agent: read-only database user
 DEFINE USER analytics ON DATABASE PASSWORD 'brain-analytics-readonly' ROLES VIEWER;

@@ -5,8 +5,9 @@ import { RecordId, type Surreal } from "surrealdb";
  * Custom SurrealDB v2 adapter for better-auth.
  *
  * Uses the project's existing Surreal connection (SDK v2) instead of creating
- * its own. All field names arrive pre-mapped by the factory (e.g., "contact_email"
- * not "email", "person_id" not "userId").
+ * its own. Field names arrive pre-mapped by the factory for configured core
+ * models (user/person, session, account, verification). Plugin models (OAuth
+ * tables) use better-auth's default camelCase naming which matches the DB schema.
  *
  * `findOne` returns `null` (not `undefined`) per better-auth contract —
  * boundary exception to project no-null rule.
@@ -40,15 +41,15 @@ export function surrealdbAdapter(surreal: Surreal) {
         }
       }
 
-      function getFkTable(model: string, field: string): string | undefined {
-        return fkMap.get(model)?.get(field);
+      function getFkTable(table: string, field: string): string | undefined {
+        return fkMap.get(table)?.get(field);
       }
 
       /** Convert string FK values to RecordId for writes/where clauses. */
-      function toRecordId(model: string, field: string, value: unknown): unknown {
+      function toRecordId(table: string, field: string, value: unknown): unknown {
         if (value === null || value === undefined) return value;
-        if (field === "id") return new RecordId(model, value as string);
-        const refTable = getFkTable(model, field);
+        if (field === "id") return new RecordId(table, value as string);
+        const refTable = getFkTable(table, field);
         if (refTable && typeof value === "string") return new RecordId(refTable, value);
         return value;
       }
@@ -70,14 +71,14 @@ export function surrealdbAdapter(surreal: Surreal) {
       /** Prepare content for CREATE/UPDATE — convert FK strings to RecordId, strip `id`, omit nulls. */
       function transformInputRecord(
         data: Record<string, unknown>,
-        model: string,
+        table: string,
         stripId: boolean,
       ): Record<string, unknown> {
         const content: Record<string, unknown> = {};
         for (const [key, value] of Object.entries(data)) {
           if (stripId && key === "id") continue;
           if (value === null || value === undefined) continue; // SurrealDB option<T> uses NONE (omit)
-          content[key] = toRecordId(model, key, value);
+          content[key] = toRecordId(table, key, value);
         }
         return content;
       }
@@ -85,7 +86,7 @@ export function surrealdbAdapter(surreal: Surreal) {
       /** Build parameterized WHERE clause from CleanedWhere[]. */
       function buildWhere(
         where: CleanedWhere[],
-        model: string,
+        table: string,
       ): { clause: string; params: Record<string, unknown> } {
         const parts: string[] = [];
         const params: Record<string, unknown> = {};
@@ -93,7 +94,7 @@ export function surrealdbAdapter(surreal: Surreal) {
         for (let i = 0; i < where.length; i++) {
           const w = where[i];
           const paramKey = `w${i}`;
-          const value = toRecordId(model, w.field, w.value);
+          const value = toRecordId(table, w.field, w.value);
           params[paramKey] = value;
 
           const connector = i > 0 ? ` ${w.connector} ` : "";
@@ -155,24 +156,26 @@ export function surrealdbAdapter(surreal: Surreal) {
 
       return {
         create: async ({ model, data }) => {
+          const table = getModelName(model);
           const id = data.id as string;
-          const record = new RecordId(model, id);
-          const content = transformInputRecord(data, model, true);
+          const record = new RecordId(table, id);
+          const content = transformInputRecord(data, table, true);
 
           const [result] = await surreal.query<[Record<string, unknown>[]]>(
             `CREATE $record CONTENT $content RETURN AFTER;`,
             { record, content },
           );
 
-          if (!result?.[0]) throw new Error(`Failed to create ${model} record`);
+          if (!result?.[0]) throw new Error(`Failed to create ${table} record`);
           return transformOutputRecord(result[0]) as any;
         },
 
         findOne: async ({ model, where }) => {
-          const { clause, params } = buildWhere(where, model);
+          const table = getModelName(model);
+          const { clause, params } = buildWhere(where, table);
 
           const [results] = await surreal.query<[Record<string, unknown>[]]>(
-            `SELECT * FROM ${model} WHERE ${clause} LIMIT 1;`,
+            `SELECT * FROM ${table} WHERE ${clause} LIMIT 1;`,
             params,
           );
 
@@ -182,11 +185,12 @@ export function surrealdbAdapter(surreal: Surreal) {
         },
 
         findMany: async ({ model, where, limit, sortBy, offset }) => {
-          let query = `SELECT * FROM ${model}`;
+          const table = getModelName(model);
+          let query = `SELECT * FROM ${table}`;
           let params: Record<string, unknown> = {};
 
           if (where && where.length > 0) {
-            const w = buildWhere(where, model);
+            const w = buildWhere(where, table);
             query += ` WHERE ${w.clause}`;
             params = w.params;
           }
@@ -205,15 +209,16 @@ export function surrealdbAdapter(surreal: Surreal) {
             params,
           );
 
-          return (results ?? []).map(transformOutputRecord) as any[];
+          return (results ?? []).map((r) => transformOutputRecord(r)) as any[];
         },
 
         update: async ({ model, where, update: updateData }) => {
-          const { clause, params } = buildWhere(where, model);
-          const content = transformInputRecord(updateData as Record<string, unknown>, model, true);
+          const table = getModelName(model);
+          const { clause, params } = buildWhere(where, table);
+          const content = transformInputRecord(updateData as Record<string, unknown>, table, true);
 
           const [results] = await surreal.query<[Record<string, unknown>[]]>(
-            `UPDATE ${model} MERGE $content WHERE ${clause} RETURN AFTER;`,
+            `UPDATE ${table} MERGE $content WHERE ${clause} RETURN AFTER;`,
             { ...params, content },
           );
 
@@ -223,11 +228,12 @@ export function surrealdbAdapter(surreal: Surreal) {
         },
 
         updateMany: async ({ model, where, update: updateData }) => {
-          const { clause, params } = buildWhere(where, model);
-          const content = transformInputRecord(updateData as Record<string, unknown>, model, true);
+          const table = getModelName(model);
+          const { clause, params } = buildWhere(where, table);
+          const content = transformInputRecord(updateData as Record<string, unknown>, table, true);
 
           const [results] = await surreal.query<[Record<string, unknown>[]]>(
-            `UPDATE ${model} MERGE $content WHERE ${clause};`,
+            `UPDATE ${table} MERGE $content WHERE ${clause};`,
             { ...params, content },
           );
 
@@ -235,29 +241,32 @@ export function surrealdbAdapter(surreal: Surreal) {
         },
 
         delete: async ({ model, where }) => {
-          const { clause, params } = buildWhere(where, model);
-          await surreal.query(`DELETE FROM ${model} WHERE ${clause};`, params);
+          const table = getModelName(model);
+          const { clause, params } = buildWhere(where, table);
+          await surreal.query(`DELETE FROM ${table} WHERE ${clause};`, params);
         },
 
         deleteMany: async ({ model, where }) => {
-          const { clause, params } = buildWhere(where, model);
+          const table = getModelName(model);
+          const { clause, params } = buildWhere(where, table);
           const [results] = await surreal.query<[Record<string, unknown>[]]>(
-            `DELETE FROM ${model} WHERE ${clause} RETURN BEFORE;`,
+            `DELETE FROM ${table} WHERE ${clause} RETURN BEFORE;`,
             params,
           );
           return results?.length ?? 0;
         },
 
         count: async ({ model, where }) => {
+          const table = getModelName(model);
           let query: string;
           let params: Record<string, unknown> = {};
 
           if (where && where.length > 0) {
-            const w = buildWhere(where, model);
-            query = `SELECT count() FROM ${model} WHERE ${w.clause} GROUP ALL;`;
+            const w = buildWhere(where, table);
+            query = `SELECT count() FROM ${table} WHERE ${w.clause} GROUP ALL;`;
             params = w.params;
           } else {
-            query = `SELECT count() FROM ${model} GROUP ALL;`;
+            query = `SELECT count() FROM ${table} GROUP ALL;`;
           }
 
           const [results] = await surreal.query<[Array<{ count: number }>]>(query, params);

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll } from "bun:test";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Surreal } from "surrealdb";
 
@@ -58,16 +58,6 @@ export function setupSmokeSuite(suiteName: string): () => SmokeTestRuntime {
     const schemaSql = readFileSync(join(process.cwd(), "schema", "surreal-schema.surql"), "utf8");
     await withTimeout(() => surreal.query(schemaSql), 20_000, "apply schema");
 
-    // Apply migrations for production parity
-    const migrationsDir = join(process.cwd(), "schema", "migrations");
-    const migrationFiles = readdirSync(migrationsDir)
-      .filter((f) => f.endsWith(".surql"))
-      .sort();
-    for (const file of migrationFiles) {
-      const migrationSql = readFileSync(join(migrationsDir, file), "utf8");
-      await withTimeout(() => surreal.query(migrationSql), 20_000, `apply migration ${file}`);
-    }
-
     serverProcess = Bun.spawn(["bun", "run", "app/server.ts"], {
       cwd: process.cwd(),
       env: {
@@ -75,9 +65,13 @@ export function setupSmokeSuite(suiteName: string): () => SmokeTestRuntime {
         PORT: String(port),
         SURREAL_NAMESPACE: namespace,
         SURREAL_DATABASE: database,
+        BETTER_AUTH_URL: baseUrl,
+        BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET ?? "smoke-test-secret-at-least-32-chars-long",
+        GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID ?? "smoke-test-github-id",
+        GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET ?? "smoke-test-github-secret",
       },
       stdout: "pipe",
-      stderr: "pipe",
+      stderr: "inherit",
     });
 
     await waitForHealth(baseUrl, serverProcess, 15_000);
@@ -188,7 +182,8 @@ async function waitForHealth(url: string, process: ReturnType<typeof Bun.spawn>,
 
   while (Date.now() - start < timeoutMs) {
     if (typeof process.exitCode === "number") {
-      throw new Error(`Smoke server exited early with code ${process.exitCode}`);
+      const stderr = process.stderr ? await new Response(process.stderr).text() : "";
+      throw new Error(`Smoke server exited early with code ${process.exitCode}\n${stderr}`);
     }
 
     try {

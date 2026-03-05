@@ -463,17 +463,17 @@ async function loadHotItems(
     : "";
 
   const hotQuery = `
-    SELECT id, summary
+    SELECT id, summary, updated_at
     FROM decision
     WHERE workspace = $workspace AND status = "contested" ${decisionFilter}
     ORDER BY updated_at DESC LIMIT 10;
 
-    SELECT id, text, severity, category
+    SELECT id, text, severity, category, created_at
     FROM observation
     WHERE workspace = $workspace AND status IN ["open", "acknowledged"] AND severity IN ["warning", "conflict"]
     ORDER BY created_at DESC LIMIT 10;
 
-    SELECT id, text, category, confidence
+    SELECT id, text, category, confidence, created_at
     FROM suggestion
     WHERE workspace = $workspace AND status = "pending"
     ORDER BY confidence DESC, created_at DESC LIMIT 5;

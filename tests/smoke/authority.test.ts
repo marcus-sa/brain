@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeAll, afterAll } from "bun:test";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { RecordId, Surreal } from "surrealdb";
 import { checkAuthority } from "../../app/src/server/iam/authority";
@@ -27,23 +27,9 @@ beforeAll(async () => {
   await surreal.query(`DEFINE DATABASE ${database};`);
   await surreal.use({ namespace, database });
 
-  // Apply base schema
+  // Apply base schema (canonical full schema — migrations are for evolving existing DBs)
   const schemaSql = readFileSync(join(process.cwd(), "schema", "surreal-schema.surql"), "utf8");
   await surreal.query(schemaSql);
-
-  // Apply migrations, ignoring failures from already-applied schema
-  const migrationsDir = join(process.cwd(), "schema", "migrations");
-  const migrationFiles = readdirSync(migrationsDir)
-    .filter((f) => f.endsWith(".surql"))
-    .sort();
-  for (const file of migrationFiles) {
-    const migrationSql = readFileSync(join(migrationsDir, file), "utf8");
-    try {
-      await surreal.query(migrationSql);
-    } catch {
-      // Migrations may fail if schema already applied — expected
-    }
-  }
 }, 30_000);
 
 afterAll(async () => {

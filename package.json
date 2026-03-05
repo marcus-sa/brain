@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@ai-sdk/react": "^3.0.113",
+    "@better-auth/oauth-provider": "^1.5.3",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@openrouter/ai-sdk-provider": "^2.2.3",
     "@tanstack/react-router": "^1.131.24",

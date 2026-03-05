@@ -9,13 +9,19 @@ const CONFIG_PATH = join(BRAIN_DIR, "config.json");
 export type BrainConfig = {
   server_url: string;
   workspace: string;
-  api_key: string;
+  client_id: string;
+  access_token: string;
+  refresh_token: string;
+  token_expires_at: number;
 };
 
 /** Per-repo auth entry in ~/.brain/config.json */
 export type RepoConfig = {
   workspace: string;
-  api_key: string;
+  client_id: string;
+  access_token: string;
+  refresh_token: string;
+  token_expires_at: number;
 };
 
 /** Root shape of ~/.brain/config.json */
@@ -108,7 +114,14 @@ export async function loadConfig(): Promise<BrainConfig | undefined> {
   if (global && gitRoot && global.repos[gitRoot]) {
     const repo = global.repos[gitRoot];
     const serverUrl = process.env.BRAIN_SERVER_URL ?? global.server_url;
-    return { server_url: serverUrl, workspace: repo.workspace, api_key: repo.api_key };
+    return {
+      server_url: serverUrl,
+      workspace: repo.workspace,
+      client_id: repo.client_id,
+      access_token: repo.access_token,
+      refresh_token: repo.refresh_token,
+      token_expires_at: repo.token_expires_at,
+    };
   }
   return undefined;
 }

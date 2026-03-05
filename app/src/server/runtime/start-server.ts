@@ -19,6 +19,7 @@ import { createGitHubWebhookHandler } from "../webhook/github-webhook-route";
 import { createFeedRouteHandler } from "../feed/feed-route";
 import { createChatRouteHandler } from "../chat/chat-route";
 import { createMcpRouteHandlers } from "../mcp/mcp-route";
+import { BRAIN_SCOPES } from "../auth/scopes";
 
 export async function startServer(): Promise<void> {
   const config = loadServerConfig();
@@ -149,11 +150,6 @@ export async function startServer(): Promise<void> {
         ),
       },
       // MCP — Setup
-      "/api/mcp/:workspaceId/auth/init": {
-        POST: withRequestLogging("POST /api/mcp/:workspaceId/auth/init", "POST", (request) =>
-          mcpHandlers.handleAuthInit(request.params.workspaceId),
-        ),
-      },
       "/api/mcp/:workspaceId/projects": {
         GET: withRequestLogging("GET /api/mcp/:workspaceId/projects", "GET", (request) =>
           mcpHandlers.handleListProjects(request.params.workspaceId),
@@ -283,6 +279,18 @@ export async function startServer(): Promise<void> {
         POST: withRequestLogging("POST /api/mcp/:workspaceId/commits/check", "POST", (request) =>
           mcpHandlers.handleCheckCommit(request.params.workspaceId, request),
         ),
+      },
+      // OAuth 2.1 discovery — proxy root-level .well-known to better-auth handler
+      "/.well-known/oauth-authorization-server/*": {
+        GET: async (request) => deps.auth.handler(request),
+      },
+      "/.well-known/oauth-protected-resource": {
+        GET: () => jsonResponse({
+          resource: config.betterAuthUrl,
+          authorization_servers: [config.betterAuthUrl],
+          scopes_supported: Object.keys(BRAIN_SCOPES),
+          bearer_methods_supported: ["header"],
+        }, 200),
       },
       "/api/auth/*": async (request) => deps.auth.handler(request),
       "/": appHtml,

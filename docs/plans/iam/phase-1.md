@@ -2,7 +2,7 @@
 
 **Goal:** Basic identity that doesn't block anything else. API key for dogfooding, OAuth-ready architecture.
 
-**Status:** In progress — better-auth + SurrealDB adapter shipped (PR #98).
+**Status:** Done.
 
 ## What's Done
 
@@ -12,135 +12,62 @@
 - [x] Session, account, verification tables created
 - [x] Account linking works (existing person + new OAuth provider)
 - [x] 17 integration tests passing
+- [x] Identity resolution — exact provider match + case-insensitive email match (`app/src/server/iam/identity.ts`)
+- [x] Authority scopes — `authority_scope` table with 5 agent types × 9 actions, workspace-specific overrides (`schema/migrations/0011_authority_scope.surql`)
+- [x] Authority enforcement in chat tools — `requireAuthorizedContext` wrapper on all 10 write tools (`app/src/server/iam/authority.ts`)
+- [x] Authority enforcement in MCP routes — `checkAuthority` + `checkAuthorityOrError` on 7 write handlers, `X-Agent-Type` header support
+- [x] Web chat session auth — `humanPresent: true` bypasses authority (human IS the authority), session-resolved `personRecord`
+- [x] PM agent actor propagation — `pm_agent` maps to `management` agent type
+- [x] Extraction pipeline name resolution — composite resolver chains name match → email fallback (`resolveWorkspacePerson`)
+- [x] 11 smoke tests passing (`tests/smoke/authority.test.ts`)
 
-## What's Left
+## Implementation Details
 
 ### Identity Resolution (exact match only)
 
-Resolve external identifiers to Person nodes via two strategies:
+Implemented in `app/src/server/iam/identity.ts` as app-layer queries (not SurrealDB stored functions, due to known SDK parameter binding limitations):
 
-1. **Exact provider match** — `account.provider_id == id AND account.provider_id == provider`
-2. **Email match (cross-provider)** — `person.contact_email == email`
+1. **Exact provider match** — `resolveIdentity()`: queries `person.identities` array for matching provider + id, scoped to workspace via `member_of` edge
+2. **Email match (cross-provider)** — `resolveByEmail()`: case-insensitive `contact_email` match, scoped to workspace via `member_of` edge
+3. **Composite resolver** — `resolveWorkspacePerson()` in `app/src/server/extraction/person.ts`: chains exact name match → email fallback (if input contains `@`)
 
 No fuzzy matching in Phase 1. Unresolved names stored as string attributes on entities.
 
-```sql
--- Resolve an external identity to a Person
-DEFINE FUNCTION fn::resolve_identity($provider: string, $provider_id: string) {
-  LET $person = SELECT * FROM person
-    WHERE identities[WHERE provider = $provider AND provider_id = $provider_id];
-
-  IF array::len($person) > 0 {
-    RETURN $person[0];
-  };
-
-  RETURN NONE;
-};
-
--- Resolve by email (cross-provider)
-DEFINE FUNCTION fn::resolve_by_email($email: string) {
-  LET $by_identity = SELECT * FROM person
-    WHERE identities[WHERE email = $email];
-
-  IF array::len($by_identity) > 0 {
-    RETURN $by_identity[0];
-  };
-
-  LET $by_contact = SELECT * FROM person
-    WHERE contact_info.email = $email;
-
-  IF array::len($by_contact) > 0 {
-    RETURN $by_contact[0];
-  };
-
-  RETURN NONE;
-};
-```
-
 ### MCP Auth (API key — dogfooding only)
 
-Simple API key that maps to workspace + fixed scopes matching the default authority table. The MCP server's authorization layer validates scopes the same way whether they come from an API key or an OAuth token. Swapping to OAuth later means changing token validation, not rewriting authorization.
+API key maps to workspace + agent type. `X-Agent-Type` header (default `"code_agent"`) controls authority scoping. Authorization enforced via `checkAuthority` before each write handler. Swapping to OAuth later means changing token validation, not rewriting authorization.
 
-### Authority Scopes (hardcoded defaults)
+### Authority Scopes (seeded defaults)
 
-Hardcoded defaults per agent type. Not configurable yet — just enforced.
+Seeded in `schema/migrations/0011_authority_scope.surql` as 45 rows (5 agent types × 9 actions). Workspace-specific overrides supported via nullable `workspace` field (enables Phase 2 config UI without schema changes).
 
 | Action | Code Agent | Architect | Management | Design Partner | Observer |
 |--------|-----------|-----------|------------|----------------|----------|
 | create_decision | provisional | provisional | provisional | provisional | blocked |
-| confirm_decision | blocked | blocked* | blocked | blocked | blocked |
+| confirm_decision | blocked | blocked | blocked | blocked | blocked |
 | create_task | auto | auto | auto | provisional | blocked |
 | complete_task | auto | blocked | auto | blocked | blocked |
-| create_subtask | auto | blocked | blocked | blocked | blocked |
 | create_observation | auto | auto | auto | auto | auto |
-| ask_question | auto | auto | auto | auto | blocked |
-| modify_feature | blocked | propose | propose | propose | blocked |
-| modify_project | blocked | propose | propose | blocked | blocked |
+| acknowledge_observation | auto | auto | auto | auto | blocked |
+| resolve_observation | blocked | auto | auto | blocked | blocked |
+| create_question | auto | auto | auto | auto | auto |
+| create_suggestion | auto | auto | auto | auto | blocked |
 
 Permission levels: **auto** (done, shown in feed), **provisional** (done as draft, needs review), **propose** (proposed, needs approval), **blocked** (cannot do).
 
-```sql
--- Check if an agent action is allowed
-DEFINE FUNCTION fn::check_authority($agent_type: string, $workspace: record<workspace>, $action: string) {
-  LET $scope = SELECT * FROM authority_scope
-    WHERE agent_type = $agent_type AND workspace = $workspace;
+### Authority Enforcement
 
-  IF array::len($scope) == 0 {
-    RETURN "provisional";
-  };
-
-  LET $permission = $scope[0].actions[$action];
-
-  IF $permission == NONE {
-    RETURN "blocked";
-  };
-
-  RETURN $permission;
-};
-```
-
-### Schema additions
-
-```sql
--- Authority scopes
-DEFINE TABLE authority_scope SCHEMAFULL;
-DEFINE FIELD agent_type ON authority_scope TYPE string;
-DEFINE FIELD workspace ON authority_scope TYPE record<workspace>;
-DEFINE FIELD actions ON authority_scope TYPE object;
-DEFINE FIELD constraints ON authority_scope TYPE option<object>;
-
--- Workspace permissions (owner-only for now)
-DEFINE TABLE workspace_permission SCHEMAFULL;
-DEFINE FIELD person ON workspace_permission TYPE record<person>;
-DEFINE FIELD workspace ON workspace_permission TYPE record<workspace>;
-DEFINE FIELD role ON workspace_permission TYPE string
-  ASSERT $value IN ["owner", "admin", "member", "viewer"];
-DEFINE FIELD project_access ON workspace_permission TYPE option<array<object>>;
-```
-
-### Platform-Managed Agent Auth
-
-`human_present` flag on web chat sessions. Chat agent can confirm decisions (human is live approval mechanism). Coding agent cannot.
-
-```
-AgentIdentity {
-  agent_id: string             // "architect:ws:xyz"
-  agent_type: string           // "architect" | "management" | "design-partner" | "observer"
-  workspace: string
-  authenticated_via: "platform"
-  human_present: boolean       // true for web chat, false for background
-}
-```
+- **Chat tools**: `requireAuthorizedContext(options, action, deps)` wraps `requireToolContext`, bypasses for `humanPresent === true`, maps actor to agent type, throws `AuthorityError` for blocked/propose
+- **MCP routes**: `checkAuthority()` + `checkAuthorityOrError()` returns 403 for blocked/propose
+- **Fail-safe**: no matching authority_scope row → `"blocked"`
 
 ### Web Chat Authentication
 
-Web chat agents authenticate via the user's browser session (session cookie from better-auth). Human is always present → `human_present: true`. The chat agent inherits the user's session permissions.
+Web chat requests set `humanPresent: true` on tool context — authority checks return `"auto"` (human at screen IS the authority). Session cookie resolved via `better-auth` to `personRecord` for attribution.
 
-### Extraction Pipeline — Name Resolution
+### Platform-Managed Agent Auth
 
-Extraction resolves names against existing Person nodes. Unresolved names stored as string attributes (`decided_by_name: "Sarah"`), suggestion surfaced in feed.
-
-**Critical rule:** Person nodes are never created by extraction. Only through explicit actions: workspace creation, OAuth connection, or manual invite.
+`AgentType` union: `"code_agent" | "architect" | "management" | "design_partner" | "observer"`. Actor-to-agent mapping: `pm_agent → management`, `analytics_agent → observer`, default `code_agent`.
 
 ### GitHub OAuth Connection Flow
 
@@ -159,3 +86,5 @@ Extraction resolves names against existing Person nodes. Unresolved names stored
 - Git commit attribution (post-commit hook → resolve author email → link to Person)
 - MCP tool authorization (coding agent can't confirm decisions)
 - Cross-source queries ("show me Marcus's commits and decisions this week")
+- Phase 2: authority config UI (workspace-specific overrides already supported in schema)
+- Phase 2: OAuth 2.1 for MCP (swap token validation, authorization logic unchanged)
