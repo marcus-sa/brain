@@ -1,0 +1,46 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "87ecb18b93b6",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/better-auth-surrealdb",
+  "checkpoints_count": 6,
+  "files_touched": [
+    "app/src/server/auth/adapter.ts",
+    "app/src/server/auth/config.ts",
+    "app/src/server/auth/scopes.ts",
+    "app/src/server/mcp/api-key.ts",
+    "app/src/server/mcp/auth.ts",
+    "app/src/server/mcp/context-builder.ts",
+    "app/src/server/mcp/mcp-route.ts",
+    "app/src/server/mcp/token-validation.ts",
+    "app/src/server/mcp/types.ts",
+    "app/src/server/runtime/start-server.ts",
+    "bun.lock",
+    "cli/commands/init.ts",
+    "cli/config.ts",
+    "cli/http-client.ts",
+    "docs/plans/iam/phase-1.md",
+    "package.json",
+    "schema/migrations/0012_oauth_provider_tables.surql",
+    "schema/surreal-schema.surql",
+    "tests/smoke/authority.test.ts",
+    "tests/smoke/oauth-mcp-auth.test.ts",
+    "tests/smoke/smoke-test-kit.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/87/ecb18b93b6/0/metadata.json",
+      "transcript": "/87/ecb18b93b6/0/full.jsonl",
+      "context": "/87/ecb18b93b6/0/context.md",
+      "content_hash": "/87/ecb18b93b6/0/content_hash.txt",
+      "prompt": "/87/ecb18b93b6/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 1762,
+    "cache_creation_tokens": 1338604,
+    "cache_read_tokens": 44689534,
+    "output_tokens": 186143,
+    "api_call_count": 405
+  }
+}

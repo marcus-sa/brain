@@ -1,0 +1,50 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "87ecb18b93b6",
+  "session_id": "a0c1bbf0-0456-4a9e-80bb-96670da0449c",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-05T19:53:37.952833Z",
+  "branch": "marcus-sa/better-auth-surrealdb",
+  "checkpoints_count": 6,
+  "files_touched": [
+    "app/src/server/auth/adapter.ts",
+    "app/src/server/auth/config.ts",
+    "app/src/server/auth/scopes.ts",
+    "app/src/server/mcp/api-key.ts",
+    "app/src/server/mcp/auth.ts",
+    "app/src/server/mcp/context-builder.ts",
+    "app/src/server/mcp/mcp-route.ts",
+    "app/src/server/mcp/token-validation.ts",
+    "app/src/server/mcp/types.ts",
+    "app/src/server/runtime/start-server.ts",
+    "bun.lock",
+    "cli/commands/init.ts",
+    "cli/config.ts",
+    "cli/http-client.ts",
+    "docs/plans/iam/phase-1.md",
+    "package.json",
+    "schema/migrations/0012_oauth_provider_tables.surql",
+    "schema/surreal-schema.surql",
+    "tests/smoke/authority.test.ts",
+    "tests/smoke/oauth-mcp-auth.test.ts",
+    "tests/smoke/smoke-test-kit.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "783e15230738",
+  "token_usage": {
+    "input_tokens": 1762,
+    "cache_creation_tokens": 1338604,
+    "cache_read_tokens": 44689534,
+    "output_tokens": 186143,
+    "api_call_count": 405
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-05T19:53:30.716728Z",
+    "agent_lines": 428,
+    "human_added": 149,
+    "human_modified": 321,
+    "human_removed": 0,
+    "total_committed": 850,
+    "agent_percentage": 50.35294117647059
+  }
+}
