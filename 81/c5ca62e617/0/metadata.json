@@ -1,0 +1,36 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "81c5ca62e617",
+  "session_id": "4367354f-995e-4a6a-b3c3-a73060bd4c71",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-05T15:41:49.730689Z",
+  "branch": "marcus-sa/better-auth-surrealdb",
+  "checkpoints_count": 3,
+  "files_touched": [
+    "app/src/server/runtime/config.ts",
+    "app/src/server/runtime/dependencies.ts",
+    "app/src/server/runtime/start-server.ts",
+    "app/src/server/runtime/types.ts",
+    "tests/smoke/better-auth-adapter.test.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "72c89cef3b6c",
+  "checkpoint_transcript_start": 999,
+  "transcript_lines_at_start": 999,
+  "token_usage": {
+    "input_tokens": 37,
+    "cache_creation_tokens": 35454,
+    "cache_read_tokens": 2718333,
+    "output_tokens": 6311,
+    "api_call_count": 29
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-05T15:41:49.105329Z",
+    "agent_lines": 132,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 132,
+    "agent_percentage": 100
+  }
+}
