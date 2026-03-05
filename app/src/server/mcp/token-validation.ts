@@ -27,6 +27,7 @@ export function createJwtValidator(issuerUrl: string) {
       jwksUrl,
       verifyOptions: {
         issuer,
+        audience: issuerUrl,
       },
     });
     return payload as BrainTokenClaims;
