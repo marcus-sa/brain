@@ -1,0 +1,29 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "89d130b957c6",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/better-auth-surrealdb",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "app/src/server/chat/chat-ingress.ts",
+    "app/src/server/chat/chat-processor.ts",
+    "app/src/server/chat/handler.ts",
+    "app/src/server/chat/tools/types.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/89/d130b957c6/0/metadata.json",
+      "transcript": "/89/d130b957c6/0/full.jsonl",
+      "context": "/89/d130b957c6/0/context.md",
+      "content_hash": "/89/d130b957c6/0/content_hash.txt",
+      "prompt": "/89/d130b957c6/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 8,
+    "cache_creation_tokens": 35055,
+    "cache_read_tokens": 180463,
+    "output_tokens": 2312,
+    "api_call_count": 4
+  }
+}
