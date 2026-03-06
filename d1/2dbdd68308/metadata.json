@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "d12dbdd68308",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/opensource-readme",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "README.md",
+    "index.html"
+  ],
+  "sessions": [
+    {
+      "metadata": "/d1/2dbdd68308/0/metadata.json",
+      "transcript": "/d1/2dbdd68308/0/full.jsonl",
+      "context": "/d1/2dbdd68308/0/context.md",
+      "content_hash": "/d1/2dbdd68308/0/content_hash.txt",
+      "prompt": "/d1/2dbdd68308/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 8,
+    "cache_creation_tokens": 24830,
+    "cache_read_tokens": 155928,
+    "output_tokens": 696,
+    "api_call_count": 4
+  }
+}
