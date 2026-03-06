@@ -3,7 +3,7 @@
   "checkpoint_id": "89d130b957c6",
   "strategy": "manual-commit",
   "branch": "marcus-sa/better-auth-surrealdb",
-  "checkpoints_count": 1,
+  "checkpoints_count": 2,
   "files_touched": [
     "app/src/server/chat/chat-ingress.ts",
     "app/src/server/chat/chat-processor.ts",
@@ -24,13 +24,20 @@
       "context": "/89/d130b957c6/1/context.md",
       "content_hash": "/89/d130b957c6/1/content_hash.txt",
       "prompt": "/89/d130b957c6/1/prompt.txt"
+    },
+    {
+      "metadata": "/89/d130b957c6/2/metadata.json",
+      "transcript": "/89/d130b957c6/2/full.jsonl",
+      "context": "/89/d130b957c6/2/context.md",
+      "content_hash": "/89/d130b957c6/2/content_hash.txt",
+      "prompt": "/89/d130b957c6/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 8,
-    "cache_creation_tokens": 35055,
-    "cache_read_tokens": 180463,
-    "output_tokens": 2312,
-    "api_call_count": 4
+    "input_tokens": 51,
+    "cache_creation_tokens": 73812,
+    "cache_read_tokens": 1146566,
+    "output_tokens": 5618,
+    "api_call_count": 23
   }
 }
