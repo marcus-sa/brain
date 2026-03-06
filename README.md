@@ -1,163 +1,88 @@
 # Brain
 
-**The knowledge graph that replaces you as the integration layer between AI agents.**
+**Stop being the glue between your AI agents.**
 
-AI agents are already writing code, generating plans, and answering questions. The gap is coordination.
-
-Brain gives humans and agents a shared memory layer so decisions, tasks, constraints, and implementation signals persist across sessions and tools.
+Brain is a shared coordination layer for humans and AI agents. Agents write decisions, tasks, observations, and suggestions to one knowledge graph so context survives across sessions and tools.
 
 ---
 
 ## The Problem
 
-Today, most teams are the glue between disconnected agent workflows.
+Most teams are still the integration layer between disconnected agents.
 
 You manually:
-- relay architecture decisions from chat to implementation,
-- repeat project context to each coding session,
-- track what changed and what is blocked,
-- reconcile contradictions between code, plans, and decisions.
-
-Without shared context, agents produce generic output. With shared context, they produce deployable work.
-
-## How Brain Works
-
-### Chat to Think
-
-Conversations are the primary interface. The chat orchestrator and subagents (PM + analytics) turn discussions into structured graph updates.
-
-### Graph to Coordinate
-
-The knowledge graph is shared state across agents and humans.
-
-- An observation written by a coding agent becomes visible to planning/governance workflows.
-- A confirmed decision in chat is available in future coding-agent context packets.
-- Coordination happens through graph reads and writes, not agent-to-agent message passing.
-
-### Feed to Govern
-
-The feed is where humans govern:
-- blocking items,
-- review-required items,
-- awareness signals.
-
-Agents execute quickly. Humans retain authority over high-impact decisions.
-
-## Capability Map
-
-### Core Platform
-
-- Multi-turn workspace chat with streaming responses
-- Graph entities for projects, features, tasks, decisions, questions, observations, and suggestions
-- Provenance-aware relationships from messages/documents/commits
-- Governance feed with `blocking`, `review`, and `awareness` tiers
-- Graph views for workspace/project/focused entity exploration
-
-### Agent System
-
-- Thin orchestration chat agent with tool calling
-- PM subagent for planning and work-item management
-- Analytics subagent for aggregation/provenance-style graph analysis
-- Shared tool layer for search, status, decision workflows, observations, and work item creation
-
-### Coding Agent Integration
-
-- MCP server (`brain mcp`) for Claude Code/Cursor/Aider/Codex-style workflows
-- CLI integration via `brain init` (auth, hooks, commands, MCP wiring)
-- Agent session lifecycle capture in graph entities
-
-### Unified IAM (Identity + Authority)
-
-- Identity resolution across platform, GitHub, Slack, calendar, and MCP identities
-- Authority scopes for agent actions (`auto`, `provisional`, `propose`, `blocked`)
-- Person-first attribution for human/agent activity
-
-### Direction
-
-Brain is built as a long-lived coordination layer, not a single-feature assistant. The roadmap expands autonomy and integrations without changing the graph-first model.
-
-## Coordination Model
-
-Agents do not coordinate by messaging each other. They coordinate through the graph.
-
-```text
-Coding agent logs observation
-  -> graph stores signal + provenance
-  -> feed/governance surfaces impact
-  -> planning workflows convert to action
-  -> next sessions consume updated context automatically
-```
+- copy error logs and decisions between tools,
+- re-explain architecture and project state every session,
+- track what changed, what is blocked, and what conflicts,
+- reconcile contradictions between implementation and prior decisions.
 
 ## Architecture
 
+Brain coordinates through a graph, not agent-to-agent messaging.
+
 ```text
-Human + Agent Inputs
-  -> Chat Orchestrator (tools + subagents)
-      -> PM Agent / Analytics Agent
-      -> Graph Query + Write Layer
-  -> Governance Feed (blocking/review/awareness)
-  -> Graph UI (entities, edges, provenance)
+Human Layer
+  -> Web Chat / Feed / Graph View / Terminal
 
-Coding Agents
-  -> MCP stdio server (brain mcp)
-  -> Authenticated MCP HTTP API
-  -> Same SurrealDB knowledge graph
+Agent Layer
+  -> Architect / Strategist / Management / Coding Agents / Observer
 
-Identity + Authority
-  -> Unified IAM layer (person resolution + scoped permissions)
-  -> Human and agent actions attributed to person/workspace context
+Graph Layer
+  -> Projects / Decisions / Tasks / Observations / Features / Questions / Suggestions / Conversations / Commits
+
+Integration Layer
+  -> GitHub / Slack / Git Hooks / OAuth 2.1
 ```
 
-## Self-Hosting
+## Specialized Agents
 
-Brain is intentionally self-host-friendly.
+- Architect: enforces technical decisions and architecture constraints
+- Strategist: challenges plans against market and business realities
+- Management: tracks priorities, blockers, and execution flow
+- Coding agents via MCP: your existing coding tools with shared context
+- Design partner: shapes raw ideas into structured project artifacts
+- Observer: surfaces stale decisions, conflicts, and missing coverage
 
-### Infrastructure footprint
+## How Coordination Works
 
-- Required datastore: **SurrealDB**
-- No separate Redis/Kafka/vector DB requirement for core operation
-- App runtime: single Bun server process
+1. A coding agent detects a contradiction and writes an observation to the graph.
+2. The Architect agent reads that signal and proposes an action.
+3. The suggestion appears in your feed with evidence and provenance.
+4. You accept it, and the next coding session receives the updated context automatically.
 
-SurrealDB can run:
-- as a standalone service, or
-- embedded for tighter single-node deployment patterns.
+## Key Concepts
 
-### Inference options
+- Decisions: proposed by agents, confirmed by humans
+- Observations: cross-agent signals for conflicts, risks, and gaps
+- Suggestions: actionable proposals grounded in graph evidence
+- Projects, features, tasks: hierarchical work planning and execution
+- Questions: explicit unknowns instead of hidden assumptions
+- Commits: code changes linked to intent and decisions
+- Identity: one person across platform, GitHub, Slack, and terminal
+- Authority scopes: controlled autonomy (`auto`, `provisional`, `propose`, `blocked`)
 
-Brain supports:
-- OpenRouter (hosted), and
-- Ollama (local inference).
+## Open Source
 
-For local/private setups, run Brain + SurrealDB + Ollama on one machine.
+- Full source access to graph engine, MCP server, prompts, and extraction pipeline
+- No vendor lock-in for your data model
+- Extensible agent roles, tools, observation categories, and UI components
 
-## IAM: Unified Identity + Authority
+## Self-Hosted
 
-IAM is a core layer, not an add-on.
-
-It solves two problems:
-- **Identity resolution:** unify multiple external identities into one `person` entity.
-- **Authority controls:** enforce who can perform which graph actions.
-
-### Core concepts
-
-- One person, many identities (`platform`, `github`, `slack`, `google`, `mcp`, ...)
-- Person nodes are created through explicit identity flows (owner creation, OAuth link, invite), not extraction
-- Resolution chain:
-1. exact provider match
-2. email match
-3. candidate suggestion for ambiguous display-name matches
-4. unresolved reference when no safe match exists
-
-### Agent auth patterns
-
-1. Platform-managed agents (workspace-scoped actor behavior)
-2. User-local agents (act as extension of a human with scoped permissions)
+- Docker Compose workflow for quick setup
+- Single-process Bun runtime with SurrealDB
+- Works offline for graph/feed/local tooling
+- LLM features can run via local models or networked providers
+- Bring your own provider keys; no Brain relay layer required
 
 ## Tech Stack
 
-- Runtime: Bun + TypeScript
-- Frontend: React + TanStack Router
-- Agent orchestration: Vercel AI SDK
+- Runtime + server: Bun (`Bun.serve`) + TypeScript
+- Landing page: static `index.html` + handcrafted CSS + vanilla JavaScript
+- App frontend: React 19 + TanStack Router + Zustand
+- Graph UI: Reagraph + Reaviz
+- Agent orchestration: Vercel AI SDK (`ai`)
+- Model providers: OpenRouter and Ollama
 - Database: SurrealDB (document + graph + vector)
 - Protocol: Model Context Protocol (MCP)
 
