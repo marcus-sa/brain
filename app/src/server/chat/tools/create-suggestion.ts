@@ -4,7 +4,7 @@ import { SUGGESTION_CATEGORIES } from "../../../shared/contracts";
 import { createEmbeddingVector } from "../../graph/embeddings";
 import { isEntityInWorkspace, parseRecordIdString } from "../../graph/queries";
 import { createSuggestion } from "../../suggestion/queries";
-import { requireToolContext } from "./helpers";
+import { requireAuthorizedContext } from "../../iam/authority";
 import type { ChatToolDeps } from "./types";
 
 export function createCreateSuggestionTool(deps: ChatToolDeps) {
@@ -30,7 +30,7 @@ export function createCreateSuggestionTool(deps: ChatToolDeps) {
         .describe("Optional entity IDs that support the rationale (format: table:id). Can include observations, decisions, tasks, etc."),
     }),
     execute: async (input, options) => {
-      const context = requireToolContext(options);
+      const { context } = await requireAuthorizedContext(options, "create_suggestion", deps);
 
       const targetTables = ["project", "feature", "task", "question", "decision"] as const;
       const targetRecord = input.target_entity_id

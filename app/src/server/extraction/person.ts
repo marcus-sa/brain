@@ -1,4 +1,5 @@
 import { RecordId, type Surreal } from "surrealdb";
+import { resolveByEmail } from "../iam/identity";
 import type { PersistableExtractableEntityKind } from "./types";
 
 export type PersonAttributionPatch =
@@ -38,6 +39,28 @@ export async function findWorkspacePersonByName(input: {
     .collect<[Array<{ id: RecordId<"person", string> }>]>() ;
 
   return rows[0]?.id;
+}
+
+/**
+ * Composite resolver: exact name match → email match (if input looks like an email).
+ */
+export async function resolveWorkspacePerson(input: {
+  surreal: Surreal;
+  workspaceRecord: RecordId<"workspace", string>;
+  personName: string;
+}): Promise<RecordId<"person", string> | undefined> {
+  const byName = await findWorkspacePersonByName(input);
+  if (byName) return byName;
+
+  if (input.personName.includes("@")) {
+    return resolveByEmail({
+      surreal: input.surreal,
+      email: input.personName,
+      workspaceRecord: input.workspaceRecord,
+    });
+  }
+
+  return undefined;
 }
 
 export function resolvePersonAttributionPatch(input: {

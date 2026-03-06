@@ -36,6 +36,7 @@ export async function runChatAgent(input: {
   currentMessageRecord: RecordId<"message", string>;
   latestUserText: string;
   workspaceOwnerRecord?: RecordId<"person", string>;
+  personRecord: RecordId<"person", string>;
   userMessageEmbedding?: number[];
   inheritedEntityIds?: RecordId[];
   discussesRecord?: RecordId;
@@ -83,11 +84,13 @@ export async function runChatAgent(input: {
     }),
     experimental_context: {
       actor: "chat_agent",
+      humanPresent: true,
       workspaceRecord: input.workspaceRecord,
       conversationRecord: input.conversationRecord,
       currentMessageRecord: input.currentMessageRecord,
       latestUserText: input.latestUserText,
       ...(input.workspaceOwnerRecord ? { workspaceOwnerRecord: input.workspaceOwnerRecord } : {}),
+      personRecord: input.personRecord,
     },
     stopWhen: stepCountIs(5),
   });

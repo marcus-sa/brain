@@ -1,9 +1,21 @@
 import type { RecordId } from "surrealdb";
+import type { AgentType } from "../chat/tools/types";
 
 /** Validated MCP request context after workspace auth */
 export type McpRequestContext = {
   workspaceRecord: RecordId<"workspace", string>;
   workspaceName: string;
+};
+
+/** Result of authenticating an MCP request via OAuth JWT */
+export type McpAuthResult = {
+  workspaceRecord: RecordId<"workspace", string>;
+  workspaceName: string;
+  agentType: AgentType;
+  personRecord: RecordId<"person", string>;
+  scopes: Set<string>;
+  /** Always false for MCP contexts — autonomous agents never bypass authority checks. */
+  humanPresent: false;
 };
 
 /** Context packet returned by get_project_context */

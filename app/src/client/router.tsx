@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Outlet, createRootRoute, createRoute, createRouter, useNavigate } from "@tanstack/react-router";
+import { Outlet, createRootRoute, createRoute, createRouter, redirect, useNavigate } from "@tanstack/react-router";
+import { authClient } from "./lib/auth-client";
 import { WorkspaceGuard } from "./components/layout/WorkspaceGuard";
 import { WorkspaceSidebar } from "./components/layout/WorkspaceSidebar";
 import { SearchOverlay } from "./components/search/SearchOverlay";
@@ -8,6 +9,8 @@ import { useWorkspaceState } from "./stores/workspace-state";
 import { ChatPage } from "./routes/chat-page";
 import { GraphPage } from "./routes/graph-page";
 import { HomePage } from "./routes/home-page";
+import { SignInPage } from "./routes/sign-in-page";
+import { ConsentPage } from "./routes/consent-page";
 
 function AppShell() {
   const workspace = useWorkspace();
@@ -79,12 +82,42 @@ function AppShell() {
   );
 }
 
+// Root route: bare outlet for public/authenticated split
 const rootRoute = createRootRoute({
+  component: () => <Outlet />,
+});
+
+// Public routes (no auth required)
+const signInRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/sign-in",
+  component: SignInPage,
+});
+
+const consentRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/consent",
+  component: ConsentPage,
+});
+
+// Authenticated layout — checks session before rendering
+const authLayout = createRoute({
+  getParentRoute: () => rootRoute,
+  id: "authenticated",
   component: AppShell,
+  beforeLoad: async ({ location }) => {
+    const { data } = await authClient.getSession();
+    if (!data) {
+      throw redirect({
+        to: "/sign-in",
+        search: { redirectTo: location.href },
+      });
+    }
+  },
 });
 
 const homeRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => authLayout,
   path: "/",
   component: HomePage,
 });
@@ -96,26 +129,30 @@ const validateChatSearch = (search: Record<string, unknown>): ChatSearch => ({
 });
 
 const chatRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => authLayout,
   path: "/chat",
   component: ChatPage,
   validateSearch: validateChatSearch,
 });
 
 const chatConversationRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => authLayout,
   path: "/chat/$conversationId",
   component: ChatPage,
   validateSearch: validateChatSearch,
 });
 
 const graphRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => authLayout,
   path: "/graph",
   component: GraphPage,
 });
 
-const routeTree = rootRoute.addChildren([homeRoute, chatRoute, chatConversationRoute, graphRoute]);
+const routeTree = rootRoute.addChildren([
+  signInRoute,
+  consentRoute,
+  authLayout.addChildren([homeRoute, chatRoute, chatConversationRoute, graphRoute]),
+]);
 
 export const router = createRouter({ routeTree });
 

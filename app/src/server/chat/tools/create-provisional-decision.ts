@@ -6,7 +6,7 @@ import {
   resolveWorkspaceFeatureRecord,
   resolveWorkspaceProjectRecord,
 } from "../../graph/queries";
-import { requireToolContext } from "./helpers";
+import { requireAuthorizedContext } from "../../iam/authority";
 import type { ChatToolDeps } from "./types";
 
 export function createCreateProvisionalDecisionTool(deps: ChatToolDeps) {
@@ -25,7 +25,7 @@ export function createCreateProvisionalDecisionTool(deps: ChatToolDeps) {
       options_considered: z.array(z.string().min(1)).optional(),
     }),
     execute: async (input, options) => {
-      const context = requireToolContext(options);
+      const { context } = await requireAuthorizedContext(options, "create_decision", deps);
       const now = new Date();
 
       const projectRecord = input.context?.project

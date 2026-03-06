@@ -52,7 +52,6 @@ DEFINE FIELD onboarding_started_at ON workspace TYPE datetime;
 DEFINE FIELD onboarding_completed_at ON workspace TYPE option<datetime>;
 DEFINE FIELD created_at ON workspace TYPE datetime;
 DEFINE FIELD updated_at ON workspace TYPE option<datetime>;
-DEFINE FIELD api_key_hash ON workspace TYPE option<string>;
 DEFINE INDEX workspace_name ON workspace FIELDS name;
 
 DEFINE TABLE project SCHEMAFULL;
@@ -252,15 +251,18 @@ DEFINE INDEX idx_suggestion_embedding ON suggestion FIELDS embedding HNSW DIMENS
 DEFINE TABLE person SCHEMAFULL;
 DEFINE FIELD name ON person TYPE string;
 DEFINE FIELD role ON person TYPE option<string>;
-DEFINE FIELD contact_email ON person TYPE option<string>;
+DEFINE FIELD contact_email ON person TYPE string;
 DEFINE FIELD contact_phone ON person TYPE option<string>;
+DEFINE FIELD email_verified ON person TYPE bool DEFAULT false;
+DEFINE FIELD image ON person TYPE option<string>;
 DEFINE FIELD identities ON person TYPE option<array<object>>;
 DEFINE FIELD identities[*].provider ON person TYPE string;
 DEFINE FIELD identities[*].id ON person TYPE string;
 DEFINE FIELD embedding ON person TYPE option<array<float>>;
 DEFINE FIELD created_at ON person TYPE datetime;
-DEFINE FIELD updated_at ON person TYPE option<datetime>;
+DEFINE FIELD updated_at ON person TYPE datetime;
 DEFINE INDEX person_name ON person FIELDS name;
+DEFINE INDEX person_email ON person FIELDS contact_email UNIQUE;
 DEFINE INDEX idx_person_embedding ON person FIELDS embedding HNSW DIMENSION 1536 DIST COSINE;
 
 DEFINE TABLE meeting SCHEMAFULL;
@@ -439,6 +441,24 @@ DEFINE TABLE attended_by TYPE RELATION IN meeting OUT person SCHEMAFULL;
 DEFINE FIELD role ON attended_by TYPE option<string> ASSERT $value = NONE OR $value IN ["organizer", "attendee"];
 DEFINE FIELD added_at ON attended_by TYPE option<datetime>;
 
+-- Authority scopes: per-agent-type permission matrix
+DEFINE TABLE authority_scope SCHEMAFULL;
+DEFINE FIELD agent_type ON authority_scope TYPE string
+  ASSERT $value IN ["code_agent", "architect", "management", "design_partner", "observer"];
+DEFINE FIELD action ON authority_scope TYPE string
+  ASSERT $value IN [
+    "create_decision", "confirm_decision",
+    "create_task", "complete_task",
+    "create_observation", "acknowledge_observation", "resolve_observation",
+    "create_question", "create_suggestion"
+  ];
+DEFINE FIELD permission ON authority_scope TYPE string
+  ASSERT $value IN ["auto", "provisional", "propose", "blocked"];
+DEFINE FIELD workspace ON authority_scope TYPE option<record<workspace>>;
+DEFINE FIELD created_at ON authority_scope TYPE datetime;
+DEFINE INDEX authority_scope_lookup ON authority_scope
+  FIELDS agent_type, action, workspace UNIQUE;
+
 DEFINE FUNCTION fn::entity_search_workspace($q: string, $limit: int, $workspace: record<workspace>) {
   LET $query = string::lowercase(string::trim($q));
   LET $safe_limit = math::min([math::max([$limit, 1]), 100]);
@@ -562,6 +582,123 @@ DEFINE FUNCTION fn::entity_neighbors($entity: record) {
     <-entity_relation<-(workspace, project, person, feature, task, decision, question) AS incoming
   FROM $entity;
 };
+
+-- Auth: session
+DEFINE TABLE session SCHEMAFULL;
+DEFINE FIELD person_id ON session TYPE record<person>;
+DEFINE FIELD token ON session TYPE string;
+DEFINE FIELD expires_at ON session TYPE datetime;
+DEFINE FIELD ip_address ON session TYPE option<string>;
+DEFINE FIELD user_agent ON session TYPE option<string>;
+DEFINE FIELD created_at ON session TYPE datetime;
+DEFINE FIELD updated_at ON session TYPE datetime;
+DEFINE INDEX session_token ON session FIELDS token UNIQUE;
+DEFINE INDEX session_person_id ON session FIELDS person_id;
+
+-- Auth: account (OAuth provider links)
+DEFINE TABLE account SCHEMAFULL;
+DEFINE FIELD person_id ON account TYPE record<person>;
+DEFINE FIELD account_id ON account TYPE string;
+DEFINE FIELD provider_id ON account TYPE string;
+DEFINE FIELD access_token ON account TYPE option<string>;
+DEFINE FIELD refresh_token ON account TYPE option<string>;
+DEFINE FIELD access_token_expires_at ON account TYPE option<datetime>;
+DEFINE FIELD refresh_token_expires_at ON account TYPE option<datetime>;
+DEFINE FIELD scope ON account TYPE option<string>;
+DEFINE FIELD id_token ON account TYPE option<string>;
+DEFINE FIELD password ON account TYPE option<string>;
+DEFINE FIELD created_at ON account TYPE datetime;
+DEFINE FIELD updated_at ON account TYPE datetime;
+DEFINE INDEX account_person_id ON account FIELDS person_id;
+DEFINE INDEX account_provider ON account FIELDS provider_id, account_id;
+
+-- Auth: verification
+DEFINE TABLE verification SCHEMAFULL;
+DEFINE FIELD identifier ON verification TYPE string;
+DEFINE FIELD value ON verification TYPE string;
+DEFINE FIELD expires_at ON verification TYPE datetime;
+DEFINE FIELD created_at ON verification TYPE datetime;
+DEFINE FIELD updated_at ON verification TYPE datetime;
+DEFINE INDEX verification_identifier ON verification FIELDS identifier;
+
+-- OAuth Provider: client registrations (camelCase to match better-auth defaults)
+DEFINE TABLE oauthClient SCHEMAFULL;
+DEFINE FIELD clientId ON oauthClient TYPE string;
+DEFINE FIELD clientSecret ON oauthClient TYPE option<string>;
+DEFINE FIELD disabled ON oauthClient TYPE option<bool> DEFAULT false;
+DEFINE FIELD skipConsent ON oauthClient TYPE option<bool>;
+DEFINE FIELD enableEndSession ON oauthClient TYPE option<bool>;
+DEFINE FIELD scopes ON oauthClient TYPE option<string>;
+DEFINE FIELD userId ON oauthClient TYPE option<record<person>>;
+DEFINE FIELD referenceId ON oauthClient TYPE option<string>;
+DEFINE FIELD createdAt ON oauthClient TYPE option<datetime>;
+DEFINE FIELD updatedAt ON oauthClient TYPE option<datetime>;
+DEFINE FIELD expiresAt ON oauthClient TYPE option<datetime>;
+DEFINE FIELD name ON oauthClient TYPE option<string>;
+DEFINE FIELD uri ON oauthClient TYPE option<string>;
+DEFINE FIELD icon ON oauthClient TYPE option<string>;
+DEFINE FIELD contacts ON oauthClient TYPE option<string>;
+DEFINE FIELD tos ON oauthClient TYPE option<string>;
+DEFINE FIELD policy ON oauthClient TYPE option<string>;
+DEFINE FIELD softwareId ON oauthClient TYPE option<string>;
+DEFINE FIELD softwareVersion ON oauthClient TYPE option<string>;
+DEFINE FIELD softwareStatement ON oauthClient TYPE option<string>;
+DEFINE FIELD redirectUris ON oauthClient TYPE string;
+DEFINE FIELD postLogoutRedirectUris ON oauthClient TYPE option<string>;
+DEFINE FIELD tokenEndpointAuthMethod ON oauthClient TYPE option<string>;
+DEFINE FIELD grantTypes ON oauthClient TYPE option<string>;
+DEFINE FIELD responseTypes ON oauthClient TYPE option<string>;
+DEFINE FIELD public ON oauthClient TYPE option<bool>;
+DEFINE FIELD requirePKCE ON oauthClient TYPE option<bool>;
+DEFINE FIELD metadata ON oauthClient TYPE option<string>;
+DEFINE INDEX oauthClient_clientId ON oauthClient FIELDS clientId UNIQUE;
+DEFINE INDEX oauthClient_userId ON oauthClient FIELDS userId;
+
+-- OAuth Provider: access tokens
+DEFINE TABLE oauthAccessToken SCHEMAFULL;
+DEFINE FIELD token ON oauthAccessToken TYPE string;
+DEFINE FIELD clientId ON oauthAccessToken TYPE string;
+DEFINE FIELD sessionId ON oauthAccessToken TYPE option<record<session>>;
+DEFINE FIELD userId ON oauthAccessToken TYPE option<record<person>>;
+DEFINE FIELD referenceId ON oauthAccessToken TYPE option<string>;
+DEFINE FIELD refreshId ON oauthAccessToken TYPE option<record<oauthRefreshToken>>;
+DEFINE FIELD scopes ON oauthAccessToken TYPE string;
+DEFINE FIELD expiresAt ON oauthAccessToken TYPE datetime;
+DEFINE FIELD createdAt ON oauthAccessToken TYPE datetime;
+DEFINE INDEX oauthAccessToken_token ON oauthAccessToken FIELDS token UNIQUE;
+DEFINE INDEX oauthAccessToken_clientId ON oauthAccessToken FIELDS clientId;
+
+-- OAuth Provider: refresh tokens
+DEFINE TABLE oauthRefreshToken SCHEMAFULL;
+DEFINE FIELD token ON oauthRefreshToken TYPE string;
+DEFINE FIELD clientId ON oauthRefreshToken TYPE string;
+DEFINE FIELD sessionId ON oauthRefreshToken TYPE option<record<session>>;
+DEFINE FIELD userId ON oauthRefreshToken TYPE option<record<person>>;
+DEFINE FIELD referenceId ON oauthRefreshToken TYPE option<string>;
+DEFINE FIELD scopes ON oauthRefreshToken TYPE string;
+DEFINE FIELD revoked ON oauthRefreshToken TYPE option<datetime>;
+DEFINE FIELD authTime ON oauthRefreshToken TYPE option<datetime>;
+DEFINE FIELD createdAt ON oauthRefreshToken TYPE datetime;
+DEFINE FIELD expiresAt ON oauthRefreshToken TYPE datetime;
+DEFINE INDEX oauthRefreshToken_token ON oauthRefreshToken FIELDS token UNIQUE;
+DEFINE INDEX oauthRefreshToken_clientId ON oauthRefreshToken FIELDS clientId;
+
+-- OAuth Provider: consent records
+DEFINE TABLE oauthConsent SCHEMAFULL;
+DEFINE FIELD clientId ON oauthConsent TYPE string;
+DEFINE FIELD userId ON oauthConsent TYPE option<record<person>>;
+DEFINE FIELD referenceId ON oauthConsent TYPE option<string>;
+DEFINE FIELD scopes ON oauthConsent TYPE string;
+DEFINE FIELD createdAt ON oauthConsent TYPE datetime;
+DEFINE FIELD updatedAt ON oauthConsent TYPE datetime;
+DEFINE INDEX oauthConsent_clientId_userId ON oauthConsent FIELDS clientId, userId;
+
+-- OAuth Provider: JWKS signing keys
+DEFINE TABLE jwks SCHEMAFULL;
+DEFINE FIELD publicKey ON jwks TYPE string;
+DEFINE FIELD privateKey ON jwks TYPE string;
+DEFINE FIELD createdAt ON jwks TYPE datetime;
+DEFINE FIELD expiresAt ON jwks TYPE option<datetime>;
 
 -- Analytics agent: read-only database user
 DEFINE USER analytics ON DATABASE PASSWORD 'brain-analytics-readonly' ROLES VIEWER;

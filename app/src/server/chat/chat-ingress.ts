@@ -152,6 +152,12 @@ async function handlePostChatMessage(deps: ServerDependencies, request: Request)
 
   deps.sse.registerMessage(messageId);
 
+  const session = await deps.auth.api.getSession({ headers: request.headers });
+  if (!session?.user?.id) {
+    return jsonError("authentication required", 401);
+  }
+  const personRecord = new RecordId("person", session.user.id);
+
   logInfo("chat.message.process.started", "Async chat processing started", {
     workspaceId,
     conversationId,
@@ -167,6 +173,7 @@ async function handlePostChatMessage(deps: ServerDependencies, request: Request)
     userText: messageText,
     attachment: parsed.data.attachment,
     ...(onboardingAction ? { onboardingAction } : {}),
+    personRecord,
   });
 
   const response: ChatMessageResponse = {

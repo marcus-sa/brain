@@ -2,20 +2,26 @@ import { existsSync, mkdirSync, statSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { homedir } from "node:os";
 
-const BRAIN_DIR = join(homedir(), ".brain");
-const CONFIG_PATH = join(BRAIN_DIR, "config.json");
+function getBrainDir() { return process.env.BRAIN_CONFIG_DIR ?? join(homedir(), ".brain"); }
+function getConfigPath() { return join(getBrainDir(), "config.json"); }
 
 /** Resolved config for a single repo — shape consumed by BrainHttpClient and all commands. */
 export type BrainConfig = {
   server_url: string;
   workspace: string;
-  api_key: string;
+  client_id: string;
+  access_token: string;
+  refresh_token: string;
+  token_expires_at: number;
 };
 
 /** Per-repo auth entry in ~/.brain/config.json */
 export type RepoConfig = {
   workspace: string;
-  api_key: string;
+  client_id: string;
+  access_token: string;
+  refresh_token: string;
+  token_expires_at: number;
 };
 
 /** Root shape of ~/.brain/config.json */
@@ -70,11 +76,12 @@ function resolveWorktreeMainRoot(gitFile: string): string | undefined {
 // ---------------------------------------------------------------------------
 
 function ensureBrainDir(): void {
-  if (!existsSync(BRAIN_DIR)) mkdirSync(BRAIN_DIR, { recursive: true });
+  const dir = getBrainDir();
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 }
 
 export async function loadGlobalConfig(): Promise<BrainGlobalConfig | undefined> {
-  const file = Bun.file(CONFIG_PATH);
+  const file = Bun.file(getConfigPath());
   if (!(await file.exists())) return undefined;
   try {
     return await file.json() as BrainGlobalConfig;
@@ -85,7 +92,7 @@ export async function loadGlobalConfig(): Promise<BrainGlobalConfig | undefined>
 
 export async function saveGlobalConfig(config: BrainGlobalConfig): Promise<void> {
   ensureBrainDir();
-  await Bun.write(CONFIG_PATH, JSON.stringify(config, null, 2) + "\n");
+  await Bun.write(getConfigPath(), JSON.stringify(config, null, 2) + "\n");
 }
 
 /** Upsert a repo entry in the global config. Creates the file if needed. */
@@ -108,7 +115,14 @@ export async function loadConfig(): Promise<BrainConfig | undefined> {
   if (global && gitRoot && global.repos[gitRoot]) {
     const repo = global.repos[gitRoot];
     const serverUrl = process.env.BRAIN_SERVER_URL ?? global.server_url;
-    return { server_url: serverUrl, workspace: repo.workspace, api_key: repo.api_key };
+    return {
+      server_url: serverUrl,
+      workspace: repo.workspace,
+      client_id: repo.client_id,
+      access_token: repo.access_token,
+      refresh_token: repo.refresh_token,
+      token_expires_at: repo.token_expires_at,
+    };
   }
   return undefined;
 }

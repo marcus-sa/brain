@@ -83,7 +83,7 @@ export async function runPmAgent(input: PmAgentInput): Promise<PmAgentOutput> {
     instructions: system,
     tools: createPmTools(input.deps),
     output: Output.object({ schema: pmAgentResultSchema }),
-    experimental_context: input.context,
+    experimental_context: { ...input.context, actor: "pm_agent" as const },
     stopWhen: stepCountIs(6),
   });
 
