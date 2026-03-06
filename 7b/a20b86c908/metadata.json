@@ -1,0 +1,40 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "7ba20b86c908",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/auto-entity-enrichment",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "app/src/server/agents/architect/agent.ts",
+    "app/src/server/agents/architect/prompt.ts",
+    "app/src/server/agents/architect/tools.ts",
+    "app/src/server/chat/chat-processor.ts",
+    "app/src/server/chat/context.ts",
+    "app/src/server/chat/handler.ts",
+    "app/src/server/chat/tools/index.ts",
+    "app/src/server/chat/tools/invoke-architect-agent.ts",
+    "app/src/server/chat/tools/types.ts",
+    "app/src/server/chat/tools/update-question.ts",
+    "app/src/server/runtime/config.ts",
+    "app/src/server/runtime/dependencies.ts",
+    "app/src/server/runtime/types.ts",
+    "schema/migrations/0013_question_answer_tracking.surql",
+    "tests/unit/architect-agent.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/7b/a20b86c908/0/metadata.json",
+      "transcript": "/7b/a20b86c908/0/full.jsonl",
+      "context": "/7b/a20b86c908/0/context.md",
+      "content_hash": "/7b/a20b86c908/0/content_hash.txt",
+      "prompt": "/7b/a20b86c908/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 36,
+    "cache_creation_tokens": 46568,
+    "cache_read_tokens": 136178,
+    "output_tokens": 939,
+    "api_call_count": 4
+  }
+}
