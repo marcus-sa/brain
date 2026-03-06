@@ -21,7 +21,7 @@ export function createCreateWorkItemTool(deps: ChatToolDeps) {
       "Create a task, feature, or project directly in the knowledge graph. Use when the user explicitly requests creation (\"add a task for X\") or during onboarding entity seeding. For uncertain/brainstormed items, prefer suggest_work_items instead.",
     inputSchema: z.object({
       kind: z.enum(["task", "feature", "project"]).describe(
-        "task: concrete executable work with action verb. feature: capability/requirement within a project. project: named top-level workstream.",
+        "project: named product area or workstream (MUST create before features/tasks can belong to it). feature: capability within an existing project. task: concrete executable work with action verb. If no projects exist yet, create a project first.",
       ),
       title: z.string().min(1).describe("Concise entity title"),
       rationale: z.string().min(1).describe("Why this entity is needed — seeds the description"),

@@ -40,7 +40,7 @@ export function createSuggestWorkItemsTool(deps: ChatToolDeps) {
     inputSchema: z.object({
       items: z.array(
         z.object({
-          kind: z.enum(["task", "feature", "project"]).describe("Work item kind"),
+          kind: z.enum(["task", "feature", "project"]).describe("project: named product area (MUST exist before features/tasks). feature: capability within an existing project. task: concrete executable work."),
           title: z.string().min(1).describe("Concise work item title"),
           rationale: z.string().min(1).describe("Why this work item is needed"),
           category: z.enum(ENTITY_CATEGORIES).optional().describe("Optional work item category"),
