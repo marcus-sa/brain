@@ -2,7 +2,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import { parseRecordIdString } from "../../graph/queries";
 import { resolveObservation } from "../../observation/queries";
-import { requireToolContext } from "./helpers";
+import { requireAuthorizedContext } from "../../iam/authority";
 import type { ChatToolDeps } from "./types";
 
 export function createResolveObservationTool(deps: ChatToolDeps) {
@@ -13,7 +13,7 @@ export function createResolveObservationTool(deps: ChatToolDeps) {
       observation_id: z.string().min(1).describe("Observation record ID, e.g. observation:abc123"),
     }),
     execute: async (input, options) => {
-      const context = requireToolContext(options);
+      const { context } = await requireAuthorizedContext(options, "resolve_observation", deps);
       const observationRecord = parseRecordIdString(input.observation_id, ["observation"], "observation");
 
       await resolveObservation({

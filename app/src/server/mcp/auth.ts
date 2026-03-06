@@ -1,55 +1,102 @@
 import { RecordId, type Surreal } from "surrealdb";
-import { verifyApiKey } from "./api-key";
 import { jsonError } from "../http/response";
+import type { AgentType } from "../chat/tools/types";
+import { createJwtValidator, type BrainTokenClaims } from "./token-validation";
+import type { McpAuthResult } from "./types";
 
 type WorkspaceRow = {
   id: RecordId<"workspace", string>;
   name: string;
-  api_key_hash?: string;
 };
 
-export type McpAuthResult = {
-  workspaceRecord: RecordId<"workspace", string>;
-  workspaceName: string;
-};
+const VALID_AGENT_TYPES = new Set<AgentType>([
+  "code_agent", "architect", "management", "design_partner", "observer",
+]);
+
+let validateToken: ((token: string) => Promise<BrainTokenClaims>) | undefined;
 
 /**
- * Authenticate an MCP request via Bearer token.
- * Checks the Authorization header against workspace API key hashes.
- * Returns workspace context on success, or an error Response.
+ * Authenticate an MCP request via OAuth 2.1 JWT Bearer token.
+ * Validates the JWT signature via JWKS, extracts claims, and verifies workspace access.
+ * Returns auth context on success, or an error Response.
  */
 export async function authenticateMcpRequest(
   request: Request,
   workspaceId: string,
   surreal: Surreal,
+  issuerUrl: string,
 ): Promise<McpAuthResult | Response> {
   const authHeader = request.headers.get("authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return jsonError("missing or invalid Authorization header", 401);
   }
 
-  const apiKey = authHeader.slice(7);
-  if (!apiKey) {
-    return jsonError("empty API key", 401);
+  const token = authHeader.slice(7);
+  if (!token) {
+    return jsonError("empty Bearer token", 401);
   }
 
+  // Lazily initialize the JWT validator
+  if (!validateToken) {
+    validateToken = createJwtValidator(issuerUrl);
+  }
+
+  let claims: BrainTokenClaims;
+  try {
+    claims = await validateToken(token);
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error(`[MCP Auth] JWT validation failed: ${detail}`);
+    return jsonError("invalid or expired token", 401);
+  }
+
+  // Extract person identity from sub claim
+  const personId = claims.sub;
+  if (!personId) {
+    return jsonError("token missing sub claim", 401);
+  }
+
+  // Extract workspace from custom claim or verify against requested workspace
+  const claimedWorkspace = claims["urn:brain:workspace"];
+  if (claimedWorkspace && claimedWorkspace !== workspaceId) {
+    return jsonError("token workspace does not match requested workspace", 403);
+  }
+
+  // Verify workspace exists
   const workspaceRecord = new RecordId("workspace", workspaceId);
   const workspace = await surreal.select<WorkspaceRow>(workspaceRecord);
   if (!workspace) {
     return jsonError("workspace not found", 404);
   }
 
-  if (!workspace.api_key_hash) {
-    return jsonError("workspace has no API key configured — run brain init", 403);
+  // If no workspace claim in token, verify membership via DB
+  if (!claimedWorkspace) {
+    const [memberRows] = await surreal.query<[Array<{ role: string }>]>(
+      `SELECT role FROM member_of WHERE in = $person AND out = $ws LIMIT 1;`,
+      { person: new RecordId("person", personId), ws: workspaceRecord },
+    );
+    if (!memberRows || memberRows.length === 0) {
+      return jsonError("token owner is not a member of this workspace", 403);
+    }
   }
 
-  const valid = await verifyApiKey(apiKey, workspace.api_key_hash);
-  if (!valid) {
-    return jsonError("invalid API key", 401);
+  // Extract scopes from token
+  const scopeString = claims.scope ?? "";
+  const scopes = new Set(scopeString.split(" ").filter(Boolean));
+
+  // Agent type from header or from token claim
+  const claimedAgentType = claims["urn:brain:agent_type"];
+  const rawAgentType = request.headers.get("x-agent-type") ?? claimedAgentType ?? "code_agent";
+  if (!VALID_AGENT_TYPES.has(rawAgentType as AgentType)) {
+    return jsonError(`invalid agent type: ${rawAgentType}`, 400);
   }
 
   return {
     workspaceRecord,
     workspaceName: workspace.name,
+    agentType: rawAgentType as AgentType,
+    personRecord: new RecordId("person", personId),
+    scopes,
+    humanPresent: false as const,
   };
 }

@@ -8,7 +8,7 @@ import {
   normalizeRelationshipKind,
   upsertGraphEntity,
 } from "./entity-upsert";
-import { findWorkspacePersonByName, resolvePersonAttributionPatch } from "./person";
+import { resolveWorkspacePerson, resolvePersonAttributionPatch } from "./person";
 import type {
   GraphEntityRecord,
   PersistExtractionResult,
@@ -263,7 +263,7 @@ async function applyAssigneeReference(input: {
     return { resolved: true, assigneeName };
   }
 
-  const personRecord = await findWorkspacePersonByName({
+  const personRecord = await resolveWorkspacePerson({
     surreal: input.surreal,
     workspaceRecord: input.workspaceRecord,
     personName: assigneeName,

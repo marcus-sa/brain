@@ -3,7 +3,7 @@ import { z } from "zod";
 import { ENTITY_CATEGORIES, ENTITY_PRIORITIES, type EntityCategory } from "../../../shared/contracts";
 import { createEmbeddingVector } from "../../graph/embeddings";
 import { resolveWorkspaceProjectRecord, searchEntitiesByEmbedding } from "../../graph/queries";
-import { requireToolContext } from "./helpers";
+import { requireAuthorizedContext } from "../../iam/authority";
 import type { ChatToolDeps } from "./types";
 
 type SuggestedWorkItem = {
@@ -50,7 +50,7 @@ export function createSuggestWorkItemsTool(deps: ChatToolDeps) {
       ).min(1).max(25),
     }),
     execute: async (input, options) => {
-      const context = requireToolContext(options);
+      const { context } = await requireAuthorizedContext(options, "create_suggestion", deps);
       const suggestions: SuggestedWorkItem[] = [];
       const updated: UpdatedWorkItem[] = [];
       const discarded: DiscardedWorkItem[] = [];

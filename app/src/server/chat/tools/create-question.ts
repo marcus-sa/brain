@@ -7,7 +7,7 @@ import {
   resolveWorkspaceFeatureRecord,
   resolveWorkspaceProjectRecord,
 } from "../../graph/queries";
-import { requireToolContext } from "./helpers";
+import { requireAuthorizedContext } from "../../iam/authority";
 import type { ChatToolDeps } from "./types";
 
 export function createCreateQuestionTool(deps: ChatToolDeps) {
@@ -27,7 +27,7 @@ export function createCreateQuestionTool(deps: ChatToolDeps) {
       assigned_to: z.string().optional().describe("Person name to assign the question to"),
     }),
     execute: async (input, options) => {
-      const context = requireToolContext(options);
+      const { context } = await requireAuthorizedContext(options, "create_question", deps);
       const now = new Date();
 
       const projectRecord = input.context?.project

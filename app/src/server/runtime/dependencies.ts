@@ -1,10 +1,12 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { Surreal } from "surrealdb";
 import type { ServerConfig } from "./config";
+import { createAuth, type Auth } from "../auth/config";
 
 export async function createRuntimeDependencies(config: ServerConfig): Promise<{
   surreal: Surreal;
   analyticsSurreal: Surreal;
+  auth: Auth;
   chatAgentModel: any;
   extractionModel: any;
   pmAgentModel: any;
@@ -44,9 +46,17 @@ export async function createRuntimeDependencies(config: ServerConfig): Promise<{
   });
   const embeddingModel = openrouter.textEmbeddingModel(config.embeddingModelId);
 
+  const auth = createAuth(surreal, {
+    betterAuthSecret: config.betterAuthSecret,
+    betterAuthUrl: config.betterAuthUrl,
+    githubClientId: config.githubClientId,
+    githubClientSecret: config.githubClientSecret,
+  });
+
   return {
     surreal,
     analyticsSurreal,
+    auth,
     chatAgentModel,
     extractionModel,
     pmAgentModel,

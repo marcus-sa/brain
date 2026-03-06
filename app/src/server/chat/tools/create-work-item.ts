@@ -12,7 +12,7 @@ import {
 import { seedDescriptionEntry } from "../../descriptions/persist";
 import { fireDescriptionUpdates } from "../../descriptions/triggers";
 import { ensureProjectFeatureEdge } from "../../workspace/workspace-scope";
-import { requireToolContext } from "./helpers";
+import { requireAuthorizedContext } from "../../iam/authority";
 import type { ChatToolDeps } from "./types";
 
 export function createCreateWorkItemTool(deps: ChatToolDeps) {
@@ -30,7 +30,7 @@ export function createCreateWorkItemTool(deps: ChatToolDeps) {
       project: z.string().optional().describe("Project name to scope the entity under"),
     }),
     execute: async (input, options) => {
-      const context = requireToolContext(options);
+      const { context } = await requireAuthorizedContext(options, "create_task", deps);
       const now = new Date();
 
       const embedding = await createEmbeddingVector(

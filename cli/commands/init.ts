@@ -1,5 +1,6 @@
-import { existsSync, mkdirSync, chmodSync, unlinkSync } from "node:fs";
+import { existsSync, mkdirSync, unlinkSync, writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { randomBytes, createHash } from "node:crypto";
 import { findGitRoot, saveRepoConfig, loadGlobalConfig } from "../config";
 import { BrainHttpClient } from "../http-client";
 import { BRAIN_HOOKS, BRAIN_CLAUDE_MD, BRAIN_COMMANDS } from "./init-content";
@@ -46,30 +47,198 @@ export async function runInit(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Step 1: Auth
+// Step 1: Auth (OAuth 2.1 PKCE)
 // ---------------------------------------------------------------------------
 
-async function setupAuth(serverUrl: string, workspaceId: string, gitRoot: string): Promise<void> {
+const DEFAULT_SCOPES = "graph:read graph:reason decision:write task:write observation:write question:write session:write offline_access";
+
+function base64url(buf: Buffer): string {
+  return buf.toString("base64url");
+}
+
+function generatePkce(): { verifier: string; challenge: string } {
+  const verifier = base64url(randomBytes(32));
+  const challenge = base64url(createHash("sha256").update(verifier).digest());
+  return { verifier, challenge };
+}
+
+export async function setupAuth(
+  serverUrl: string,
+  workspaceId: string,
+  gitRoot: string,
+  options?: { openUrl?: (url: string) => void },
+): Promise<void> {
   const global = await loadGlobalConfig();
   const existing = global?.repos[gitRoot];
-  if (existing && existing.workspace === workspaceId) {
+  if (existing && existing.workspace === workspaceId && existing.access_token) {
     console.log(`✓ Auth: already configured for ${gitRoot}`);
     return;
   }
 
-  const initResult = await BrainHttpClient.initApiKey(serverUrl, workspaceId);
+  // 1. Verify workspace exists
+  try {
+    await BrainHttpClient.listProjects(serverUrl, workspaceId);
+  } catch {
+    console.error(`Workspace ${workspaceId} not found on ${serverUrl}`);
+    process.exit(1);
+  }
+
+  // 2. Dynamic Client Registration
+  const dcrRes = await fetch(`${serverUrl}/api/auth/oauth2/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      client_name: `brain-cli-${workspaceId.slice(0, 8)}`,
+      redirect_uris: ["http://127.0.0.1/callback"],
+      grant_types: ["authorization_code", "refresh_token"],
+      response_types: ["code"],
+      token_endpoint_auth_method: "none",
+    }),
+  });
+  if (!dcrRes.ok) {
+    throw new Error(`Client registration failed: ${dcrRes.status} ${await dcrRes.text()}`);
+  }
+  const { client_id } = await dcrRes.json() as { client_id: string };
+
+  // 3. PKCE
+  const pkce = generatePkce();
+  const state = base64url(randomBytes(16));
+
+  // 4. Start local callback server
+  const { promise: codePromise, resolve: resolveCode, reject: rejectCode } = Promise.withResolvers<string>();
+
+  const callbackServer = Bun.serve({
+    port: 0,
+    hostname: "127.0.0.1",
+    routes: {
+      "/callback": (request) => {
+        const url = new URL(request.url);
+        const code = url.searchParams.get("code");
+        const returnedState = url.searchParams.get("state");
+        const error = url.searchParams.get("error");
+
+        if (error) {
+          rejectCode(new Error(`OAuth error: ${error}`));
+          return new Response("<html><body><h1>Authentication failed</h1><p>You can close this tab.</p></body></html>", {
+            headers: { "Content-Type": "text/html" },
+          });
+        }
+        if (returnedState !== state) {
+          rejectCode(new Error("state mismatch"));
+          return new Response("<html><body><h1>State mismatch</h1></body></html>", {
+            headers: { "Content-Type": "text/html" },
+          });
+        }
+        if (!code) {
+          rejectCode(new Error("no code returned"));
+          return new Response("<html><body><h1>No authorization code</h1></body></html>", {
+            headers: { "Content-Type": "text/html" },
+          });
+        }
+
+        resolveCode(code);
+        return new Response("<html><body><h1>Authenticated!</h1><p>You can close this tab and return to the terminal.</p></body></html>", {
+          headers: { "Content-Type": "text/html" },
+        });
+      },
+    },
+  });
+
+  const redirectUri = `http://127.0.0.1:${callbackServer.port}/callback`;
+
+  // Update redirect_uris with actual port (re-register)
+  const dcrUpdateRes = await fetch(`${serverUrl}/api/auth/oauth2/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      client_name: `brain-cli-${workspaceId.slice(0, 8)}`,
+      redirect_uris: [redirectUri],
+      grant_types: ["authorization_code", "refresh_token"],
+      response_types: ["code"],
+      token_endpoint_auth_method: "none",
+    }),
+  });
+  if (!dcrUpdateRes.ok) {
+    callbackServer.stop();
+    throw new Error(`Client re-registration failed: ${dcrUpdateRes.status} ${await dcrUpdateRes.text()}`);
+  }
+  const dcrUpdate = await dcrUpdateRes.json() as { client_id: string };
+  const actualClientId = dcrUpdate.client_id;
+
+  // 5. Open browser
+  const authUrl = new URL(`${serverUrl}/api/auth/oauth2/authorize`);
+  authUrl.searchParams.set("client_id", actualClientId);
+  authUrl.searchParams.set("redirect_uri", redirectUri);
+  authUrl.searchParams.set("response_type", "code");
+  authUrl.searchParams.set("scope", DEFAULT_SCOPES);
+  authUrl.searchParams.set("code_challenge", pkce.challenge);
+  authUrl.searchParams.set("code_challenge_method", "S256");
+  authUrl.searchParams.set("state", state);
+  // Pass resource so better-auth issues a JWT access token (not opaque)
+  authUrl.searchParams.set("resource", serverUrl);
+
+  console.log("Opening browser for authentication...");
+  console.log(`If the browser doesn't open, visit: ${authUrl.toString()}\n`);
+
+  const openUrl = options?.openUrl ?? ((url: string) => {
+    const openCmd = process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
+    Bun.spawn([openCmd, url], { stdout: "ignore", stderr: "ignore" });
+  });
+  openUrl(authUrl.toString());
+
+  // 6. Wait for callback
+  let code: string;
+  try {
+    code = await codePromise;
+  } catch (error) {
+    callbackServer.stop();
+    throw error;
+  }
+
+  // 7. Exchange code for tokens
+  const tokenRes = await fetch(`${serverUrl}/api/auth/oauth2/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: redirectUri,
+      client_id: actualClientId,
+      code_verifier: pkce.verifier,
+      resource: serverUrl,
+    }),
+  });
+
+  callbackServer.stop();
+
+  if (!tokenRes.ok) {
+    throw new Error(`Token exchange failed: ${tokenRes.status} ${await tokenRes.text()}`);
+  }
+
+  const tokens = await tokenRes.json() as {
+    access_token: string;
+    refresh_token: string;
+    expires_in: number;
+    token_type: string;
+  };
+
+  // 8. Store tokens
   await saveRepoConfig(serverUrl, gitRoot, {
     workspace: workspaceId,
-    api_key: initResult.api_key,
+    client_id: actualClientId,
+    access_token: tokens.access_token,
+    refresh_token: tokens.refresh_token,
+    token_expires_at: Math.floor(Date.now() / 1000) + tokens.expires_in,
   });
-  console.log(`✓ Auth: API key saved for ${gitRoot} → workspace "${initResult.workspace.name}"`);
+
+  console.log(`✓ Auth: OAuth tokens saved for ${gitRoot}`);
 }
 
 // ---------------------------------------------------------------------------
 // Step 2: .mcp.json
 // ---------------------------------------------------------------------------
 
-async function setupMcpJson(gitRoot: string): Promise<void> {
+export async function setupMcpJson(gitRoot: string): Promise<void> {
   const mcpPath = join(gitRoot, ".mcp.json");
   const file = Bun.file(mcpPath);
   let mcp: { mcpServers: Record<string, unknown> } = { mcpServers: {} };
@@ -95,7 +264,7 @@ async function setupMcpJson(gitRoot: string): Promise<void> {
 type HookEntry = { type: string; command?: string; prompt?: string };
 type SettingsHookGroup = { matcher?: string; hooks: HookEntry[] };
 
-async function setupClaudeHooks(gitRoot: string): Promise<void> {
+export async function setupClaudeHooks(gitRoot: string): Promise<void> {
   const claudeDir = join(gitRoot, ".claude");
   if (!existsSync(claudeDir)) mkdirSync(claudeDir, { recursive: true });
 
@@ -138,10 +307,10 @@ async function setupClaudeHooks(gitRoot: string): Promise<void> {
 // Step 4: CLAUDE.md
 // ---------------------------------------------------------------------------
 
-const MARKER_START = "<!-- brain-plugin-start -->";
-const MARKER_END = "<!-- brain-plugin-end -->";
+export const MARKER_START = "<!-- brain-plugin-start -->";
+export const MARKER_END = "<!-- brain-plugin-end -->";
 
-async function setupClaudeMd(gitRoot: string): Promise<void> {
+export async function setupClaudeMd(gitRoot: string): Promise<void> {
   const claudeMdPath = join(gitRoot, "CLAUDE.md");
   const file = Bun.file(claudeMdPath);
   let content = "";
@@ -188,8 +357,7 @@ brain check-commit
 `;
 
   if (!existsSync(preCommitPath)) {
-    Bun.writeSync(Bun.openSync(preCommitPath, "w"), preCommitScript);
-    chmodSync(preCommitPath, 0o755);
+    writeFileSync(preCommitPath, preCommitScript, { mode: 0o755 });
     console.log("✓ Git: pre-commit hook installed");
   } else {
     console.log("✓ Git: pre-commit hook already exists");
@@ -197,7 +365,7 @@ brain check-commit
 
   // Remove legacy Brain post-commit hook
   if (existsSync(postCommitPath)) {
-    const postCommitContent = Bun.file(postCommitPath).textSync();
+    const postCommitContent = readFileSync(postCommitPath, "utf-8");
     const isBrainManaged =
       postCommitContent.includes("Brain post-commit hook") &&
       postCommitContent.includes("brain log-commit");
@@ -208,7 +376,7 @@ brain check-commit
   }
 }
 
-async function setupCommands(gitRoot: string): Promise<void> {
+export async function setupCommands(gitRoot: string): Promise<void> {
   const commandsDir = join(gitRoot, ".claude", "commands");
   if (!existsSync(commandsDir)) mkdirSync(commandsDir, { recursive: true });
 
