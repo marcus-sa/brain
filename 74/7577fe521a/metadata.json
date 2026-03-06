@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "747577fe521a",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "app/src/server/agents/pm/prompt.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/74/7577fe521a/0/metadata.json",
+      "transcript": "/74/7577fe521a/0/full.jsonl",
+      "context": "/74/7577fe521a/0/context.md",
+      "content_hash": "/74/7577fe521a/0/content_hash.txt",
+      "prompt": "/74/7577fe521a/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 60,
+    "cache_creation_tokens": 63171,
+    "cache_read_tokens": 2018972,
+    "output_tokens": 11773,
+    "api_call_count": 30
+  }
+}
