@@ -1,75 +1,92 @@
 # Brain
 
-**Brain is an agent-native business operating system.**
+**The knowledge graph that replaces you as the integration layer between AI agents.**
 
-It turns conversation, implementation, and decisions into a living knowledge graph that both humans and agents can use as shared memory.
+AI agents are already writing code, generating plans, and answering questions. The gap is coordination.
 
-Instead of repeating context every session, teams and coding agents read from and write to the same graph of:
-- projects and features,
-- tasks and dependencies,
-- decisions and constraints,
-- open questions,
-- observations and suggestions.
+Brain gives humans and agents a shared memory layer so decisions, tasks, constraints, and implementation signals persist across sessions and tools.
 
-## The Bet
+---
 
-Most AI workflows are stateless. Great outputs, weak continuity.
+## The Problem
 
-Brain is built on a different assumption:
-- chat is the interface,
-- graph is the memory,
-- feed is the governance layer,
-- agents are collaborators, not isolated tools.
+Today, most teams are the glue between disconnected agent workflows.
 
-## Product Loop
+You manually:
+- relay architecture decisions from chat to implementation,
+- repeat project context to each coding session,
+- track what changed and what is blocked,
+- reconcile contradictions between code, plans, and decisions.
 
-Brain is organized around four surfaces:
+Without shared context, agents produce generic output. With shared context, they produce deployable work.
 
-1. `Chat` — think, plan, decide, and delegate with tool-using agents.
-2. `Graph` — inspect relationships, provenance, dependencies, and conflicts.
-3. `Feed` — review what requires human judgment (blocking/review/awareness).
-4. `MCP` — bring the same context into coding agents (Claude Code, Cursor, Aider, Codex).
+## How Brain Works
 
-## What Brain Unlocks
+### Chat to Think
 
-- Persistent multi-agent memory across sessions
-- Cross-project reasoning on top of shared context
-- Decision governance (provisional -> confirmed)
-- Better handoffs between product, engineering, and autonomous agents
-- Fewer repeated prompts and fewer “why did we choose this?” dead ends
+Conversations are the primary interface. The chat orchestrator and subagents (PM + analytics) turn discussions into structured graph updates.
+
+### Graph to Coordinate
+
+The knowledge graph is shared state across agents and humans.
+
+- An observation written by a coding agent becomes visible to planning/governance workflows.
+- A confirmed decision in chat is available in future coding-agent context packets.
+- Coordination happens through graph reads and writes, not agent-to-agent message passing.
+
+### Feed to Govern
+
+The feed is where humans govern:
+- blocking items,
+- review-required items,
+- awareness signals.
+
+Agents execute quickly. Humans retain authority over high-impact decisions.
 
 ## Capability Map
 
 ### Core Platform
 
-- Conversational workspace bootstrap and ongoing planning
-- Knowledge graph entities for projects/features/tasks/decisions/questions/observations/suggestions
-- Provenance-aware linking from messages, documents, and commits
-- Governance feed with tiered prioritization
-- Interactive graph views (workspace/project/focused)
+- Multi-turn workspace chat with streaming responses
+- Graph entities for projects, features, tasks, decisions, questions, observations, and suggestions
+- Provenance-aware relationships from messages/documents/commits
+- Governance feed with `blocking`, `review`, and `awareness` tiers
+- Graph views for workspace/project/focused entity exploration
 
 ### Agent System
 
 - Thin orchestration chat agent with tool calling
-- PM subagent for planning, organization, and dependency tracking
-- Analytics subagent for graph-level analysis and aggregation
-- Shared tool layer for search, status, decision workflows, observations, suggestions, and work-item creation
+- PM subagent for planning and work-item management
+- Analytics subagent for aggregation/provenance-style graph analysis
+- Shared tool layer for search, status, decision workflows, observations, and work item creation
 
-### Coding-Agent Integration
+### Coding Agent Integration
 
-- Built-in MCP server (`brain mcp`)
-- CLI workflow (`brain init`, hooks, repo mapping, session lifecycle)
-- Agent session capture and graph updates through MCP endpoints
+- MCP server (`brain mcp`) for Claude Code/Cursor/Aider/Codex-style workflows
+- CLI integration via `brain init` (auth, hooks, commands, MCP wiring)
+- Agent session lifecycle capture in graph entities
 
 ### Unified IAM (Identity + Authority)
 
-- Identity resolution to unify one person across chat, GitHub, Slack, calendar, and MCP identities
-- Authority model to control what each actor can do (create provisional decisions, confirm decisions, create tasks, resolve observations, etc.)
-- Person-first attribution so actions are traceable to human or agent context
+- Identity resolution across platform, GitHub, Slack, calendar, and MCP identities
+- Authority scopes for agent actions (`auto`, `provisional`, `propose`, `blocked`)
+- Person-first attribution for human/agent activity
 
 ### Direction
 
-Brain is designed as a long-lived business memory layer, not a point solution. Ongoing focus areas include deeper autonomous workflows, richer context packets, and broader integrations (commits, docs, external systems) without breaking the graph-first core.
+Brain is built as a long-lived coordination layer, not a single-feature assistant. The roadmap expands autonomy and integrations without changing the graph-first model.
+
+## Coordination Model
+
+Agents do not coordinate by messaging each other. They coordinate through the graph.
+
+```text
+Coding agent logs observation
+  -> graph stores signal + provenance
+  -> feed/governance surfaces impact
+  -> planning workflows convert to action
+  -> next sessions consume updated context automatically
+```
 
 ## Architecture
 
@@ -91,7 +108,58 @@ Identity + Authority
   -> Human and agent actions attributed to person/workspace context
 ```
 
-### Stack
+## Self-Hosting
+
+Brain is intentionally self-host-friendly.
+
+### Infrastructure footprint
+
+- Required datastore: **SurrealDB**
+- No separate Redis/Kafka/vector DB requirement for core operation
+- App runtime: single Bun server process
+
+SurrealDB can run:
+- as a standalone service, or
+- embedded for tighter single-node deployment patterns.
+
+### Inference options
+
+Brain supports:
+- OpenRouter (hosted), and
+- Ollama (local inference).
+
+For local/private setups, run Brain + SurrealDB + Ollama on one machine.
+
+## IAM: Unified Identity + Authority
+
+IAM is a core layer, not an add-on.
+
+It solves two problems:
+- **Identity resolution:** unify multiple external identities into one `person` entity.
+- **Authority controls:** enforce who can perform which graph actions.
+
+### Core concepts
+
+- One person, many identities (`platform`, `github`, `slack`, `google`, `mcp`, ...)
+- Person nodes are created through explicit identity flows (owner creation, OAuth link, invite), not extraction
+- Resolution chain:
+1. exact provider match
+2. email match
+3. candidate suggestion for ambiguous display-name matches
+4. unresolved reference when no safe match exists
+
+### Agent auth patterns
+
+1. Platform-managed agents (workspace-scoped actor behavior)
+2. User-local agents (act as extension of a human with scoped permissions)
+
+### IAM rollout shape
+
+1. Phase 1: core identity + authority enforcement
+2. Phase 2: OAuth 2.1 MCP auth + richer identity linking + configurable authority UI
+3. Phase 3: multi-user/team RBAC model
+
+## Tech Stack
 
 - Runtime: Bun + TypeScript
 - Frontend: React + TanStack Router
@@ -99,97 +167,31 @@ Identity + Authority
 - Database: SurrealDB (document + graph + vector)
 - Protocol: Model Context Protocol (MCP)
 
-## Self-Hosting
-
-Brain is intentionally self-host-friendly.
-
-### Infrastructure footprint
-
-- **Required datastore:** SurrealDB
-- **No Redis / no Kafka / no separate vector DB required**
-- App runtime: single Bun server process
-
-SurrealDB can be run:
-- as a standalone service (recommended), or
-- embedded when you want a tighter single-node deployment model.
-
-### Inference options
-
-Brain supports both hosted and local inference:
-- OpenRouter (hosted)
-- Ollama (local)
-
-For local/private deployments, you can run Brain + SurrealDB + Ollama on one machine.
-
-## IAM: Unified Identity + Authority
-
-Brain includes IAM as a core platform layer, not an add-on.
-
-IAM solves two hard problems:
-- **Identity resolution:** unify many external identities into one `person` entity
-- **Authority controls:** enforce who can perform which actions, under what conditions
-
-### Core concepts
-
-- One `person`, many identities (`platform`, `github`, `slack`, `google`, `mcp`, etc.)
-- Person records are created through explicit identity actions (workspace owner, OAuth link, invite), not LLM extraction
-- Resolution chain:
-1. exact provider ID match
-2. email match
-3. candidate suggestion flow for ambiguous display-name matches
-4. unresolved reference when no safe match exists
-
-### Agent auth patterns
-
-1. **Platform-managed agents**: first-class actors operating under workspace-defined authority
-2. **User-local agents**: tools like Claude Code/Cursor operating as an extension of a specific human with scoped permissions
-
-### Authority model
-
-Authority is action-scoped and actor-scoped, with permission levels such as:
-- `auto`
-- `provisional`
-- `propose`
-- `blocked`
-
-This enables governance patterns like:
-- agents can create provisional decisions,
-- humans confirm final decisions,
-- high-risk actions can be blocked or forced through review.
-
-### IAM rollout shape
-
-1. **Phase 1 (MVP):** core person identity, authority scopes, enforcement in chat tools and MCP write routes
-2. **Phase 2:** OAuth 2.1 for MCP auth, richer multi-source identity linking, configurable authority UI
-3. **Phase 3:** multi-user workspaces and role-based access
-
 ## Quickstart
 
-### 1. Prerequisites
+### 1) Prerequisites
 
 - Bun `>=1.3`
 - Docker (for SurrealDB)
 - Either:
-  - OpenRouter API key, or
-  - local Ollama runtime + models
+  - OpenRouter credentials, or
+  - Ollama runtime + local models
 
-### 2. Install dependencies
+### 2) Install dependencies
 
 ```bash
 bun install
 ```
 
-### 3. Start SurrealDB
+### 3) Start SurrealDB
 
 ```bash
 docker compose up -d surrealdb surrealdb-init
 ```
 
-`surrealdb-init` imports `schema/surreal-schema.surql` into `brain/app`.
+### 4) Configure environment
 
-### 4. Configure environment
-
-#### Option A: OpenRouter profile
+#### OpenRouter profile
 
 ```bash
 OPENROUTER_API_KEY=your_openrouter_key
@@ -209,7 +211,7 @@ SURREAL_DATABASE=app
 PORT=3000
 ```
 
-#### Option B: Ollama profile (local inference)
+#### Ollama profile
 
 ```bash
 INFERENCE_PROVIDER=ollama
@@ -230,13 +232,13 @@ SURREAL_DATABASE=app
 PORT=3000
 ```
 
-### 5. Apply migrations
+### 5) Apply migrations
 
 ```bash
 bun migrate
 ```
 
-### 6. Run the app
+### 6) Run the app
 
 ```bash
 bun run dev
@@ -244,26 +246,26 @@ bun run dev
 
 Open `http://localhost:3000`.
 
-## API At A Glance
+## API at a Glance
 
 - `POST /api/workspaces` create workspace + bootstrap conversation
 - `POST /api/chat/messages` send message (supports file attachments)
-- `GET /api/chat/stream/:messageId` stream events (token/extraction/assistant/done)
+- `GET /api/chat/stream/:messageId` stream events
 - `GET /api/workspaces/:workspaceId/feed` governance feed
-- `GET /api/graph/:workspaceId` graph overview/project/focused views
+- `GET /api/graph/:workspaceId` graph views
 - `GET /api/entities/search` full-text entity search
 - `POST /api/mcp/:workspaceId/context` intent-based MCP context resolution
 
 ## MCP + CLI
 
-Brain ships a CLI and MCP server:
+Build CLI:
 
 ```bash
 bun run build:cli
-# compiled binary: ./brain
+# outputs ./brain
 ```
 
-Initialize a repository:
+Initialize repo integration:
 
 ```bash
 BRAIN_SERVER_URL=http://localhost:3000 \
@@ -271,12 +273,12 @@ BRAIN_WORKSPACE_ID=<workspace-id> \
 brain init
 ```
 
-`brain init` configures:
-- repo auth (`~/.brain/config.json`)
-- `.mcp.json` (`brain mcp`)
+`brain init` sets up:
+- `~/.brain/config.json` auth entry
+- `.mcp.json` server registration
 - `.claude/settings.json` hooks
 - `CLAUDE.md` integration block
-- Brain slash commands + git hooks
+- Brain slash commands and git hooks
 
 Run MCP directly:
 
@@ -287,14 +289,14 @@ brain mcp
 ## Useful Scripts
 
 ```bash
-bun run dev                         # run app with watch
-bun run start                       # run app
-bun run typecheck                   # TS checks
-bun test tests/unit/                # deterministic unit tests
-bun test --env-file=.env tests/smoke/  # smoke/integration tests
-bun run eval                        # eval suite (real model calls)
-bun run eval:watch                  # eval watch mode
-bun migrate                         # apply schema migrations
+bun run dev
+bun run start
+bun run typecheck
+bun test tests/unit/
+bun test --env-file=.env tests/smoke/
+bun run eval
+bun run eval:watch
+bun migrate
 ```
 
 ## Repository Map
@@ -304,23 +306,23 @@ app/
   server.ts                     # Bun entrypoint
   src/client/                   # chat/feed/graph UI
   src/server/                   # runtime, routes, agents, tools, graph/extraction domains
-cli/                            # brain CLI + MCP stdio server
+cli/                            # brain CLI + MCP server
 schema/
   surreal-schema.surql          # base schema
-  migrations/                   # versioned schema migrations
+  migrations/                   # versioned migrations
 tests/
-  unit/                         # deterministic tests
-  smoke/                        # server + db integration tests
+  unit/                         # deterministic unit tests
+  smoke/                        # integration tests
 evals/                          # model eval suites + scorers
 ```
 
 ## Contribution Principles
 
-- No `null` in domain data; omit absent optional fields instead
-- Fail fast on invalid state; avoid silent fallback masking
-- Use `RecordId` objects for Surreal identifiers internally
-- Keep schema changes in versioned `schema/migrations/*.surql` and apply with `bun migrate`
+- Never emit/persist domain `null`; omit absent optional fields
+- Fail fast on invalid state
+- Use `RecordId` objects internally for Surreal IDs
+- Keep schema changes in versioned migration files and apply with `bun migrate`
 
 ## Status
 
-Brain is actively developed and intentionally opinionated. We prioritize shipping a coherent agent-native operating model over bolting AI onto legacy CRUD patterns.
+Early-stage and actively developed.
