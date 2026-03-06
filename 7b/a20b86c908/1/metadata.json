@@ -1,7 +1,9 @@
 {
   "cli_version": "0.4.8",
   "checkpoint_id": "7ba20b86c908",
+  "session_id": "a2b06541-9b3d-4960-a743-5ca6b55a5e0f",
   "strategy": "manual-commit",
+  "created_at": "2026-03-06T04:05:51.400195Z",
   "branch": "marcus-sa/auto-entity-enrichment",
   "checkpoints_count": 1,
   "files_touched": [
@@ -21,27 +23,22 @@
     "schema/migrations/0013_question_answer_tracking.surql",
     "tests/unit/architect-agent.test.ts"
   ],
-  "sessions": [
-    {
-      "metadata": "/7b/a20b86c908/0/metadata.json",
-      "transcript": "/7b/a20b86c908/0/full.jsonl",
-      "context": "/7b/a20b86c908/0/context.md",
-      "content_hash": "/7b/a20b86c908/0/content_hash.txt",
-      "prompt": "/7b/a20b86c908/0/prompt.txt"
-    },
-    {
-      "metadata": "/7b/a20b86c908/1/metadata.json",
-      "transcript": "/7b/a20b86c908/1/full.jsonl",
-      "context": "/7b/a20b86c908/1/context.md",
-      "content_hash": "/7b/a20b86c908/1/content_hash.txt",
-      "prompt": "/7b/a20b86c908/1/prompt.txt"
-    }
-  ],
+  "agent": "Claude Code",
+  "turn_id": "11d750092612",
   "token_usage": {
-    "input_tokens": 176,
-    "cache_creation_tokens": 259108,
-    "cache_read_tokens": 10636437,
-    "output_tokens": 47520,
-    "api_call_count": 96
+    "input_tokens": 140,
+    "cache_creation_tokens": 212540,
+    "cache_read_tokens": 10500259,
+    "output_tokens": 46581,
+    "api_call_count": 92
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-06T04:05:50.815346Z",
+    "agent_lines": 532,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 532,
+    "agent_percentage": 100
   }
 }
