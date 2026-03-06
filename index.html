@@ -73,6 +73,19 @@ nav {
   width: 800px; height: 800px;
   background: radial-gradient(circle, rgba(196,240,66,0.05) 0%, transparent 65%);
   pointer-events: none;
+  z-index: 0;
+}
+.hero > * { position: relative; z-index: 2; }
+.hero-graph {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.34;
+  filter: saturate(90%);
 }
 .badge {
   display: inline-flex; align-items: center; gap: 0.5rem;
@@ -273,13 +286,17 @@ footer .right a:hover { color: var(--text-dim); }
 .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.6s ease, transform 0.6s ease; }
 .reveal.visible { opacity: 1; transform: translateY(0); }
 /* Fallback: if JS fails, show everything */
-@media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; }
+  .hero-graph { display: none; }
+}
 
 /* RESPONSIVE */
 @media (max-width: 768px) {
   nav { padding: 0.85rem 1.25rem; }
   .nav-links { display: none; }
   .hero-btns { flex-direction: column; align-items: center; }
+  .hero-graph { display: none; }
   .d-row { flex-direction: column; }
   .d-tag { width: auto; margin-bottom: 0.25rem; }
   .d-arrow { width: 100%; margin-left: 0; }
@@ -318,6 +335,7 @@ footer .right a:hover { color: var(--text-dim); }
 
 <!-- HERO -->
 <section class="hero">
+  <canvas class="hero-graph" aria-hidden="true"></canvas>
   <div class="badge"><span class="badge-dot"></span> Open Source &middot; Self-Hosted</div>
   <h1>The coordination layer<br>for <em>AI agents</em></h1>
   <p>Your agents don't talk to each other. You're the one copy-pasting context between them. Brain is the knowledge graph that replaces you as the integration layer.</p>
@@ -633,6 +651,175 @@ footer .right a:hover { color: var(--text-dim); }
 
 <script>
 (function() {
+  function initHeroGraph() {
+    var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var mobile = window.matchMedia('(max-width: 768px)').matches;
+    if (reduceMotion || mobile) return;
+
+    var canvas = document.querySelector('.hero-graph');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    var width = 0;
+    var height = 0;
+    var dpr = 1;
+    var nodes = [];
+    var raf = 0;
+    var maxDist = 96;
+    var t = 0;
+
+    function sampleLobe(cx, cy, rx, ry) {
+      var x = cx;
+      var y = cy;
+      for (var i = 0; i < 32; i++) {
+        x = cx + (Math.random() * 2 - 1) * rx;
+        y = cy + (Math.random() * 2 - 1) * ry;
+        var nx = (x - cx) / rx;
+        var ny = (y - cy) / ry;
+        // Soft superellipse for a brain-like lobe silhouette.
+        if (Math.pow(Math.abs(nx), 2.35) + Math.pow(Math.abs(ny), 2.05) <= 1) break;
+      }
+      return { x: x, y: y };
+    }
+
+    function pushNode(x, y, zone) {
+      nodes.push({
+        ax: x,
+        ay: y,
+        x: x,
+        y: y,
+        phaseX: Math.random() * Math.PI * 2,
+        phaseY: Math.random() * Math.PI * 2,
+        speedX: 1 + Math.random() * 0.9,
+        speedY: 1 + Math.random() * 0.9,
+        ampX: 2.6 + Math.random() * 4.2,
+        ampY: 2.2 + Math.random() * 3.8,
+        zone: zone,
+        hue: Math.random() < 0.2 ? 'blue' : 'accent'
+      });
+    }
+
+    function sampleField() {
+      return {
+        x: Math.random() * width,
+        y: Math.random() * height
+      };
+    }
+
+    function makeNodes() {
+      nodes = [];
+      var cx = width * 0.5;
+      var cy = height * 0.52;
+      var lx = width * 0.3;
+      var rx = width * 0.7;
+      var lobeRx = width * 0.24;
+      var lobeRy = height * 0.4;
+      var perLobe = Math.max(38, Math.min(62, Math.floor((width * height) / 12500)));
+      var bridgeCount = Math.max(8, Math.min(14, Math.floor(perLobe * 0.16)));
+      var fieldCount = Math.max(30, Math.min(60, Math.floor((width * height) / 17000)));
+
+      for (var i = 0; i < perLobe; i++) {
+        var left = sampleLobe(lx, cy, lobeRx, lobeRy);
+        var right = sampleLobe(rx, cy, lobeRx, lobeRy);
+        pushNode(left.x, left.y, 'left');
+        pushNode(right.x, right.y, 'right');
+      }
+
+      for (var i = 0; i < bridgeCount; i++) {
+        var p = i / Math.max(1, bridgeCount - 1);
+        var bx = cx + (Math.random() - 0.5) * width * 0.28;
+        var by = cy - height * 0.14 + p * height * 0.28 + (Math.random() - 0.5) * height * 0.05;
+        pushNode(bx, by, 'bridge');
+      }
+
+      for (var i = 0; i < fieldCount; i++) {
+        var outer = sampleField();
+        pushNode(outer.x, outer.y, 'field');
+      }
+    }
+
+    function resize() {
+      var rect = canvas.getBoundingClientRect();
+      width = Math.max(1, rect.width);
+      height = Math.max(1, rect.height);
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      maxDist = Math.max(70, Math.min(112, width * 0.1));
+      makeNodes();
+    }
+
+    function edgeFactor(a, b) {
+      if (a.zone === 'field' || b.zone === 'field') return 0.88;
+      if (a.zone === 'bridge' || b.zone === 'bridge') return 1.16;
+      if ((a.zone === 'left' && b.zone === 'right') || (a.zone === 'right' && b.zone === 'left')) return 0.72;
+      return 1;
+    }
+
+    function draw() {
+      if (document.hidden) {
+        raf = requestAnimationFrame(draw);
+        return;
+      }
+
+      t += 0.024;
+      ctx.clearRect(0, 0, width, height);
+
+      var swayX = Math.sin(t * 0.21) * 7.5;
+      var swayY = Math.cos(t * 0.18) * 4.2;
+
+      for (var i = 0; i < nodes.length; i++) {
+        var n = nodes[i];
+        var zoneShiftX = n.zone === 'left' ? -swayX : n.zone === 'right' ? swayX : n.zone === 'field' ? swayX * 0.2 : 0;
+        var zoneShiftY = n.zone === 'bridge' ? swayY * 0.45 : n.zone === 'field' ? swayY * 0.2 : swayY;
+        n.x = n.ax + Math.sin(t * n.speedX + n.phaseX) * n.ampX + zoneShiftX;
+        n.y = n.ay + Math.cos(t * n.speedY + n.phaseY) * n.ampY + zoneShiftY;
+      }
+
+      for (var i = 0; i < nodes.length; i++) {
+        var a = nodes[i];
+        for (var j = i + 1; j < nodes.length; j++) {
+          var b = nodes[j];
+          var dx = a.x - b.x;
+          var dy = a.y - b.y;
+          var dist = Math.sqrt(dx * dx + dy * dy);
+          var threshold = maxDist * edgeFactor(a, b);
+          if (dist > threshold) continue;
+          var strength = 1 - dist / threshold;
+          var alpha = strength * strength * 0.33;
+          var stroke = a.hue === 'blue' || b.hue === 'blue'
+            ? 'rgba(91,141,238,' + (alpha * 0.68) + ')'
+            : 'rgba(196,240,66,' + alpha + ')';
+          ctx.strokeStyle = stroke;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        }
+      }
+
+      for (var i = 0; i < nodes.length; i++) {
+        var node = nodes[i];
+        ctx.beginPath();
+        var radius = node.zone === 'bridge' ? 2 : node.zone === 'field' ? 1.45 : 1.7;
+        ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = node.hue === 'blue'
+          ? 'rgba(91,141,238,0.58)'
+          : 'rgba(196,240,66,0.64)';
+        ctx.fill();
+      }
+
+      raf = requestAnimationFrame(draw);
+    }
+
+    resize();
+    window.addEventListener('resize', resize);
+    raf = requestAnimationFrame(draw);
+  }
+
   var els = document.querySelectorAll('.reveal');
   
   function revealCheck() {
@@ -669,6 +856,8 @@ footer .right a:hover { color: var(--text-dim); }
     var nav = document.querySelector('nav');
     nav.style.background = window.scrollY > 50 ? 'rgba(10,10,12,0.92)' : 'rgba(10,10,12,0.75)';
   });
+
+  initHeroGraph();
 })();
 </script>
 
