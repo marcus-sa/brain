@@ -1,7 +1,9 @@
 {
   "cli_version": "0.4.8",
   "checkpoint_id": "899a667c12b3",
+  "session_id": "b4a96405-6b75-4173-9811-d942ef2e2e50",
   "strategy": "manual-commit",
+  "created_at": "2026-03-06T06:28:24.921258Z",
   "branch": "marcus-sa/onboarding-workspace-desc",
   "checkpoints_count": 0,
   "files_touched": [
@@ -10,35 +12,30 @@
     "app/src/client/router.tsx",
     "app/src/server/chat/chat-processor.ts",
     "app/src/server/chat/context.ts",
+    "app/src/server/http/parsing.ts",
+    "app/src/shared/contracts.ts",
     "app/src/server/chat/handler.ts",
     "app/src/server/extraction/types.ts",
-    "app/src/server/http/parsing.ts",
     "app/src/server/onboarding/onboarding-reply.ts",
     "app/src/server/onboarding/onboarding-state.ts",
-    "app/src/server/workspace/workspace-routes.ts",
-    "app/src/shared/contracts.ts"
+    "app/src/server/workspace/workspace-routes.ts"
   ],
-  "sessions": [
-    {
-      "metadata": "/89/9a667c12b3/0/metadata.json",
-      "transcript": "/89/9a667c12b3/0/full.jsonl",
-      "context": "",
-      "content_hash": "/89/9a667c12b3/0/content_hash.txt",
-      "prompt": ""
-    },
-    {
-      "metadata": "/89/9a667c12b3/1/metadata.json",
-      "transcript": "/89/9a667c12b3/1/full.jsonl",
-      "context": "/89/9a667c12b3/1/context.md",
-      "content_hash": "/89/9a667c12b3/1/content_hash.txt",
-      "prompt": "/89/9a667c12b3/1/prompt.txt"
-    }
-  ],
+  "agent": "Claude Code",
+  "turn_id": "72125ca6669d",
   "token_usage": {
     "input_tokens": 378,
     "cache_creation_tokens": 54441,
     "cache_read_tokens": 282993,
     "output_tokens": 1304,
     "api_call_count": 7
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-06T06:28:24.899045Z",
+    "agent_lines": 89,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 89,
+    "agent_percentage": 100
   }
 }
