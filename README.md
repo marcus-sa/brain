@@ -153,12 +153,6 @@ It solves two problems:
 1. Platform-managed agents (workspace-scoped actor behavior)
 2. User-local agents (act as extension of a human with scoped permissions)
 
-### IAM rollout shape
-
-1. Phase 1: core identity + authority enforcement
-2. Phase 2: OAuth 2.1 MCP auth + richer identity linking + configurable authority UI
-3. Phase 3: multi-user/team RBAC model
-
 ## Tech Stack
 
 - Runtime: Bun + TypeScript
