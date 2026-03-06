@@ -174,6 +174,63 @@ describe("workspace description in onboarding", () => {
     expect(bootstrap.workspaceDescription).toBe("Cannabis delivery storefront platform");
   }, 300_000);
 
+  it("classifies user-described heading as project, not workspace name", async () => {
+    const { baseUrl, surreal } = getRuntime();
+    const user = await createTestUser(baseUrl, "hierarchy");
+
+    const create = await fetchJson<CreateWorkspaceResponse>(`${baseUrl}/api/workspaces`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...user.headers },
+      body: JSON.stringify({
+        name: "DabDash",
+        description: "Cannabis delivery storefront platform",
+      }),
+    });
+
+    expect(create.workspaceId.length).toBeGreaterThan(0);
+
+    // Send a structured message with a heading that should become a project
+    const chatResponse = await fetchJson<ChatMessageResponse>(`${baseUrl}/api/chat/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...user.headers },
+      body: JSON.stringify({
+        clientMessageId: randomUUID(),
+        workspaceId: create.workspaceId,
+        conversationId: create.conversationId,
+        text: [
+          "DASHBOARD",
+          "",
+          "Your business at a glance.",
+          "",
+          "The moment you log in, you see exactly where your business stands. Product counts, active delivery zones, today's orders, and revenue — all on a single screen. Low stock alerts surface problems before they cost you sales.",
+          "",
+          "Real-time order count and revenue stats",
+          "Low stock alerts with direct links to inventory",
+          "Onboarding checklist for new stores",
+          "Quick actions: add product, create zone, update stock",
+          "Recent orders with status badges",
+        ].join("\n"),
+      }),
+    });
+
+    await collectSseEvents<StreamEvent>(`${baseUrl}${chatResponse.streamUrl}`, 180_000);
+
+    // Verify entity classification in the database
+    const workspaceRecord = new RecordId("workspace", create.workspaceId);
+    const [projects] = await surreal
+      .query<[Array<{ id: RecordId<"project", string>; name: string }>]>(
+        "SELECT id, name FROM project WHERE id IN (SELECT VALUE out FROM has_project WHERE `in` = $workspace);",
+        { workspace: workspaceRecord },
+      )
+      .then((r) => r as unknown as [Array<{ id: RecordId<"project", string>; name: string }>]);
+
+    // Workspace name must NOT be created as a project
+    expect(projects.some((p) => p.name.toLowerCase() === "dabdash")).toBe(false);
+
+    // "Dashboard" should be created as a project (the heading), not as a feature
+    expect(projects.some((p) => p.name.toLowerCase() === "dashboard")).toBe(true);
+  }, 300_000);
+
   it("trims whitespace-only description to undefined", async () => {
     const { baseUrl } = getRuntime();
     const user = await createTestUser(baseUrl, "empty");

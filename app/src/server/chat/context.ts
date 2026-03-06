@@ -231,6 +231,7 @@ function formatWorkspaceSummary(context: ChatContext): string {
 type SystemPromptOptions = {
   isOnboarding?: boolean;
   onboardingState?: OnboardingState;
+  workspaceName?: string;
 };
 
 export function buildSystemPrompt(context: ChatContext, options?: SystemPromptOptions): string {
@@ -318,6 +319,7 @@ export function buildSystemPrompt(context: ChatContext, options?: SystemPromptOp
         "",
       );
     } else {
+      const workspaceName = options.workspaceName;
       const topicList = context.workspaceDescription
         ? "projects and product areas, people, decisions, tools, bottlenecks."
         : "business/venture, projects, people, decisions, tools, bottlenecks.";
@@ -325,7 +327,20 @@ export function buildSystemPrompt(context: ChatContext, options?: SystemPromptOp
         "## Onboarding Mode",
         "You are onboarding a newly created workspace.",
         ...(context.workspaceDescription
-          ? [`The workspace is described as: "${context.workspaceDescription}"`, "Do not ask what the business is — focus on discovering projects and product areas within it."]
+          ? [
+            ...(workspaceName ? [`The workspace is named "${workspaceName}".`] : []),
+            `The workspace is described as: "${context.workspaceDescription}"`,
+            "Do not ask what the business is — focus on discovering projects and product areas within it.",
+            "",
+            "## Workspace ≠ Project — Classification Rules",
+            ...(workspaceName ? [`"${workspaceName}" is the workspace (the business/brand). NEVER create a project with the same name as the workspace.`] : []),
+            "What the user describes next are PROJECTS within this workspace — named product areas, modules, or workstreams.",
+            "When the user sends a heading (e.g. \"DASHBOARD\") with a description and bullet points:",
+            "- The heading is a **Project** — create it as a project",
+            "- Bullet points describing capabilities are **Features** within that project",
+            "- Bullet points with action verbs (implement, build, fix) are **Tasks**",
+            "Do NOT nest the user's described structure one level too deep (e.g. making the workspace name a project and demoting projects to features).",
+          ]
           : [
             "When the workspace has no description yet and no existing projects, the user's first statements likely describe the business/domain context, NOT specific projects.",
             "Ask the user to clarify whether they are describing the overall workspace or naming specific projects before creating project entities.",

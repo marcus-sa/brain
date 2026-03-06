@@ -1,5 +1,6 @@
 import { createAcknowledgeObservationTool } from "./acknowledge-observation";
 import { createCheckConstraintsTool } from "./check-constraints";
+import { createCreateWorkItemTool } from "./create-work-item";
 import { createConfirmDecisionTool } from "./confirm-decision";
 import { createCreateObservationTool } from "./create-observation";
 import { createCreateSuggestionTool } from "./create-suggestion";

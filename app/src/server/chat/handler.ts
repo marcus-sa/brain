@@ -43,6 +43,7 @@ export async function runChatAgent(input: {
   messages: ConversationMessage[];
   isOnboarding?: boolean;
   onboardingState?: OnboardingState;
+  workspaceName: string;
   workspaceDescription?: string;
   onToken: (token: string) => Promise<void> | void;
   onReasoning?: (token: string) => Promise<void> | void;
@@ -62,6 +63,7 @@ export async function runChatAgent(input: {
   const system = buildSystemPrompt(context, {
     isOnboarding: input.isOnboarding,
     onboardingState: input.onboardingState,
+    workspaceName: input.workspaceName,
   });
 
   const modelMessages: ModelMessage[] = input.messages.map((message) => ({
