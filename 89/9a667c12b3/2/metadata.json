@@ -1,0 +1,41 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "899a667c12b3",
+  "session_id": "b9cf8566-0149-44f1-8dd8-68e71ae73dab",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-06T06:28:25.787219Z",
+  "branch": "marcus-sa/onboarding-workspace-desc",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "app/src/client/components/layout/WorkspaceGuard.tsx",
+    "app/src/client/hooks/use-workspace.ts",
+    "app/src/client/router.tsx",
+    "app/src/server/chat/chat-processor.ts",
+    "app/src/server/chat/context.ts",
+    "app/src/server/chat/handler.ts",
+    "app/src/server/extraction/types.ts",
+    "app/src/server/http/parsing.ts",
+    "app/src/server/onboarding/onboarding-reply.ts",
+    "app/src/server/onboarding/onboarding-state.ts",
+    "app/src/server/workspace/workspace-routes.ts",
+    "app/src/shared/contracts.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "b7999d8a9a16",
+  "token_usage": {
+    "input_tokens": 142,
+    "cache_creation_tokens": 96798,
+    "cache_read_tokens": 6453921,
+    "output_tokens": 20345,
+    "api_call_count": 69
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-06T06:28:25.481257Z",
+    "agent_lines": 89,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 89,
+    "agent_percentage": 100
+  }
+}

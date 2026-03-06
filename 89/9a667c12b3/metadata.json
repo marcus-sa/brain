@@ -3,7 +3,7 @@
   "checkpoint_id": "899a667c12b3",
   "strategy": "manual-commit",
   "branch": "marcus-sa/onboarding-workspace-desc",
-  "checkpoints_count": 0,
+  "checkpoints_count": 1,
   "files_touched": [
     "app/src/client/components/layout/WorkspaceGuard.tsx",
     "app/src/client/hooks/use-workspace.ts",
@@ -32,13 +32,20 @@
       "context": "/89/9a667c12b3/1/context.md",
       "content_hash": "/89/9a667c12b3/1/content_hash.txt",
       "prompt": "/89/9a667c12b3/1/prompt.txt"
+    },
+    {
+      "metadata": "/89/9a667c12b3/2/metadata.json",
+      "transcript": "/89/9a667c12b3/2/full.jsonl",
+      "context": "/89/9a667c12b3/2/context.md",
+      "content_hash": "/89/9a667c12b3/2/content_hash.txt",
+      "prompt": "/89/9a667c12b3/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 378,
-    "cache_creation_tokens": 54441,
-    "cache_read_tokens": 282993,
-    "output_tokens": 1304,
-    "api_call_count": 7
+    "input_tokens": 520,
+    "cache_creation_tokens": 151239,
+    "cache_read_tokens": 6736914,
+    "output_tokens": 21649,
+    "api_call_count": 76
   }
 }
