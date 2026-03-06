@@ -93,7 +93,7 @@ async function handleCreateWorkspace(deps: ServerDependencies, request: Request)
         "Upload a plan or spec to extract",
       ]
     : [
-        "Describe your primary project and goal",
+        "Describe your business and goals",
         "Share the biggest current bottleneck",
         "Upload a plan or spec to extract",
       ];
