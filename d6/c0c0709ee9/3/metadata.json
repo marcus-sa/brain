@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "d6c0c0709ee9",
+  "session_id": "a90ee0ae-8f0c-451b-9b90-9cfd4c0ebb87",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-06T10:17:00.989123Z",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "app/src/server/chat/context.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "f6fbf45edf33",
+  "checkpoint_transcript_start": 432,
+  "transcript_lines_at_start": 432,
+  "token_usage": {
+    "input_tokens": 38,
+    "cache_creation_tokens": 30816,
+    "cache_read_tokens": 2390894,
+    "output_tokens": 10845,
+    "api_call_count": 16
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-06T10:17:00.741887Z",
+    "agent_lines": 2,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 2,
+    "agent_percentage": 100
+  }
+}
