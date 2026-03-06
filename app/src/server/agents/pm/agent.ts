@@ -66,7 +66,7 @@ export type PmAgentInput = {
 
 const INTENT_INSTRUCTIONS: Record<PmAgentInput["intent"], string> = {
   check_status: "Primary action: call get_project_status when a project scope is available.",
-  plan_work: "Primary action: propose tasks/features/projects with suggest_work_items or create_work_item, deduping each item.",
+  plan_work: "Primary action: create tasks/features/projects with create_work_item for each clearly described item. You MUST call create_work_item before generating output. Only use suggest_work_items when items are vague or you need to check for duplicates against many existing entities.",
   track_dependencies: "Primary action: identify blockers/dependencies and create observations for high-risk paths.",
   organize: "Primary action: organize work into clear, deduplicated next steps.",
 };
@@ -93,6 +93,7 @@ export async function runPmAgent(input: PmAgentInput): Promise<PmAgentOutput> {
       `Intent: ${input.intent}`,
       input.project ? `Project hint: ${input.project}` : "Project hint: not provided",
       INTENT_INSTRUCTIONS[input.intent],
+      "IMPORTANT: You MUST call your tools (create_work_item, suggest_work_items, etc.) BEFORE generating your final output. Do NOT skip tool calls — your output summary must reflect actual tool execution results.",
       "Context:",
       input.conversationContext,
     ].join("\n"),

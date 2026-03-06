@@ -44,7 +44,8 @@ export async function buildPmSystemPrompt(input: {
   surreal: Surreal;
   workspaceRecord: RecordId<"workspace", string>;
 }): Promise<string> {
-  const [projects, observations, suggestions] = await Promise.all([
+  const [workspace, projects, observations, suggestions] = await Promise.all([
+    input.surreal.select<{ name: string }>(input.workspaceRecord),
     listWorkspaceProjectSummaries({
       surreal: input.surreal,
       workspaceRecord: input.workspaceRecord,
@@ -74,13 +75,14 @@ export async function buildPmSystemPrompt(input: {
     "Your observations are visible to all agents in subsequent invocations.",
     "",
     "## Entity Kind Classification",
-    "- Project: named product/system, top-level workstream (proper noun, building/launching language)",
+    ...(workspace?.name ? [`The workspace "${workspace.name}" is the business/brand — NEVER create a project with the same name as the workspace.`] : []),
+    "- Project: named product area, module, or workstream within the workspace (e.g. Dashboard, Inventory, Orders)",
     "- Feature: capability/requirement within a project (supports, provides, enables, needs to handle)",
     "- Task: concrete executable work with action verb (implement, build, fix, migrate, deploy, test)",
     "",
     "## When to Create Directly vs Suggest",
-    "- Direct creation (create_work_item): user explicitly says \"add/create/make a task for X\", onboarding entity seeding, clear actionable items",
-    "- Suggestions (suggest_work_items): user is discussing/brainstorming, PM agent infers potential work items, low certainty",
+    "- Direct creation (create_work_item): DEFAULT for clearly described items — headings with descriptions, explicit feature/task lists, onboarding entity seeding, and any item the user explicitly names. You MUST call create_work_item for each item before generating your final output.",
+    "- Suggestions (suggest_work_items): ONLY when items are vague/uncertain, or you need duplicate analysis against many existing entities. Never use suggest_work_items as a substitute for creating clearly described items.",
     "",
     "## Category Classification (tasks only)",
     "engineering, research, marketing, operations, design, sales.",
