@@ -27,6 +27,7 @@ export type DiscussedEntityContext = {
 export type ChatContext = {
   conversationEntities: ConversationEntity[];
   relevantEntities?: RankedEntity[];
+  workspaceDescription?: string;
   workspaceSummary: {
     projects: WorkspaceProjectSummary[];
     recentDecisions: WorkspaceDecisionSummary[];
@@ -52,6 +53,7 @@ export async function buildChatContext(input: {
   surreal: Surreal;
   conversationRecord: RecordId<"conversation", string>;
   workspaceRecord: RecordId<"workspace", string>;
+  workspaceDescription?: string;
   loaders?: ChatContextLoaders;
   inheritedEntityIds?: RecordId[];
   discussesRecord?: RecordId;
@@ -141,6 +143,7 @@ export async function buildChatContext(input: {
   return {
     conversationEntities,
     relevantEntities,
+    ...(input.workspaceDescription ? { workspaceDescription: input.workspaceDescription } : {}),
     workspaceSummary: {
       projects,
       recentDecisions,
@@ -315,15 +318,25 @@ export function buildSystemPrompt(context: ChatContext, options?: SystemPromptOp
         "",
       );
     } else {
+      const topicList = context.workspaceDescription
+        ? "projects and product areas, people, decisions, tools, bottlenecks."
+        : "business/venture, projects, people, decisions, tools, bottlenecks.";
       sections.push(
         "## Onboarding Mode",
         "You are onboarding a newly created workspace.",
+        ...(context.workspaceDescription
+          ? [`The workspace is described as: "${context.workspaceDescription}"`, "Do not ask what the business is — focus on discovering projects and product areas within it."]
+          : [
+            "When the workspace has no description yet and no existing projects, the user's first statements likely describe the business/domain context, NOT specific projects.",
+            "Ask the user to clarify whether they are describing the overall workspace or naming specific projects before creating project entities.",
+            "Only dispatch PM agent with plan_work intent when the user explicitly names specific projects or product areas.",
+          ]),
         "Ask one natural question at a time like a smart colleague, never as a form.",
-        "Cover these topics over 5-7 turns: business/venture, projects, people, decisions, tools, bottlenecks.",
+        `Cover these topics over 5-7 turns: ${topicList}`,
         "Keep acknowledgment to one sentence max. Ask exactly one concrete follow-up question.",
         "",
         "When the user describes their workspace, create entities directly:",
-        "- Projects → dispatch PM agent with plan_work intent",
+        "- Projects → dispatch PM agent with plan_work intent (only after intent is clear — see above)",
         "- Decisions → use create_provisional_decision",
         "- Open questions requiring a choice → use create_question (not for informational queries)",
         "- People mentioned → note in your response (person creation is handled separately)",
