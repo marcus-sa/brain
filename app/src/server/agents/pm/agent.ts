@@ -61,7 +61,6 @@ export type PmAgentInput = {
   context: ChatToolExecutionContext;
   intent: "plan_work" | "check_status" | "organize" | "track_dependencies";
   conversationContext: string;
-  project?: string;
 };
 
 const INTENT_INSTRUCTIONS: Record<PmAgentInput["intent"], string> = {
@@ -91,7 +90,6 @@ export async function runPmAgent(input: PmAgentInput): Promise<PmAgentOutput> {
     prompt: [
       "You are handling a PM request.",
       `Intent: ${input.intent}`,
-      input.project ? `Project hint: ${input.project}` : "Project hint: not provided",
       INTENT_INSTRUCTIONS[input.intent],
       "IMPORTANT: You MUST call your tools (create_work_item, suggest_work_items, etc.) BEFORE generating your final output. Do NOT skip tool calls — your output summary must reflect actual tool execution results.",
       "Context:",

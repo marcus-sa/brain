@@ -16,7 +16,6 @@ export function createInvokePmAgentTool(deps: ChatAgentToolDeps) {
           "plan_work: user discusses goals, features, or work to be done. check_status: user asks about progress, blockers, or project status. organize: user wants to restructure or re-prioritize. track_dependencies: user asks about blocked items or dependency chains.",
         ),
       context: z.string().min(1).describe("Conversation context for the PM agent"),
-      project: z.string().optional().describe("Optional project scope"),
     }),
     execute: async (input, options) => {
       const context = requireToolContext(options);
@@ -27,7 +26,6 @@ export function createInvokePmAgentTool(deps: ChatAgentToolDeps) {
           context,
           intent: input.intent,
           conversationContext: input.context,
-          ...(input.project ? { project: input.project } : {}),
         });
       } catch (error) {
         logError("tool.invoke_pm_agent.failed", "PM agent invocation failed", error, {
