@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "cb819ef5fe5e",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/subagent-ui-collapsible",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "app/src/server/agents/AGENTS.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/cb/819ef5fe5e/0/metadata.json",
+      "transcript": "/cb/819ef5fe5e/0/full.jsonl",
+      "context": "/cb/819ef5fe5e/0/context.md",
+      "content_hash": "/cb/819ef5fe5e/0/content_hash.txt",
+      "prompt": "/cb/819ef5fe5e/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 9,
+    "cache_creation_tokens": 26511,
+    "cache_read_tokens": 199391,
+    "output_tokens": 590,
+    "api_call_count": 5
+  }
+}
