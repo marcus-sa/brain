@@ -15,7 +15,7 @@ export function createInvokePmAgentTool(deps: ChatAgentToolDeps) {
         .describe(
           "plan_work: user discusses goals, features, or work to be done. check_status: user asks about progress, blockers, or project status. organize: user wants to restructure or re-prioritize. track_dependencies: user asks about blocked items or dependency chains.",
         ),
-      context: z.string().min(1).describe("Conversation context for the PM agent"),
+      context: z.string().min(1).describe("The relevant parts of the user's message for the PM agent. Forward the user's words — do NOT pre-classify what is a project, feature, or task. The PM agent decides entity classification."),
     }),
     execute: async (input, options) => {
       const context = requireToolContext(options);

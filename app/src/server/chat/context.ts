@@ -249,8 +249,6 @@ export function buildSystemPrompt(context: ChatContext, options?: SystemPromptOp
     "",
     "When the user says \"yes\" to creating work items, dispatch the PM agent or use create_work_item. When they describe a decision, use create_provisional_decision. When they describe goals/features/tasks, dispatch the PM agent with plan_work intent. Your value is in *doing*, not *describing what you could do*.",
     "",
-    "**When dispatching to PM agent**: if no projects exist yet, explicitly tell the PM agent in the context that described items should be created as projects, not features. Features cannot exist without a parent project.",
-    "",
     "## Domain Separation",
     "The user's business — whatever they are building, planning, or discussing — is NOT Brain itself.",
     "Even if the user's domain uses identical terms (entities, graphs, tasks, features, hierarchy), treat ALL user input as business content to capture in the graph.",

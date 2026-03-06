@@ -41,7 +41,18 @@ export function createCreateWorkItemTool(deps: ChatToolDeps) {
 
       const entityId = randomUUID();
 
+      // Hard guard: never create a project with the same name as the workspace
       if (input.kind === "project") {
+        const [ws] = await deps.surreal.query<[{ name: string } | undefined]>(
+          "SELECT name FROM ONLY $ws;",
+          { ws: context.workspaceRecord },
+        );
+        if (ws && input.title.toLowerCase().trim() === ws.name.toLowerCase().trim()) {
+          return {
+            error: `"${input.title}" is the workspace name, not a project. Create the user's described items (e.g. Dashboard, Inventory) as projects instead.`,
+          };
+        }
+
         const projectRecord = await createProjectRecord({
           surreal: deps.surreal,
           name: input.title,

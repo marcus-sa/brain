@@ -75,7 +75,7 @@ export async function buildPmSystemPrompt(input: {
     "Your observations are visible to all agents in subsequent invocations.",
     "",
     "## Entity Kind Classification",
-    ...(workspace?.name ? [`The workspace "${workspace.name}" is the business/brand — NEVER create a project with the same name as the workspace.`] : []),
+    ...(workspace?.name ? [`The workspace "${workspace.name}" is the business/brand — strip "${workspace.name}" from project names (e.g. "${workspace.name} Dashboard" → "Dashboard").`] : []),
     "- Project: named product area, module, or workstream within the workspace (e.g. Dashboard, Inventory, Orders)",
     "- Feature: capability/requirement WITHIN an existing project (supports, provides, enables, needs to handle)",
     "- Task: concrete executable work with action verb (implement, build, fix, migrate, deploy, test)",
