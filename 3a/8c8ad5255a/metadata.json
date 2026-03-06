@@ -1,0 +1,29 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "3a8c8ad5255a",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/match-landing-ui",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "DESIGN_TOKENS.md",
+    "app/src/client/components/graph/graph-theme.ts",
+    "app/src/client/index.html",
+    "app/src/client/styles.css"
+  ],
+  "sessions": [
+    {
+      "metadata": "/3a/8c8ad5255a/0/metadata.json",
+      "transcript": "/3a/8c8ad5255a/0/full.jsonl",
+      "context": "/3a/8c8ad5255a/0/context.md",
+      "content_hash": "/3a/8c8ad5255a/0/content_hash.txt",
+      "prompt": "/3a/8c8ad5255a/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 96,
+    "cache_creation_tokens": 212412,
+    "cache_read_tokens": 4390692,
+    "output_tokens": 28479,
+    "api_call_count": 50
+  }
+}
