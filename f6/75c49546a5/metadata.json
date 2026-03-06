@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "f675c49546a5",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/pm-move-items-to-project",
+  "checkpoints_count": 3,
+  "files_touched": [
+    "app/src/server/agents/pm/agent.ts",
+    "app/src/server/agents/pm/prompt.ts",
+    "app/src/server/agents/pm/tools.ts",
+    "app/src/server/chat/tools/move-items-to-project.ts",
+    "tests/smoke/move-items-to-project.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/f6/75c49546a5/0/metadata.json",
+      "transcript": "/f6/75c49546a5/0/full.jsonl",
+      "context": "/f6/75c49546a5/0/context.md",
+      "content_hash": "/f6/75c49546a5/0/content_hash.txt",
+      "prompt": "/f6/75c49546a5/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 130,
+    "cache_creation_tokens": 360934,
+    "cache_read_tokens": 3593044,
+    "output_tokens": 17786,
+    "api_call_count": 52
+  }
+}
