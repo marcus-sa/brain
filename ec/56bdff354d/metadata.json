@@ -139,6 +139,13 @@
       "context": "/ec/56bdff354d/12/context.md",
       "content_hash": "/ec/56bdff354d/12/content_hash.txt",
       "prompt": "/ec/56bdff354d/12/prompt.txt"
+    },
+    {
+      "metadata": "/ec/56bdff354d/13/metadata.json",
+      "transcript": "/ec/56bdff354d/13/full.jsonl",
+      "context": "",
+      "content_hash": "/ec/56bdff354d/13/content_hash.txt",
+      "prompt": ""
     }
   ],
   "token_usage": {
