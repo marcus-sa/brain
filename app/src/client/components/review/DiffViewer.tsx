@@ -10,6 +10,8 @@ function FileStatusBadge({ status }: { status: DiffFileSection["status"] }) {
   return <span className={`diff-file-status diff-file-status--${status}`}>{labels[status]}</span>;
 }
 
+// XSS safety: diff line content is rendered as React text nodes (not dangerouslySetInnerHTML),
+// so React's built-in escaping prevents script injection from untrusted diff data.
 function DiffLine({ line }: { line: string }) {
   const lineType = line.startsWith("+")
     ? "addition"

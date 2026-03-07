@@ -84,7 +84,10 @@ export type UseAgentReviewReturn = {
   acceptError?: string;
   rejectStatus: AsyncStatus;
   rejectError?: string;
+  /** True only during initial data fetch (blocks page rendering). */
   isLoading: boolean;
+  /** True when an accept or reject mutation is in flight (disables action buttons). */
+  isMutating: boolean;
   accept: (summary?: string) => Promise<AcceptSessionResponse | undefined>;
   reject: (feedback: string) => Promise<RejectSessionResponse | undefined>;
 };
@@ -152,10 +155,8 @@ export function useAgentReview(
     [workspaceId, sessionId],
   );
 
-  const isLoading =
-    state.fetchStatus === "pending" ||
-    state.acceptStatus === "pending" ||
-    state.rejectStatus === "pending";
+  const isLoading = state.fetchStatus === "pending";
+  const isMutating = state.acceptStatus === "pending" || state.rejectStatus === "pending";
 
   return {
     reviewData: state.reviewData,
@@ -166,6 +167,7 @@ export function useAgentReview(
     rejectStatus: state.rejectStatus,
     rejectError: state.rejectError,
     isLoading,
+    isMutating,
     accept,
     reject,
   };

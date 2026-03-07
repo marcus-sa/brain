@@ -122,6 +122,9 @@ export function useAgentSession(
   const eventSourceRef = useRef<EventSource | undefined>(undefined);
   const stallTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
+  // Timer lifecycle: clearStallTimer is stable (no deps). resetStallTimer depends only on
+  // clearStallTimer, so it is also stable. Both use stallTimerRef (a ref, not state) to avoid
+  // stale closures. setState updater form ensures state reads are always current.
   const clearStallTimer = useCallback(() => {
     if (stallTimerRef.current !== undefined) {
       clearTimeout(stallTimerRef.current);
@@ -176,9 +179,12 @@ export function useAgentSession(
     );
 
     eventSource.onerror = () => {
+      eventSource.close();
+      clearStallTimer();
       setState((prev) => ({
         ...prev,
-        connectionError: "Connection lost, retrying...",
+        status: "error",
+        connectionError: "Connection lost",
       }));
     };
 

@@ -4,11 +4,16 @@ import type { GovernanceFeedAction, GovernanceFeedItem } from "../../../shared/c
  * Extract the session ID from an agent_session entity ID.
  * Entity IDs follow the pattern "agent_session:<sessionId>".
  * Returns undefined for non-agent_session entities.
+ * Throws if entityId starts with "agent_session:" but has no session ID (contract violation).
  */
 export function extractSessionIdFromEntityId(entityId: string): string | undefined {
   const prefix = "agent_session:";
   if (!entityId.startsWith(prefix)) return undefined;
-  return entityId.slice(prefix.length);
+  const sessionId = entityId.slice(prefix.length);
+  if (sessionId.length === 0) {
+    throw new Error(`Malformed agent_session entityId: expected "agent_session:<id>" but got "${entityId}"`);
+  }
+  return sessionId;
 }
 
 // --- Action classification ---

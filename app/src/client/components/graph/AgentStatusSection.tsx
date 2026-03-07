@@ -102,7 +102,9 @@ export function AgentStatusSection({
   // Derive the initial view from props
   const initialView = deriveAgentStatusView({ entityKind, entityStatus, agentSession });
 
-  // If we have an assign result, use its stream URL; otherwise use session from props
+  // If we have an assign result, use its stream URL; otherwise use session from props.
+  // streamUrl is a dependency of useAgentSession's useEffect, so when assignResult
+  // arrives and triggers a re-render, the hook will start the SSE subscription.
   const streamUrl = assignResult?.streamUrl ?? (initialView.variant === "active" ? initialView.streamUrl : undefined);
   const startedAt = initialView.variant === "active" ? initialView.startedAt : new Date().toISOString();
 
@@ -157,6 +159,18 @@ export function AgentStatusSection({
         ) : undefined}
         {sessionState.connectionError ? (
           <p className="agent-connection-error">{sessionState.connectionError}</p>
+        ) : undefined}
+        {displayStatus === "idle" ? (
+          <a
+            className="agent-review-link"
+            data-testid="agent-review-link"
+            href={`/review/${encodeURIComponent(
+              assignResult?.agentSessionId
+                ?? (initialView.variant === "active" ? initialView.agentSessionId : ""),
+            )}`}
+          >
+            Review
+          </a>
         ) : undefined}
       </div>
     );

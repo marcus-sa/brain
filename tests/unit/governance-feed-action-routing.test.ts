@@ -55,6 +55,12 @@ describe("extractSessionIdFromEntityId", () => {
     expect(extractSessionIdFromEntityId("decision:dec-1")).toBeUndefined();
     expect(extractSessionIdFromEntityId("task:t-1")).toBeUndefined();
   });
+
+  it("throws on malformed agent_session entityId with empty session id", () => {
+    expect(() => extractSessionIdFromEntityId("agent_session:")).toThrow(
+      'Malformed agent_session entityId: expected "agent_session:<id>" but got "agent_session:"',
+    );
+  });
 });
 
 describe("classifyFeedAction", () => {
