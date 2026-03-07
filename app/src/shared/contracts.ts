@@ -270,6 +270,12 @@ export type AgentStallWarningEvent = {
   stallDurationSeconds: number;
 };
 
+export type AgentPromptEvent = {
+  type: "agent_prompt";
+  sessionId: string;
+  text: string;
+};
+
 export type StreamEvent =
   | TokenEvent
   | ReasoningEvent
@@ -283,7 +289,8 @@ export type StreamEvent =
   | AgentTokenEvent
   | AgentFileChangeEvent
   | AgentStatusEvent
-  | AgentStallWarningEvent;
+  | AgentStallWarningEvent
+  | AgentPromptEvent;
 
 export type SearchEntityResponse = {
   id: string;

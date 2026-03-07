@@ -10,6 +10,7 @@ import type { AgentSessionSummary, EntityKind } from "../../../shared/contracts"
 import { useAgentSession, type AgentSessionStatus } from "../../hooks/use-agent-session";
 import { assignAgent, type AssignAgentResponse } from "../../graph/orchestrator-api";
 import { useWorkspaceState } from "../../stores/workspace-state";
+import { AgentSessionOutput } from "./AgentSessionOutput";
 
 // ---------------------------------------------------------------------------
 // Pure core: view derivation
@@ -159,6 +160,10 @@ export function AgentStatusSection({
             </span>
           ) : undefined}
         </div>
+        <AgentSessionOutput
+          outputEntries={sessionState.outputEntries}
+          status={displayStatus}
+        />
         {sessionState.stallWarning ? (
           <p className="agent-stall-warning" data-testid="agent-stall-warning">
             Agent may be stalled (no activity for {sessionState.stallWarning.stallDurationSeconds}s)

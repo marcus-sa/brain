@@ -14,6 +14,8 @@ import type {
   AgentStatusEvent,
   AgentFileChangeEvent,
   AgentStallWarningEvent,
+  AgentTokenEvent,
+  AgentPromptEvent,
 } from "../../shared/contracts";
 
 // ---------------------------------------------------------------------------
@@ -28,6 +30,19 @@ export type AgentSessionStatus =
   | "aborted"
   | "error";
 
+export type OutputEntryToken = { kind: "token"; text: string };
+export type OutputEntryFileChange = {
+  kind: "file_change";
+  file: string;
+  changeType: "created" | "modified" | "deleted";
+};
+export type OutputEntryPrompt = { kind: "prompt"; text: string };
+
+export type OutputEntry =
+  | OutputEntryToken
+  | OutputEntryFileChange
+  | OutputEntryPrompt;
+
 export type AgentSessionState = {
   status: AgentSessionStatus;
   filesChanged: number;
@@ -36,10 +51,16 @@ export type AgentSessionState = {
   stallWarning?: { lastEventAt: string; stallDurationSeconds: number };
   error?: string;
   connectionError?: string;
+  outputEntries: OutputEntry[];
 };
 
 // Events the reducer handles (subset of StreamEvent relevant to agent sessions)
-type AgentEvent = AgentStatusEvent | AgentFileChangeEvent | AgentStallWarningEvent;
+type AgentEvent =
+  | AgentStatusEvent
+  | AgentFileChangeEvent
+  | AgentStallWarningEvent
+  | AgentTokenEvent
+  | AgentPromptEvent;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -56,6 +77,7 @@ export function createInitialState(startedAt: string): AgentSessionState {
     status: "spawning",
     filesChanged: 0,
     startedAt,
+    outputEntries: [],
   };
 }
 
@@ -85,6 +107,14 @@ export function reduceAgentSessionEvent(
         filesChanged: state.filesChanged + 1,
         lastEventAt: now,
         stallWarning: undefined,
+        outputEntries: [
+          ...state.outputEntries,
+          {
+            kind: "file_change" as const,
+            file: event.file,
+            changeType: event.changeType,
+          },
+        ],
       };
 
     case "agent_stall_warning":
@@ -95,6 +125,27 @@ export function reduceAgentSessionEvent(
           lastEventAt: event.lastEventAt,
           stallDurationSeconds: event.stallDurationSeconds,
         },
+      };
+
+    case "agent_token":
+      return {
+        ...state,
+        lastEventAt: now,
+        stallWarning: undefined,
+        outputEntries: [
+          ...state.outputEntries,
+          { kind: "token" as const, text: event.token },
+        ],
+      };
+
+    case "agent_prompt":
+      return {
+        ...state,
+        lastEventAt: now,
+        stallWarning: undefined,
+        outputEntries: [
+          { kind: "prompt" as const, text: event.text },
+        ],
       };
   }
 }
@@ -176,6 +227,12 @@ export function useAgentSession(
     );
     eventSource.addEventListener("agent_stall_warning", (e) =>
       handleEvent("agent_stall_warning", e.data),
+    );
+    eventSource.addEventListener("agent_token", (e) =>
+      handleEvent("agent_token", e.data),
+    );
+    eventSource.addEventListener("agent_prompt", (e) =>
+      handleEvent("agent_prompt", e.data),
     );
 
     eventSource.onerror = () => {

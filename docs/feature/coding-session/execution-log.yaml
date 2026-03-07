@@ -45,5 +45,46 @@ events:
   s: EXECUTED
   sid: 01-02
   t: '2026-03-07T17:13:55Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-03-07T17:16:00Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-03-07T17:17:39Z'
+- d: 'NOT_APPLICABLE: acceptance tests already exist in tests/acceptance/coding-session/follow-up-prompt.test.ts
+    (all skipped, to be enabled in later steps)'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 02-01
+  t: '2026-03-07T17:17:46Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 03-01
+  t: '2026-03-07T17:18:10Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 03-01
+  t: '2026-03-07T17:18:58Z'
+- d: PASS
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 03-01
+  t: '2026-03-07T17:18:58Z'
+- d: PASS
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-03-07T17:19:10Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 03-01
+  t: '2026-03-07T17:20:58Z'
 project_id: coding-session
 schema_version: '3.0'
