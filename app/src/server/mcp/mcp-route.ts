@@ -20,6 +20,10 @@ import {
   createAgentSession,
   endAgentSession,
   logCommit,
+  getPluginTaskContext,
+  getPluginProjectContext,
+  validateTaskStatus,
+  VALID_TASK_STATUSES,
 } from "./mcp-queries";
 import { createObservation } from "../observation/queries";
 import {
@@ -216,7 +220,7 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
     const scopeDenied = requireScope(auth.scopes, "graph:read");
     if (scopeDenied) return scopeDenied;
 
-    const body = await parseJsonBody<{ project_id: string; task_id?: string; since?: string; session_id?: string }>(request);
+    const body = await parseJsonBody<{ project_id: string; task_id?: string; since?: string; session_id?: string; mode?: string }>(request);
     if (body instanceof Response) return body;
     if (!body.project_id) return jsonError("project_id is required", 400);
 
@@ -232,6 +236,20 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
     }
 
     const projectRecord = new RecordId("project", projectId);
+
+    // Plugin mode: return flat project fields only
+    if (!sessionId || body.mode === "plugin") {
+      const pluginContext = await getPluginProjectContext({
+        surreal,
+        workspaceRecord: auth.workspaceRecord,
+        projectRecord,
+      });
+      if (!pluginContext) return jsonError("project not found", 404);
+      logInfo("mcp.project-context.plugin", "Plugin project context returned", { workspaceId, projectId });
+      return jsonResponse(pluginContext, 200);
+    }
+
+    // Rich mode: full context packet for agent sessions
     const scopedProjectError = await requireScopedRecord(projectRecord, auth.workspaceRecord, "project");
     if (scopedProjectError) return scopedProjectError;
     if (taskId) {
@@ -275,7 +293,7 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
     const scopeDenied = requireScope(auth.scopes, "graph:read");
     if (scopeDenied) return scopeDenied;
 
-    const body = await parseJsonBody<{ task_id: string; session_id?: string }>(request);
+    const body = await parseJsonBody<{ task_id: string; session_id?: string; mode?: string }>(request);
     if (body instanceof Response) return body;
     if (!body.task_id) return jsonError("task_id is required", 400);
 
@@ -288,7 +306,22 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
       return jsonError(error instanceof Error ? error.message : "invalid id format", 400);
     }
 
-    const scopedTaskError = await requireScopedRecord(new RecordId("task", taskId), auth.workspaceRecord, "task");
+    const taskRecord = new RecordId("task", taskId);
+
+    // Plugin mode: return flat task fields only
+    if (!sessionId || body.mode === "plugin") {
+      const pluginContext = await getPluginTaskContext({
+        surreal,
+        workspaceRecord: auth.workspaceRecord,
+        taskRecord,
+      });
+      if (!pluginContext) return jsonError("task not found", 404);
+      logInfo("mcp.task-context.plugin", "Plugin task context returned", { workspaceId, taskId });
+      return jsonResponse(pluginContext, 200);
+    }
+
+    // Rich mode: full context packet for agent sessions
+    const scopedTaskError = await requireScopedRecord(taskRecord, auth.workspaceRecord, "task");
     if (scopedTaskError) return scopedTaskError;
 
     try {
@@ -749,10 +782,13 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
     const denied = checkAuthorityOrError(perm, "complete_task", auth.agentType);
     if (denied) return denied;
 
-    const body = await parseJsonBody<{ task_id: string; status: string; notes?: string }>(request);
+    const body = await parseJsonBody<{ task_id: string; status: string; notes?: string; reason?: string }>(request);
     if (body instanceof Response) return body;
     if (!body.task_id) return jsonError("task_id is required", 400);
     if (!body.status) return jsonError("status is required", 400);
+    if (!validateTaskStatus(body.status)) {
+      return jsonError(`invalid status: must be one of ${VALID_TASK_STATUSES.join(", ")}`, 400);
+    }
     let taskId: string;
     try {
       taskId = requireRawId(body.task_id, "task_id");
@@ -762,15 +798,17 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
     const taskRecord = new RecordId("task", taskId);
     const scopedTaskError = await requireScopedRecord(taskRecord, auth.workspaceRecord, "task");
     if (scopedTaskError) return scopedTaskError;
+    // Accept "reason" as alias for "notes" (plugin tools use "reason" for blocked status)
+    const notes = body.notes ?? body.reason;
     const result = await updateTaskStatus({
       surreal,
       workspaceRecord: auth.workspaceRecord,
       taskRecord,
       status: body.status,
-      notes: body.notes,
+      notes,
     });
 
-    return jsonResponse(result, 200);
+    return jsonResponse({ updated: true, taskId: result.task_id, status: result.status }, 200);
   }
 
   /** POST /api/mcp/:workspaceId/tasks/subtask — Create subtask */
@@ -948,6 +986,7 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
     });
 
     return jsonResponse({
+      id: observationRecord.id as string,
       observation_id: observationRecord.id as string,
       severity: body.severity,
       status: "open",
