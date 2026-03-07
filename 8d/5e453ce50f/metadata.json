@@ -3,7 +3,7 @@
   "checkpoint_id": "8d5e453ce50f",
   "strategy": "manual-commit",
   "branch": "marcus-sa/coding-agent-orch",
-  "checkpoints_count": 0,
+  "checkpoints_count": 1,
   "files_touched": [
     "docs/feature/coding-agent-orchestrator-ui/execution-log.yaml"
   ],
@@ -28,13 +28,20 @@
       "context": "/8d/5e453ce50f/2/context.md",
       "content_hash": "/8d/5e453ce50f/2/content_hash.txt",
       "prompt": "/8d/5e453ce50f/2/prompt.txt"
+    },
+    {
+      "metadata": "/8d/5e453ce50f/3/metadata.json",
+      "transcript": "/8d/5e453ce50f/3/full.jsonl",
+      "context": "/8d/5e453ce50f/3/context.md",
+      "content_hash": "/8d/5e453ce50f/3/content_hash.txt",
+      "prompt": "/8d/5e453ce50f/3/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 0,
-    "cache_creation_tokens": 0,
-    "cache_read_tokens": 0,
-    "output_tokens": 0,
-    "api_call_count": 0
+    "input_tokens": 69,
+    "cache_creation_tokens": 64292,
+    "cache_read_tokens": 2028279,
+    "output_tokens": 22838,
+    "api_call_count": 41
   }
 }
