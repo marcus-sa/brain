@@ -56,10 +56,7 @@ export type SessionStatusResponse = {
 };
 
 export type ReviewResponse = {
-  agentSessionId: string;
-  taskId: string;
   taskTitle: string;
-  summary?: string;
   diff: {
     files: Array<{
       path: string;
@@ -75,11 +72,12 @@ export type ReviewResponse = {
     };
   };
   session: {
-    startedAt: string;
+    orchestratorStatus: string;
+    worktreeBranch?: string;
+    startedAt?: string;
     lastEventAt?: string;
-    decisionsCount: number;
-    questionsCount: number;
-    observationsCount: number;
+    toolCallCount?: number;
+    filesEdited?: number;
   };
 };
 

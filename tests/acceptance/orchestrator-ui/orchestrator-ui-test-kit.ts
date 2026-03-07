@@ -108,7 +108,7 @@ export function isAssignButtonVisible(
   detail: EntityDetailResponse,
 ): boolean {
   const status = detail.entity.data.status as string | undefined;
-  const hasActiveSession = detail.entity.data.agentSession !== undefined;
+  const hasActiveSession = detail.agentSession !== undefined;
   return (
     detail.entity.kind === "task" &&
     (status === "ready" || status === "todo") &&
@@ -123,10 +123,7 @@ export function isAssignButtonVisible(
 export function isReviewButtonVisible(
   detail: EntityDetailResponse,
 ): boolean {
-  const session = detail.entity.data.agentSession as
-    | { orchestratorStatus: string }
-    | undefined;
-  return session?.orchestratorStatus === "idle";
+  return detail.agentSession?.orchestratorStatus === "idle";
 }
 
 /**
@@ -135,9 +132,7 @@ export function isReviewButtonVisible(
 export function getAgentBadgeText(
   detail: EntityDetailResponse,
 ): string | undefined {
-  const session = detail.entity.data.agentSession as
-    | { orchestratorStatus: string }
-    | undefined;
+  const session = detail.agentSession;
   if (!session) return undefined;
 
   const statusMap: Record<string, string> = {
@@ -157,10 +152,7 @@ export function getAgentBadgeText(
 export function getFileChangeCount(
   detail: EntityDetailResponse,
 ): number {
-  const session = detail.entity.data.agentSession as
-    | { filesChangedCount?: number }
-    | undefined;
-  return session?.filesChangedCount ?? 0;
+  return detail.agentSession?.filesChangedCount ?? 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -304,8 +296,8 @@ export async function simulateAgentCompletion(
   const { RecordId } = await import("surrealdb");
   const sessionRecord = new RecordId("agent_session", sessionId);
   await runtime.surreal.query(
-    `UPDATE $session SET orchestrator_status = "idle", last_event_at = time::now();`,
-    { session: sessionRecord },
+    `UPDATE $rec SET orchestrator_status = "idle", last_event_at = time::now();`,
+    { rec: sessionRecord },
   );
 }
 
@@ -321,8 +313,23 @@ export async function simulateAgentError(
   const { RecordId } = await import("surrealdb");
   const sessionRecord = new RecordId("agent_session", sessionId);
   await runtime.surreal.query(
-    `UPDATE $session SET orchestrator_status = "error", error_message = $error, last_event_at = time::now();`,
-    { session: sessionRecord, error: errorMessage },
+    `UPDATE $rec SET orchestrator_status = "error", error_message = $error, last_event_at = time::now();`,
+    { rec: sessionRecord, error: errorMessage },
+  );
+}
+
+/**
+ * Transitions an agent session to active state (simulates agent starting work).
+ */
+export async function simulateAgentActive(
+  runtime: OrchestratorTestRuntime,
+  sessionId: string,
+): Promise<void> {
+  const { RecordId } = await import("surrealdb");
+  const sessionRecord = new RecordId("agent_session", sessionId);
+  await runtime.surreal.query(
+    `UPDATE $rec SET orchestrator_status = "active", last_event_at = time::now();`,
+    { rec: sessionRecord },
   );
 }
 
@@ -336,7 +343,7 @@ export async function simulateAgentResumed(
   const { RecordId } = await import("surrealdb");
   const sessionRecord = new RecordId("agent_session", sessionId);
   await runtime.surreal.query(
-    `UPDATE $session SET orchestrator_status = "active", last_event_at = time::now();`,
-    { session: sessionRecord },
+    `UPDATE $rec SET orchestrator_status = "active", last_event_at = time::now();`,
+    { rec: sessionRecord },
   );
 }

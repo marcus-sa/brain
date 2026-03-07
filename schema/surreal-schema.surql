@@ -207,10 +207,20 @@ DEFINE FIELD files_changed ON agent_session TYPE option<array<object>>;
 DEFINE FIELD files_changed[*].path ON agent_session TYPE string;
 DEFINE FIELD files_changed[*].change_type ON agent_session TYPE string ASSERT $value IN ["created", "modified", "deleted"];
 DEFINE FIELD observations_logged ON agent_session TYPE option<array<record<observation>>>;
+DEFINE FIELD opencode_session_id ON agent_session TYPE option<string>;
+DEFINE FIELD orchestrator_status ON agent_session TYPE option<string>
+  ASSERT $value IS NONE OR $value IN ["spawning", "active", "idle", "completed", "aborted", "error"];
+DEFINE FIELD worktree_branch ON agent_session TYPE option<string>;
+DEFINE FIELD worktree_path ON agent_session TYPE option<string>;
+DEFINE FIELD stream_id ON agent_session TYPE option<string>;
+DEFINE FIELD last_event_at ON agent_session TYPE option<datetime>;
+DEFINE FIELD error_message ON agent_session TYPE option<string>;
+DEFINE FIELD last_feedback ON agent_session TYPE option<string>;
 DEFINE FIELD created_at ON agent_session TYPE datetime;
 DEFINE INDEX agent_session_workspace ON agent_session FIELDS workspace;
 DEFINE INDEX agent_session_project ON agent_session FIELDS project;
 DEFINE INDEX agent_session_started_at ON agent_session FIELDS started_at;
+DEFINE INDEX agent_session_task_active ON agent_session FIELDS task_id, orchestrator_status;
 
 DEFINE TABLE observation SCHEMAFULL;
 DEFINE FIELD text ON observation TYPE string;

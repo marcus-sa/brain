@@ -32,6 +32,7 @@ import {
   getTaskStatus,
   simulateAgentCompletion,
   simulateAgentError,
+  simulateAgentActive,
   waitForCondition,
   type TestUser,
   type TestWorkspace,
@@ -50,11 +51,12 @@ describe("UI Walking Skeleton: Agent Delegation Across Three Surfaces", () => {
     user = await createTestUser(runtime.baseUrl, "ws1");
     workspace = await createTestWorkspace(runtime.baseUrl, user);
 
-    // Given a task "Implement input validation" with status "ready"
+    // Given a task with status "ready"
+    const taskTitle = `Implement input validation ${Date.now()}`;
     const task = await createReadyTask(
       runtime.surreal,
       workspace.workspaceId,
-      { title: "Implement input validation", status: "ready" },
+      { title: taskTitle, status: "ready" },
     );
 
     // Surface 1: Task Popup -- "Assign to Agent" button visible
@@ -75,6 +77,9 @@ describe("UI Walking Skeleton: Agent Delegation Across Three Surfaces", () => {
     );
     expect(assignment.agentSessionId).toBeDefined();
 
+    // Simulate agent transitioning from spawning to active
+    await simulateAgentActive(runtime, assignment.agentSessionId);
+
     // Then the popup shows a status badge "Agent working"
     const detailAfterAssign = await openTaskPopup(
       runtime.baseUrl,
@@ -93,7 +98,7 @@ describe("UI Walking Skeleton: Agent Delegation Across Three Surfaces", () => {
       user,
       workspace.workspaceId,
     );
-    const feedResult = findFeedItemForTask(feed, "Implement input validation");
+    const feedResult = findFeedItemForTask(feed, taskTitle);
     expect(feedResult).toBeDefined();
     expect(feedResult!.tier).toBe("review");
     expect(
@@ -107,7 +112,7 @@ describe("UI Walking Skeleton: Agent Delegation Across Three Surfaces", () => {
       workspace.workspaceId,
       assignment.agentSessionId,
     );
-    expect(reviewShowsTaskContent(review, "Implement input validation")).toBe(
+    expect(reviewShowsTaskContent(review, taskTitle)).toBe(
       true,
     );
 
@@ -135,7 +140,7 @@ describe("UI Walking Skeleton: Agent Delegation Across Three Surfaces", () => {
     const task = await createReadyTask(
       runtime.surreal,
       workspace.workspaceId,
-      { title: "Fix login bug", status: "ready" },
+      { title: `Fix login bug ${Date.now()}`, status: "ready" },
     );
     const assignment = await assignTaskToAgent(
       runtime.baseUrl,
@@ -173,10 +178,11 @@ describe("UI Walking Skeleton: Agent Delegation Across Three Surfaces", () => {
     workspace = await createTestWorkspace(runtime.baseUrl, user);
 
     // Given a task assigned to an agent
+    const taskTitle = `Refactor auth module ${Date.now()}`;
     const task = await createReadyTask(
       runtime.surreal,
       workspace.workspaceId,
-      { title: "Refactor auth module", status: "ready" },
+      { title: taskTitle, status: "ready" },
     );
     const assignment = await assignTaskToAgent(
       runtime.baseUrl,
@@ -198,7 +204,7 @@ describe("UI Walking Skeleton: Agent Delegation Across Three Surfaces", () => {
       user,
       workspace.workspaceId,
     );
-    const feedResult = findFeedItemForTask(feed, "Refactor auth module");
+    const feedResult = findFeedItemForTask(feed, taskTitle);
     expect(feedResult).toBeDefined();
     expect(feedResult!.tier).toBe("blocking");
     expect(feedResult!.item.reason).toContain(
