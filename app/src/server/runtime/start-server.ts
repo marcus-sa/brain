@@ -182,6 +182,12 @@ export async function startServer(): Promise<void> {
       "/api/orchestrator/:workspaceId/sessions/:sessionId/abort": {
         POST: orchestratorHandlers.abort,
       },
+      "/api/orchestrator/:workspaceId/sessions/:sessionId/review": {
+        GET: orchestratorHandlers.review,
+      },
+      "/api/orchestrator/:workspaceId/sessions/:sessionId/reject": {
+        POST: orchestratorHandlers.reject,
+      },
       // MCP — Setup
       "/api/mcp/:workspaceId/projects": {
         GET: withRequestLogging("GET /api/mcp/:workspaceId/projects", "GET", (request) =>

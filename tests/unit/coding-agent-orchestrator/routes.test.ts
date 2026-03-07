@@ -11,6 +11,7 @@ import {
   createOrchestratorRouteHandlers,
   type OrchestratorRouteDeps,
 } from "../../../app/src/server/orchestrator/routes";
+import type { DiffResult } from "../../../app/src/server/orchestrator/worktree-manager";
 
 // ---------------------------------------------------------------------------
 // Stub factories
@@ -41,6 +42,26 @@ function stubDeps(overrides: Partial<OrchestratorRouteDeps> = {}): OrchestratorR
     acceptSession: async () => ({
       ok: true as const,
       value: { accepted: true, sessionId: "sess-123" },
+    }),
+    getReview: async () => ({
+      ok: true as const,
+      value: {
+        taskTitle: "Fix the bug",
+        diff: {
+          files: [{ path: "src/index.ts", status: "M", additions: 10, deletions: 2 }],
+          rawDiff: "diff --git ...",
+          stats: { filesChanged: 1, insertions: 10, deletions: 2 },
+        },
+        session: {
+          orchestratorStatus: "idle",
+          worktreeBranch: "agent/fix-bug",
+          startedAt: "2026-03-07T00:00:00Z",
+        },
+      },
+    }),
+    rejectSession: async () => ({
+      ok: true as const,
+      value: { rejected: true, continuing: true },
     }),
     ...overrides,
   };
@@ -261,5 +282,126 @@ describe("orchestrator routes: abort", () => {
 
     const response = await handlers.abort(req);
     expect(response.status).toBe(404);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// review route
+// ---------------------------------------------------------------------------
+
+describe("orchestrator routes: review", () => {
+  it("returns review data with diff, session info, and task title", async () => {
+    const handlers = createOrchestratorRouteHandlers(stubDeps());
+    const req = makeRequest(
+      "GET",
+      "/api/orchestrator/ws-1/sessions/sess-123/review",
+      { workspaceId: "ws-1", sessionId: "sess-123" },
+    );
+
+    const response = await handlers.review(req);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.taskTitle).toBe("Fix the bug");
+    expect(body.diff.files).toHaveLength(1);
+    expect(body.diff.stats.filesChanged).toBe(1);
+    expect(body.session.orchestratorStatus).toBe("idle");
+    expect(body.session.worktreeBranch).toBe("agent/fix-bug");
+  });
+
+  it("maps session error to appropriate HTTP status", async () => {
+    const handlers = createOrchestratorRouteHandlers(
+      stubDeps({
+        getReview: async () => ({
+          ok: false as const,
+          error: {
+            code: "SESSION_NOT_FOUND" as const,
+            message: "Session not found",
+            httpStatus: 404,
+          },
+        }),
+      }),
+    );
+    const req = makeRequest(
+      "GET",
+      "/api/orchestrator/ws-1/sessions/sess-123/review",
+      { workspaceId: "ws-1", sessionId: "sess-123" },
+    );
+
+    const response = await handlers.review(req);
+    expect(response.status).toBe(404);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// reject route
+// ---------------------------------------------------------------------------
+
+describe("orchestrator routes: reject", () => {
+  it("returns rejected true and continuing true on success", async () => {
+    const handlers = createOrchestratorRouteHandlers(stubDeps());
+    const req = makeRequest(
+      "POST",
+      "/api/orchestrator/ws-1/sessions/sess-123/reject",
+      { workspaceId: "ws-1", sessionId: "sess-123" },
+      { feedback: "Please add tests" },
+    );
+
+    const response = await handlers.reject(req);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.rejected).toBe(true);
+    expect(body.continuing).toBe(true);
+  });
+
+  it("returns 400 when feedback is missing", async () => {
+    const handlers = createOrchestratorRouteHandlers(stubDeps());
+    const req = makeRequest(
+      "POST",
+      "/api/orchestrator/ws-1/sessions/sess-123/reject",
+      { workspaceId: "ws-1", sessionId: "sess-123" },
+      {},
+    );
+
+    const response = await handlers.reject(req);
+    expect(response.status).toBe(400);
+  });
+
+  it("returns 400 when feedback is empty string", async () => {
+    const handlers = createOrchestratorRouteHandlers(stubDeps());
+    const req = makeRequest(
+      "POST",
+      "/api/orchestrator/ws-1/sessions/sess-123/reject",
+      { workspaceId: "ws-1", sessionId: "sess-123" },
+      { feedback: "" },
+    );
+
+    const response = await handlers.reject(req);
+    expect(response.status).toBe(400);
+  });
+
+  it("maps session error to appropriate HTTP status", async () => {
+    const handlers = createOrchestratorRouteHandlers(
+      stubDeps({
+        rejectSession: async () => ({
+          ok: false as const,
+          error: {
+            code: "SESSION_ERROR" as const,
+            message: "Session already accepted",
+            httpStatus: 409,
+          },
+        }),
+      }),
+    );
+    const req = makeRequest(
+      "POST",
+      "/api/orchestrator/ws-1/sessions/sess-123/reject",
+      { workspaceId: "ws-1", sessionId: "sess-123" },
+      { feedback: "Please fix" },
+    );
+
+    const response = await handlers.reject(req);
+    expect(response.status).toBe(409);
   });
 });

@@ -11,6 +11,8 @@ import type {
   SessionStatusResult,
   AbortSessionResult,
   AcceptSessionResult,
+  ReviewResult,
+  RejectSessionResult,
 } from "./session-lifecycle";
 import type { SseRegistry } from "../streaming/sse-registry";
 
@@ -30,6 +32,11 @@ export type OrchestratorRouteDeps = {
     sessionId: string,
     summary: string,
   ) => Promise<AcceptSessionResult>;
+  getReview: (sessionId: string) => Promise<ReviewResult>;
+  rejectSession: (
+    sessionId: string,
+    feedback: string,
+  ) => Promise<RejectSessionResult>;
 };
 
 // ---------------------------------------------------------------------------
@@ -38,6 +45,7 @@ export type OrchestratorRouteDeps = {
 
 type AssignBody = { taskId?: string };
 type AcceptBody = { summary?: string };
+type RejectBody = { feedback?: string };
 
 async function parseJsonBody<T>(request: Request): Promise<T | undefined> {
   try {
@@ -100,6 +108,18 @@ function acceptResponse(): Response {
 
 function abortResponse(): Response {
   return jsonResponse({ aborted: true, taskStatus: "ready" }, 200);
+}
+
+function reviewResponse(value: {
+  taskTitle: string;
+  diff: unknown;
+  session: unknown;
+}): Response {
+  return jsonResponse(value, 200);
+}
+
+function rejectResponse(): Response {
+  return jsonResponse({ rejected: true, continuing: true }, 200);
 }
 
 function sessionErrorResponse(error: {
@@ -168,7 +188,35 @@ export function createOrchestratorRouteHandlers(deps: OrchestratorRouteDeps) {
     return abortResponse();
   };
 
-  return { assign, status, accept, abort };
+  const review: RouteHandler = async (request) => {
+    const sessionId = request.params.sessionId;
+    const result = await deps.getReview(sessionId);
+
+    if (!result.ok) {
+      return sessionErrorResponse(result.error);
+    }
+
+    return reviewResponse(result.value);
+  };
+
+  const reject: RouteHandler = async (request) => {
+    const sessionId = request.params.sessionId;
+    const body = await parseJsonBody<RejectBody>(request);
+
+    if (!body?.feedback || body.feedback.trim() === "") {
+      return jsonError("feedback is required", 400);
+    }
+
+    const result = await deps.rejectSession(sessionId, body.feedback);
+
+    if (!result.ok) {
+      return sessionErrorResponse(result.error);
+    }
+
+    return rejectResponse();
+  };
+
+  return { assign, status, accept, abort, review, reject };
 }
 
 // ---------------------------------------------------------------------------
@@ -212,6 +260,8 @@ export function wireOrchestratorRoutes(
   status: RouteHandler;
   accept: RouteHandler;
   abort: RouteHandler;
+  review: RouteHandler;
+  reject: RouteHandler;
   stream?: RouteHandler;
 } {
   // Lazy imports to keep module boundary clean
@@ -283,6 +333,37 @@ export function wireOrchestratorRoutes(
         endAgentSession: queries.endAgentSession,
       });
     },
+
+    getReview: async (sessionId) => {
+      const [lifecycle, worktreeManager] = await Promise.all([
+        lifecycleImport,
+        import("./worktree-manager"),
+      ]);
+      return lifecycle.getOrchestratorReview({
+        surreal: wiringDeps.surreal,
+        sessionId,
+        getDiff: (branchName: string) =>
+          worktreeManager.getDiff(wiringDeps.shellExec, wiringDeps.repoRoot, branchName),
+        getTaskTitle: async (taskId: string) => {
+          const { RecordId } = await import("surrealdb");
+          const taskRecord = new RecordId("task", taskId);
+          const rows = (await wiringDeps.surreal.query(
+            `SELECT title FROM $task;`,
+            { task: taskRecord },
+          )) as Array<Array<{ title: string }>>;
+          return rows[0]?.[0]?.title ?? "";
+        },
+      });
+    },
+
+    rejectSession: async (sessionId, feedback) => {
+      const lifecycle = await lifecycleImport;
+      return lifecycle.rejectOrchestratorSession({
+        surreal: wiringDeps.surreal,
+        sessionId,
+        feedback,
+      });
+    },
   };
 
   const handlers = createOrchestratorRouteHandlers(routeDeps);
@@ -296,6 +377,8 @@ export function wireOrchestratorRoutes(
     status: withRequestLogging("orchestrator.status", "GET", handlers.status),
     accept: withRequestLogging("orchestrator.accept", "POST", handlers.accept),
     abort: withRequestLogging("orchestrator.abort", "POST", handlers.abort),
+    review: withRequestLogging("orchestrator.review", "GET", handlers.review),
+    reject: withRequestLogging("orchestrator.reject", "POST", handlers.reject),
     ...(streamHandler
       ? { stream: withRequestLogging("orchestrator.stream", "GET", streamHandler.stream) }
       : {}),

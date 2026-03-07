@@ -7,12 +7,16 @@ import type {
   SessionStatusResult,
   AbortSessionResult,
   AcceptSessionResult,
+  ReviewResult,
+  RejectSessionResult,
 } from "../../../app/src/server/orchestrator/session-lifecycle";
 import {
   createOrchestratorSession,
   getOrchestratorSessionStatus,
   abortOrchestratorSession,
   acceptOrchestratorSession,
+  getOrchestratorReview,
+  rejectOrchestratorSession,
 } from "../../../app/src/server/orchestrator/session-lifecycle";
 
 // ---------------------------------------------------------------------------
@@ -427,7 +431,7 @@ describe("acceptOrchestratorSession", () => {
     const surrealSpy = createSurrealSpy({
       sessionSelect: {
         id: new RecordId("agent_session", "sess-1"),
-        orchestrator_status: "active",
+        orchestrator_status: "idle",
         worktree_branch: "agent/fix-bug",
         task_id: new RecordId("task", "task-abc"),
         workspace: new RecordId("workspace", "ws-1"),
@@ -472,6 +476,228 @@ describe("acceptOrchestratorSession", () => {
       sessionId: "nonexistent",
       summary: "done",
       endAgentSession: endSessionStub.fn as any,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("SESSION_NOT_FOUND");
+    }
+  });
+
+  test("returns 409 when session is aborted", async () => {
+    const surrealSpy = createSurrealSpy({
+      sessionSelect: {
+        id: new RecordId("agent_session", "sess-1"),
+        orchestrator_status: "aborted",
+        worktree_branch: "agent/fix-bug",
+        task_id: new RecordId("task", "task-abc"),
+        workspace: new RecordId("workspace", "ws-1"),
+      },
+    });
+    const endSessionStub = endAgentSessionStub();
+
+    const result = await acceptOrchestratorSession({
+      surreal: surrealSpy.stub as any,
+      sessionId: "sess-1",
+      summary: "Looks good",
+      endAgentSession: endSessionStub.fn as any,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.httpStatus).toBe(409);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getOrchestratorReview
+// ---------------------------------------------------------------------------
+
+describe("getOrchestratorReview", () => {
+  test("returns diff, session info, and task title for idle session", async () => {
+    const surrealSpy = createSurrealSpy({
+      sessionSelect: {
+        id: new RecordId("agent_session", "sess-1"),
+        orchestrator_status: "idle",
+        worktree_branch: "agent/fix-bug",
+        worktree_path: "/repo/.brain/worktrees/agent-fix-bug",
+        started_at: "2026-03-07T08:00:00Z",
+        last_event_at: "2026-03-07T08:05:00Z",
+        task_id: new RecordId("task", "task-abc"),
+        workspace: new RecordId("workspace", "ws-1"),
+      },
+    });
+
+    const getDiffStub = async () => ({
+      ok: true as const,
+      value: {
+        files: [{ path: "src/index.ts", status: "M", additions: 10, deletions: 2 }],
+        rawDiff: "diff --git ...",
+        stats: { filesChanged: 1, insertions: 10, deletions: 2 },
+      },
+    });
+
+    const getTaskTitleStub = async () => "Fix the bug";
+
+    const result = await getOrchestratorReview({
+      surreal: surrealSpy.stub as any,
+      sessionId: "sess-1",
+      getDiff: getDiffStub,
+      getTaskTitle: getTaskTitleStub,
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.taskTitle).toBe("Fix the bug");
+      expect(result.value.diff.files).toHaveLength(1);
+      expect(result.value.diff.stats.filesChanged).toBe(1);
+      expect(result.value.session.orchestratorStatus).toBe("idle");
+      expect(result.value.session.worktreeBranch).toBe("agent/fix-bug");
+      expect(result.value.session.startedAt).toBe("2026-03-07T08:00:00Z");
+    }
+  });
+
+  test("returns 404 for aborted session", async () => {
+    const surrealSpy = createSurrealSpy({
+      sessionSelect: {
+        id: new RecordId("agent_session", "sess-1"),
+        orchestrator_status: "aborted",
+        worktree_branch: "agent/fix-bug",
+        task_id: new RecordId("task", "task-abc"),
+        workspace: new RecordId("workspace", "ws-1"),
+      },
+    });
+
+    const result = await getOrchestratorReview({
+      surreal: surrealSpy.stub as any,
+      sessionId: "sess-1",
+      getDiff: async () => ({ ok: true as const, value: { files: [], rawDiff: "", stats: { filesChanged: 0, insertions: 0, deletions: 0 } } }),
+      getTaskTitle: async () => "Fix the bug",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.httpStatus).toBe(404);
+    }
+  });
+
+  test("returns 404 for nonexistent session", async () => {
+    const surrealSpy = createSurrealSpy({
+      sessionSelect: undefined,
+    });
+
+    const result = await getOrchestratorReview({
+      surreal: surrealSpy.stub as any,
+      sessionId: "nonexistent",
+      getDiff: async () => ({ ok: true as const, value: { files: [], rawDiff: "", stats: { filesChanged: 0, insertions: 0, deletions: 0 } } }),
+      getTaskTitle: async () => "N/A",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("SESSION_NOT_FOUND");
+    }
+  });
+
+  test("returns error when session is in active state (not reviewable)", async () => {
+    const surrealSpy = createSurrealSpy({
+      sessionSelect: {
+        id: new RecordId("agent_session", "sess-1"),
+        orchestrator_status: "active",
+        worktree_branch: "agent/fix-bug",
+        task_id: new RecordId("task", "task-abc"),
+        workspace: new RecordId("workspace", "ws-1"),
+      },
+    });
+
+    const result = await getOrchestratorReview({
+      surreal: surrealSpy.stub as any,
+      sessionId: "sess-1",
+      getDiff: async () => ({ ok: true as const, value: { files: [], rawDiff: "", stats: { filesChanged: 0, insertions: 0, deletions: 0 } } }),
+      getTaskTitle: async () => "Fix the bug",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.httpStatus).toBe(409);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// rejectOrchestratorSession
+// ---------------------------------------------------------------------------
+
+describe("rejectOrchestratorSession", () => {
+  test("rejects with feedback, returns task to in_progress", async () => {
+    const surrealSpy = createSurrealSpy({
+      sessionSelect: {
+        id: new RecordId("agent_session", "sess-1"),
+        orchestrator_status: "idle",
+        worktree_branch: "agent/fix-bug",
+        task_id: new RecordId("task", "task-abc"),
+        workspace: new RecordId("workspace", "ws-1"),
+      },
+    });
+
+    const result = await rejectOrchestratorSession({
+      surreal: surrealSpy.stub as any,
+      sessionId: "sess-1",
+      feedback: "Please add unit tests",
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.rejected).toBe(true);
+      expect(result.value.continuing).toBe(true);
+    }
+
+    // Verify task was returned to in_progress
+    const taskUpdate = surrealSpy.updates.find(
+      (u) => u.merge && typeof u.merge === "object" && "status" in (u.merge as object) && (u.merge as Record<string, unknown>).status === "in_progress",
+    );
+    expect(taskUpdate).toBeDefined();
+
+    // Verify session status updated to active
+    const sessionUpdate = surrealSpy.updates.find(
+      (u) => u.merge && typeof u.merge === "object" && "orchestrator_status" in (u.merge as object) && (u.merge as Record<string, unknown>).orchestrator_status === "active",
+    );
+    expect(sessionUpdate).toBeDefined();
+  });
+
+  test("returns 409 when session is not in idle state", async () => {
+    const surrealSpy = createSurrealSpy({
+      sessionSelect: {
+        id: new RecordId("agent_session", "sess-1"),
+        orchestrator_status: "completed",
+        worktree_branch: "agent/fix-bug",
+        task_id: new RecordId("task", "task-abc"),
+        workspace: new RecordId("workspace", "ws-1"),
+      },
+    });
+
+    const result = await rejectOrchestratorSession({
+      surreal: surrealSpy.stub as any,
+      sessionId: "sess-1",
+      feedback: "Please fix this",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.httpStatus).toBe(409);
+    }
+  });
+
+  test("returns 404 for nonexistent session", async () => {
+    const surrealSpy = createSurrealSpy({
+      sessionSelect: undefined,
+    });
+
+    const result = await rejectOrchestratorSession({
+      surreal: surrealSpy.stub as any,
+      sessionId: "nonexistent",
+      feedback: "Fix it",
     });
 
     expect(result.ok).toBe(false);

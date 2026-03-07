@@ -222,5 +222,31 @@ events:
   s: EXECUTED
   sid: 03-01
   t: '2026-03-07T08:58:38Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 03-01
+  t: '2026-03-07T08:59:16Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 03-02
+  t: '2026-03-07T09:00:58Z'
+- d: 'CHECKPOINT_PENDING: acceptance tests pre-written with it.skip; unit tests drive
+    contract validation'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 03-02
+  t: '2026-03-07T09:01:06Z'
+- d: PASS
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 03-02
+  t: '2026-03-07T09:02:32Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 03-02
+  t: '2026-03-07T09:05:05Z'
 project_id: coding-agent-orchestrator
 schema_version: '3.0'

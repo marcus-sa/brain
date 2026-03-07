@@ -71,6 +71,24 @@ export type AcceptSessionResult = SessionResult<{
   sessionId: string;
 }>;
 
+export type ReviewResult = SessionResult<{
+  taskTitle: string;
+  diff: import("./worktree-manager").DiffResult;
+  session: {
+    orchestratorStatus: string;
+    worktreeBranch?: string;
+    startedAt?: string;
+    lastEventAt?: string;
+    toolCallCount?: number;
+    filesEdited?: number;
+  };
+}>;
+
+export type RejectSessionResult = SessionResult<{
+  rejected: boolean;
+  continuing: boolean;
+}>;
+
 // ---------------------------------------------------------------------------
 // In-memory handle registry — maps agentSessionId to OpenCodeHandle
 // ---------------------------------------------------------------------------
@@ -381,6 +399,12 @@ export async function acceptOrchestratorSession(
     return { ok: false, error: sessionNotFound(input.sessionId) };
   }
 
+  const status = (session.orchestrator_status ?? "spawning") as OrchestratorStatus;
+
+  if (!ACCEPTABLE_STATUSES.includes(status)) {
+    return { ok: false, error: sessionStateConflict(input.sessionId, status, "accept") };
+  }
+
   // 1. Update orchestrator_status to completed
   await input.surreal.update(sessionRecord).merge({
     orchestrator_status: "completed" as OrchestratorStatus,
@@ -411,6 +435,137 @@ export async function acceptOrchestratorSession(
     value: {
       accepted: true,
       sessionId: input.sessionId,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// State guard helpers
+// ---------------------------------------------------------------------------
+
+const REVIEWABLE_STATUSES: OrchestratorStatus[] = ["idle", "completed"];
+const REJECTABLE_STATUSES: OrchestratorStatus[] = ["idle"];
+const ACCEPTABLE_STATUSES: OrchestratorStatus[] = ["idle", "completed"];
+
+function sessionStateConflict(sessionId: string, currentStatus: string, action: string): SessionError {
+  return {
+    code: "SESSION_ERROR",
+    message: `Cannot ${action} session ${sessionId}: current status is ${currentStatus}`,
+    httpStatus: 409,
+  };
+}
+
+function sessionAborted(sessionId: string): SessionError {
+  return {
+    code: "SESSION_NOT_FOUND",
+    message: `Session ${sessionId} has been aborted`,
+    httpStatus: 404,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// getOrchestratorReview
+// ---------------------------------------------------------------------------
+
+type GetReviewInput = {
+  surreal: Surreal;
+  sessionId: string;
+  getDiff: (branchName: string) => Promise<import("./worktree-manager").WorktreeResult<import("./worktree-manager").DiffResult>>;
+  getTaskTitle: (taskId: string) => Promise<string>;
+};
+
+export async function getOrchestratorReview(
+  input: GetReviewInput,
+): Promise<ReviewResult> {
+  const sessionRecord = new RecordId("agent_session", input.sessionId);
+  const session = await input.surreal.select<SessionRow>(sessionRecord);
+
+  if (!session) {
+    return { ok: false, error: sessionNotFound(input.sessionId) };
+  }
+
+  const status = (session.orchestrator_status ?? "spawning") as OrchestratorStatus;
+
+  if (status === "aborted") {
+    return { ok: false, error: sessionAborted(input.sessionId) };
+  }
+
+  if (!REVIEWABLE_STATUSES.includes(status)) {
+    return { ok: false, error: sessionStateConflict(input.sessionId, status, "review") };
+  }
+
+  // Get diff from the branch
+  const branchName = session.worktree_branch ?? "";
+  const diffResult = await input.getDiff(branchName);
+
+  const diff = diffResult.ok
+    ? diffResult.value
+    : { files: [], rawDiff: "", stats: { filesChanged: 0, insertions: 0, deletions: 0 } };
+
+  // Get task title
+  const taskId = session.task_id ? (session.task_id.id as string) : "";
+  const taskTitle = taskId ? await input.getTaskTitle(taskId) : "";
+
+  return {
+    ok: true,
+    value: {
+      taskTitle,
+      diff,
+      session: {
+        orchestratorStatus: status,
+        ...(session.worktree_branch ? { worktreeBranch: session.worktree_branch } : {}),
+        ...(session.started_at ? { startedAt: session.started_at } : {}),
+        ...(session.last_event_at ? { lastEventAt: session.last_event_at } : {}),
+      },
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// rejectOrchestratorSession
+// ---------------------------------------------------------------------------
+
+type RejectSessionInput = {
+  surreal: Surreal;
+  sessionId: string;
+  feedback: string;
+};
+
+export async function rejectOrchestratorSession(
+  input: RejectSessionInput,
+): Promise<RejectSessionResult> {
+  const sessionRecord = new RecordId("agent_session", input.sessionId);
+  const session = await input.surreal.select<SessionRow>(sessionRecord);
+
+  if (!session) {
+    return { ok: false, error: sessionNotFound(input.sessionId) };
+  }
+
+  const status = (session.orchestrator_status ?? "spawning") as OrchestratorStatus;
+
+  if (!REJECTABLE_STATUSES.includes(status)) {
+    return { ok: false, error: sessionStateConflict(input.sessionId, status, "reject") };
+  }
+
+  // 1. Update session status to active (agent resumes work)
+  await input.surreal.update(sessionRecord).merge({
+    orchestrator_status: "active" as OrchestratorStatus,
+    last_feedback: input.feedback,
+  });
+
+  // 2. Return task to in_progress
+  if (session.task_id) {
+    await input.surreal.update(session.task_id).merge({
+      status: "in_progress",
+      updated_at: new Date(),
+    });
+  }
+
+  return {
+    ok: true,
+    value: {
+      rejected: true,
+      continuing: true,
     },
   };
 }
