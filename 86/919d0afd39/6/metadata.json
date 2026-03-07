@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "86919d0afd39",
+  "session_id": "7721af50-4ac7-4e68-819f-7338a301c4f1",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-07T19:34:43.2492Z",
+  "branch": "marcus-sa/coding-agent-orch",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "docs/feature/claude-agent-sdk-migration/execution-log.yaml"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "65d39d3de833",
+  "token_usage": {
+    "input_tokens": 19,
+    "cache_creation_tokens": 33268,
+    "cache_read_tokens": 174647,
+    "output_tokens": 887,
+    "api_call_count": 7
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-07T19:34:43.232939Z",
+    "agent_lines": 30,
+    "human_added": 112,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 142,
+    "agent_percentage": 21.12676056338028
+  }
+}
