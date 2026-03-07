@@ -3,7 +3,7 @@
   "checkpoint_id": "e284387a99e0",
   "strategy": "manual-commit",
   "branch": "marcus-sa/coding-agent-orch",
-  "checkpoints_count": 0,
+  "checkpoints_count": 1,
   "files_touched": [
     "docs/feature/claude-agent-sdk-migration/execution-log.yaml",
     "tests/acceptance/coding-agent-orchestrator/agent-lifecycle.test.ts",
@@ -84,13 +84,20 @@
       "context": "/e2/84387a99e0/9/context.md",
       "content_hash": "/e2/84387a99e0/9/content_hash.txt",
       "prompt": "/e2/84387a99e0/9/prompt.txt"
+    },
+    {
+      "metadata": "/e2/84387a99e0/10/metadata.json",
+      "transcript": "/e2/84387a99e0/10/full.jsonl",
+      "context": "/e2/84387a99e0/10/context.md",
+      "content_hash": "/e2/84387a99e0/10/content_hash.txt",
+      "prompt": "/e2/84387a99e0/10/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 0,
-    "cache_creation_tokens": 0,
-    "cache_read_tokens": 0,
-    "output_tokens": 0,
-    "api_call_count": 0
+    "input_tokens": 65,
+    "cache_creation_tokens": 110082,
+    "cache_read_tokens": 2248866,
+    "output_tokens": 26400,
+    "api_call_count": 33
   }
 }
