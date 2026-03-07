@@ -3,7 +3,7 @@
   "checkpoint_id": "be9640d31f67",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 0,
+  "checkpoints_count": 3,
   "files_touched": [
     ".claude/commands/brain-start-task.md",
     ".claude/commands/brain-status.md",
@@ -18,13 +18,20 @@
       "context": "/be/9640d31f67/0/context.md",
       "content_hash": "/be/9640d31f67/0/content_hash.txt",
       "prompt": "/be/9640d31f67/0/prompt.txt"
+    },
+    {
+      "metadata": "/be/9640d31f67/1/metadata.json",
+      "transcript": "/be/9640d31f67/1/full.jsonl",
+      "context": "/be/9640d31f67/1/context.md",
+      "content_hash": "/be/9640d31f67/1/content_hash.txt",
+      "prompt": "/be/9640d31f67/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 0,
-    "cache_creation_tokens": 0,
-    "cache_read_tokens": 0,
-    "output_tokens": 0,
-    "api_call_count": 0
+    "input_tokens": 187,
+    "cache_creation_tokens": 62435,
+    "cache_read_tokens": 1155760,
+    "output_tokens": 3943,
+    "api_call_count": 22
   }
 }
