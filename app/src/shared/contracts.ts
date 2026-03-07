@@ -241,6 +241,33 @@ export type ReasoningEvent = {
   token: string;
 };
 
+export type AgentTokenEvent = {
+  type: "agent_token";
+  sessionId: string;
+  token: string;
+};
+
+export type AgentFileChangeEvent = {
+  type: "agent_file_change";
+  sessionId: string;
+  file: string;
+  changeType: "created" | "modified" | "deleted";
+};
+
+export type AgentStatusEvent = {
+  type: "agent_status";
+  sessionId: string;
+  status: "active" | "idle" | "completed" | "aborted" | "error";
+  error?: string;
+};
+
+export type AgentStallWarningEvent = {
+  type: "agent_stall_warning";
+  sessionId: string;
+  lastEventAt: string;
+  stallDurationSeconds: number;
+};
+
 export type StreamEvent =
   | TokenEvent
   | ReasoningEvent
@@ -250,7 +277,11 @@ export type StreamEvent =
   | OnboardingStateEvent
   | ObservationEvent
   | DoneEvent
-  | ErrorEvent;
+  | ErrorEvent
+  | AgentTokenEvent
+  | AgentFileChangeEvent
+  | AgentStatusEvent
+  | AgentStallWarningEvent;
 
 export type SearchEntityResponse = {
   id: string;
