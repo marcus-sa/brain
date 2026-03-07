@@ -241,6 +241,58 @@ initOpenCode(repoRoot: string, config: BrainConfig) -> void
 
 ---
 
+## Client-Side (app/src/client/)
+
+See `ui-architecture.md` for full design. Summary of component boundaries:
+
+### Extended Components
+
+| Component | File | Responsibility | Owns | Does NOT Own |
+|-----------|------|---------------|------|-------------|
+| **EntityDetailPanel** | `components/graph/EntityDetailPanel.tsx` | Renders AgentStatusSection for tasks with active sessions | Conditional rendering logic for agent section | Agent state management (delegated to useAgentSession hook) |
+| **GovernanceFeed** | `components/feed/GovernanceFeed.tsx` | Routes "review" feed action to review view | Navigation for review action | Agent feed item construction (server-side) |
+| **FeedItem** | `components/feed/FeedItem.tsx` | Renders agent-related feed items with Review/Abort actions | Action button rendering | Feed item data shape (comes from server) |
+
+### New Components
+
+| Component | File | Responsibility | Owns | Does NOT Own |
+|-----------|------|---------------|------|-------------|
+| **AgentStatusSection** | `components/graph/AgentStatusSection.tsx` | Agent status badge, file count, elapsed time, assign/review buttons within EntityDetailPanel | Badge rendering, assign trigger, review navigation | SSE connection (delegated to useAgentSession) |
+| **AgentReviewView** | `routes/review-page.tsx` | Full-screen diff review with accept/reject | Layout, user interactions, feedback form | Diff rendering (DiffViewer), review data fetching (useAgentReview) |
+| **DiffViewer** | `components/review/DiffViewer.tsx` | Renders unified diff with per-file expand/collapse | Diff parsing, file grouping, syntax highlighting | Data fetching |
+| **AgentActivityLog** | `components/review/AgentActivityLog.tsx` | Agent activity timeline | Event rendering, chronological ordering | Data fetching |
+
+### New Hooks
+
+| Hook | File | Responsibility | Owns | Does NOT Own |
+|------|------|---------------|------|-------------|
+| **useAgentSession** | `hooks/use-agent-session.ts` | SSE subscription, agent state per session, bootstrap via status poll | EventSource lifecycle, state derivation from SSE events | API calls (delegated to orchestrator-api) |
+| **useAgentReview** | `hooks/use-agent-review.ts` | Review data fetch, accept/reject mutation state | Fetch lifecycle, optimistic state | HTTP transport details |
+
+### Client-Side Dependency Direction
+
+```
+AgentReviewView (route)
+    |-- useAgentReview
+    |       |-- orchestrator-api
+    |-- useAgentSession (after reject, for live monitoring)
+    |       |-- orchestrator-api (status bootstrap)
+    |-- DiffViewer (pure render)
+    |-- AgentActivityLog (pure render)
+
+EntityDetailPanel (extended)
+    |-- AgentStatusSection
+    |       |-- useAgentSession
+    |       |       |-- orchestrator-api
+    |       |-- orchestrator-api (assign call)
+
+GovernanceFeed (extended)
+    |-- useGovernanceFeed (existing, unchanged)
+    |-- Router navigation (for "review" action)
+```
+
+---
+
 ## Interaction with Existing Components
 
 ### ServerDependencies Extension

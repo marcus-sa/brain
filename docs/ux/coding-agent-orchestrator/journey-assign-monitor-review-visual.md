@@ -6,37 +6,55 @@
 - **OpenCode Agent**: Coding agent running via OpenCode SDK
 - **Brain MCP Server**: Provides workspace context to the agent
 
+## UI Surface Model (Hybrid Pattern)
+
+Three surfaces handle distinct concerns. See `ui-surface-mapping.md` for full specification.
+
+| Surface | Role | Entry Point |
+|---------|------|-------------|
+| **Task Popup** (EntityDetailPanel) | Delegation trigger + status badge | Click task node in graph |
+| **Governance Feed** | Human-attention-needed alerts | Always visible in feed panel |
+| **Agent Review View** | Full diff review + accept/reject | "Review" button from popup or feed |
+
 ## Journey Map
 
 ```
 Phase:     ASSIGN                  WORKING                    REVIEW
+Surface:   Task Popup              Task Popup + Feed          Review View
            ┌──────────┐           ┌──────────────────┐       ┌──────────────┐
-User       │ Views task│           │ Monitors activity│       │ Reviews diff │
-           │ details   │           │ feed (optional)  │       │ + reasoning  │
-           │    │      │           │    │             │       │    │         │
-           │    ▼      │           │    ▼             │       │    ▼         │
-           │ Clicks    │           │ Sees status:     │       │ Accepts or   │
-           │ "Assign   │           │ working/blocked  │       │ requests     │
-           │ to Agent" │           │                  │       │ changes      │
+User       │ Clicks    │           │                  │       │              │
+           │ task in   │           │ Task popup shows │       │ Opens Review │
+           │ graph     │           │ "Agent working"  │       │ View (full   │
+           │    │      │           │ badge + file     │       │ screen)      │
+           │    ▼      │           │ count            │       │    │         │
+           │ Sees task │           │                  │       │    ▼         │
+           │ popup w/  │           │ Feed shows alert │       │ Reads diff + │
+           │ "Assign   │           │ only if agent    │       │ agent summary│
+           │ to Agent" │           │ needs attention  │       │    │         │
+           │    │      │           │ (stall, error,   │       │    ▼         │
+           │    ▼      │           │  question)       │       │ Accepts or   │
+           │ Clicks    │           │                  │       │ rejects with │
+           │ button    │           │ Feed: "Review    │       │ feedback     │
+           │           │           │ ready" when idle │       │              │
            └────┬──────┘           └────┬─────────────┘       └────┬─────────┘
                 │                       │                          │
     ────────────┼───────────────────────┼──────────────────────────┼──────────
                 │                       │                          │
 Platform   ┌────▼──────┐           ┌────▼─────────────┐       ┌────▼─────────┐
-           │ Validate  │           │ Stream opencode  │       │ Present diff │
-           │ task has   │           │ events → SSE     │       │ + session    │
-           │ context   │           │ to UI            │       │ trace        │
-           │    │      │           │                  │       │    │         │
-           │    ▼      │           │ Update task      │       │    ▼         │
-           │ Create    │           │ status on key    │       │ Update task  │
-           │ opencode  │           │ events           │       │ status:      │
-           │ session   │           │                  │       │ done/open    │
-           │    │      │           └──────────────────┘       └──────────────┘
-           │    ▼      │
-           │ Inject    │
-           │ MCP +     │
-           │ context   │
-           │    │      │
+           │ Validate  │           │ Route SSE events:│       │ Present diff │
+           │ task +    │           │                  │       │ + session    │
+           │ guard     │           │ agent_status →   │       │ trace        │
+           │    │      │           │   task popup     │       │    │         │
+           │    ▼      │           │ agent_file_change│       │    ▼         │
+           │ Create    │           │   → popup count  │       │ On accept:   │
+           │ worktree  │           │ agent_stall →    │       │ merge branch │
+           │ + session │           │   feed (blocking)│       │ + done       │
+           │    │      │           │ idle →           │       │              │
+           │    ▼      │           │   feed (review)  │       │ On reject:   │
+           │ Inject    │           │                  │       │ send feedback│
+           │ MCP +     │           └──────────────────┘       │ → agent      │
+           │ context   │                                      │ resumes      │
+           │    │      │                                      └──────────────┘
            │    ▼      │
            │ Send task │
            │ prompt    │
