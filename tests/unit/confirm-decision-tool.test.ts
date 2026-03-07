@@ -2,22 +2,31 @@ import { describe, expect, it } from "bun:test";
 import { RecordId } from "surrealdb";
 import { createConfirmDecisionTool } from "../../app/src/server/chat/tools/confirm-decision";
 
-function makeQueryMock(responses: unknown[]) {
-  return () => ({
-    collect: async () => {
-      const next = responses.shift();
-      if (next === undefined) {
-        throw new Error("no mock response configured for query.collect");
-      }
-      return next;
+function makeSurrealMock(queryResponses: unknown[][] = []) {
+  const responses = [...queryResponses];
+  return {
+    query: (..._args: unknown[]) => {
+      const next = responses.shift() ?? [[]];
+      // Support both direct await (returns result) and .collect() chain
+      const promise = Promise.resolve(next) as any;
+      promise.collect = async () => next;
+      return promise;
     },
-  });
+    select: async () => undefined,
+  };
 }
 
 describe("confirm_decision tool guards", () => {
   it("rejects calls without chat_agent actor", async () => {
+    // Authority query returns "auto" permission so requireAuthorizedContext passes,
+    // then the tool's own actor guard rejects non-chat_agent callers.
+    // Each entry is a full surreal multi-statement result: [[row, ...]]
+    const surreal = makeSurrealMock([
+      [[{ permission: "auto" }]],
+    ]);
+
     const tool = createConfirmDecisionTool({
-      surreal: {} as any,
+      surreal: surreal as any,
       embeddingModel: {} as any,
       embeddingDimension: 1536,
       extractionModelId: "test-model",
@@ -42,17 +51,16 @@ describe("confirm_decision tool guards", () => {
   });
 
   it("rejects non-confirmable decision statuses", async () => {
-    const query = makeQueryMock([
-      [[{ id: new RecordId("decision", "d-1") }]],
+    // Authority bypassed via humanPresent. isEntityInWorkspace + select for decision lookup.
+    const decisionRecord = new RecordId("decision", "d-1");
+    const surreal = makeSurrealMock([
+      // isEntityInWorkspace: decision table query returns a matching row (collect format)
+      [[{ id: decisionRecord }]],
     ]);
-
-    const surrealMock = {
-      query,
-      select: async () => ({ id: new RecordId("decision", "d-1"), summary: "Some decision", status: "confirmed" }),
-    };
+    surreal.select = async () => ({ id: decisionRecord, summary: "Some decision", status: "confirmed" }) as any;
 
     const tool = createConfirmDecisionTool({
-      surreal: surrealMock as any,
+      surreal: surreal as any,
       embeddingModel: {} as any,
       embeddingDimension: 1536,
       extractionModelId: "test-model",
@@ -66,6 +74,7 @@ describe("confirm_decision tool guards", () => {
           messages: [],
           experimental_context: {
             actor: "chat_agent",
+            humanPresent: true,
             workspaceRecord: new RecordId("workspace", "w-1"),
             conversationRecord: new RecordId("conversation", "c-1"),
             currentMessageRecord: new RecordId("message", "m-1"),
