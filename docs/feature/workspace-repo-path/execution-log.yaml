@@ -19,5 +19,89 @@ events:
   s: EXECUTED
   sid: 01-01
   t: '2026-03-07T14:43:46Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-03-07T14:44:54Z'
+- d: 'NOT_APPLICABLE: pre-written in DISTILL wave'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 01-02
+  t: '2026-03-07T14:51:12Z'
+- d: PASS
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-03-07T14:51:13Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-03-07T14:51:14Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-03-07T14:51:15Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-03-07T14:51:33Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 01-03
+  t: '2026-03-07T14:59:23Z'
+- d: 'NOT_APPLICABLE: acceptance tests pre-written in DISTILL wave, scenarios 3-5
+    already exist'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 01-03
+  t: '2026-03-07T14:59:28Z'
+- d: 'NOT_APPLICABLE: creation flow uses existing pure functions (parseCreateWorkspaceRequest,
+    validateRepoPath) already tested in steps 01-01 and 01-02; no new testable pure
+    function introduced'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 01-03
+  t: '2026-03-07T14:59:34Z'
+- d: 'NOT_APPLICABLE: all three acceptance criteria already implemented in prior steps
+    -- parseCreateWorkspaceRequest parses repoPath (01-01), handleCreateWorkspace
+    validates and persists repo_path (01-02), bootstrap returns repoPath (01-02);
+    all 3 scenarios pass'
+  p: GREEN
+  s: SKIPPED
+  sid: 01-03
+  t: '2026-03-07T14:59:41Z'
+- d: 'NOT_APPLICABLE: no new code changes required -- all acceptance criteria were
+    already satisfied by steps 01-01 and 01-02'
+  p: COMMIT
+  s: SKIPPED
+  sid: 01-03
+  t: '2026-03-07T14:59:46Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 01-05
+  t: '2026-03-07T15:02:17Z'
+- d: 'NOT_APPLICABLE: UI components tested visually, no pre-written acceptance test
+    for UI rendering'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 01-05
+  t: '2026-03-07T15:02:22Z'
+- d: 'NOT_APPLICABLE: React UI components with no extractable pure domain logic beyond
+    existing deriveAgentStatusView'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 01-05
+  t: '2026-03-07T15:02:26Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 01-05
+  t: '2026-03-07T15:02:29Z'
 project_id: workspace-repo-path
 schema_version: '3.0'

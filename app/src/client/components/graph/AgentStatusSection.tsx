@@ -9,6 +9,7 @@ import { useState } from "react";
 import type { AgentSessionSummary, EntityKind } from "../../../shared/contracts";
 import { useAgentSession, type AgentSessionState, type AgentSessionStatus } from "../../hooks/use-agent-session";
 import { assignAgent, type AssignAgentResponse } from "../../graph/orchestrator-api";
+import { useWorkspaceState } from "../../stores/workspace-state";
 
 // ---------------------------------------------------------------------------
 // Pure core: view derivation
@@ -95,6 +96,7 @@ export function AgentStatusSection({
   entityStatus: string;
   agentSession?: AgentSessionSummary;
 }) {
+  const repoPath = useWorkspaceState((s) => s.repoPath);
   const [assigning, setAssigning] = useState(false);
   const [assignError, setAssignError] = useState<string | undefined>();
   const [assignResult, setAssignResult] = useState<AssignAgentResponse | undefined>();
@@ -176,16 +178,26 @@ export function AgentStatusSection({
     );
   }
 
-  // Show assign button
+  // Show assign button (with missing repo_path banner when applicable)
   if (initialView.variant === "assign") {
+    const missingRepoPath = repoPath === undefined;
+
     return (
       <div className="entity-detail-section agent-status-section">
         <h4>Agent</h4>
+        {missingRepoPath ? (
+          <div className="agent-repo-path-banner" data-testid="agent-repo-path-banner">
+            <p>Repository path is not configured for this workspace. Set it before assigning an agent.</p>
+            <a href="/settings" className="agent-repo-path-action" data-testid="agent-repo-path-action">
+              Configure repository path
+            </a>
+          </div>
+        ) : undefined}
         <button
           type="button"
           className="agent-assign-button"
           data-testid="agent-assign-button"
-          disabled={assigning}
+          disabled={assigning || missingRepoPath}
           onClick={handleAssign}
         >
           {assigning ? "Assigning..." : "Assign Agent"}
