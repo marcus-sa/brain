@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams } from "@tanstack/react-router";
-import { useAgentReview, type UseAgentReviewReturn } from "../hooks/use-agent-review";
+import { useAgentReview, type AsyncStatus } from "../hooks/use-agent-review";
 import { DiffViewer } from "../components/review/DiffViewer";
 import { AgentActivityLog, type ActivityEntry } from "../components/review/AgentActivityLog";
 import type { SessionReviewResponse } from "../graph/orchestrator-api";
@@ -10,8 +10,6 @@ const ACTIVE_WORKSPACE_STORAGE_KEY = "brain.activeWorkspaceId";
 // ---------------------------------------------------------------------------
 // Pure View Model (testable)
 // ---------------------------------------------------------------------------
-
-type AsyncStatus = "idle" | "pending" | "success" | "error";
 
 export type ReviewPageInput = {
   fetchStatus: AsyncStatus;

@@ -7,7 +7,7 @@
 
 import { useState } from "react";
 import type { AgentSessionSummary, EntityKind } from "../../../shared/contracts";
-import { useAgentSession, type AgentSessionState } from "../../hooks/use-agent-session";
+import { useAgentSession, type AgentSessionState, type AgentSessionStatus } from "../../hooks/use-agent-session";
 import { assignAgent, type AssignAgentResponse } from "../../graph/orchestrator-api";
 
 // ---------------------------------------------------------------------------
@@ -65,7 +65,7 @@ export function deriveAgentStatusView(input: DeriveAgentStatusInput): AgentStatu
 // Status badge display
 // ---------------------------------------------------------------------------
 
-const STATUS_LABELS: Record<string, string> = {
+const STATUS_LABELS: Record<AgentSessionStatus, string> = {
   spawning: "Spawning",
   active: "Working",
   idle: "Idle",
@@ -74,8 +74,8 @@ const STATUS_LABELS: Record<string, string> = {
   error: "Error",
 };
 
-function statusLabel(status: string): string {
-  return STATUS_LABELS[status] ?? status;
+function statusLabel(status: AgentSessionStatus): string {
+  return STATUS_LABELS[status];
 }
 
 // ---------------------------------------------------------------------------

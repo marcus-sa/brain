@@ -1,12 +1,12 @@
 export type FileStatus = "modified" | "new" | "deleted";
 
-export interface DiffFileSection {
+export type DiffFileSection = {
   path: string;
   status: FileStatus;
   additions: number;
   deletions: number;
   lines: string[];
-}
+};
 
 function detectStatus(headerLines: string[]): FileStatus {
   if (headerLines.some((l) => l.startsWith("new file mode"))) return "new";

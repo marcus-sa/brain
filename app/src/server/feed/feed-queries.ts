@@ -35,8 +35,49 @@ async function getWorkspaceProjectRows(
   return rows;
 }
 
-function buildWorkspaceScopeClause(_table: "decision" | "question" | "task"): string {
-  return "workspace = $workspace";
+const WORKSPACE_SCOPE_CLAUSE = "workspace = $workspace";
+
+// --- Project context (shared setup for project-scoped queries) ---
+
+type ProjectContext = {
+  projectRecords: RecordId<"project", string>[];
+  projectNameById: Map<string, string>;
+};
+
+async function loadProjectContext(
+  surreal: Surreal,
+  workspaceRecord: RecordId<"workspace", string>,
+): Promise<ProjectContext> {
+  const projects = await getWorkspaceProjectRows(surreal, workspaceRecord);
+  return {
+    projectRecords: projects.map((p) => p.id),
+    projectNameById: new Map(projects.map((p) => [toRecordIdString(p.id), p.name])),
+  };
+}
+
+async function resolveProjectName(
+  surreal: Surreal,
+  entityRecord: RecordId<string, string>,
+  ctx: ProjectContext,
+  relation: "belongs_to" | "has_feature" = "belongs_to",
+): Promise<string | undefined> {
+  if (relation === "has_feature") {
+    const [projRows] = await surreal
+      .query<[Array<RecordId<"project", string>>]>(
+        "SELECT VALUE `in` FROM has_feature WHERE out = $entity AND `in` IN $projects LIMIT 1;",
+        { entity: entityRecord, projects: ctx.projectRecords },
+      )
+      .collect<[Array<RecordId<"project", string>>]>();
+    return projRows[0] ? ctx.projectNameById.get(toRecordIdString(projRows[0])) : undefined;
+  }
+
+  const [projRows] = await surreal
+    .query<[Array<RecordId<"project", string>>]>(
+      "SELECT VALUE out FROM belongs_to WHERE `in` = $entity AND out IN $projects LIMIT 1;",
+      { entity: entityRecord, projects: ctx.projectRecords },
+    )
+    .collect<[Array<RecordId<"project", string>>]>();
+  return projRows[0] ? ctx.projectNameById.get(toRecordIdString(projRows[0])) : undefined;
 }
 
 // --- Blocking tier ---
@@ -54,9 +95,7 @@ export type ProvisionalDecisionRow = {
 export async function listProvisionalDecisions(
   input: WorkspaceQueryInput,
 ): Promise<ProvisionalDecisionRow[]> {
-  const projects = await getWorkspaceProjectRows(input.surreal, input.workspaceRecord);
-  const projectRecords = projects.map((p) => p.id);
-  const projectById = new Map(projects.map((p) => [toRecordIdString(p.id), p.name]));
+  const ctx = await loadProjectContext(input.surreal, input.workspaceRecord);
 
   const [rows] = await input.surreal
     .query<[
@@ -73,13 +112,13 @@ export async function listProvisionalDecisions(
         "SELECT id, summary, status, priority, category, created_at",
         "FROM decision",
         "WHERE status IN ['provisional', 'proposed', 'extracted']",
-        `AND ${buildWorkspaceScopeClause("decision")}`,
+        `AND ${WORKSPACE_SCOPE_CLAUSE}`,
         "ORDER BY created_at DESC",
         "LIMIT $limit;",
       ].join(" "),
       {
         workspace: input.workspaceRecord,
-        projects: projectRecords,
+        projects: ctx.projectRecords,
         limit: input.limit,
       },
     )
@@ -97,15 +136,7 @@ export async function listProvisionalDecisions(
   const results: ProvisionalDecisionRow[] = [];
 
   for (const row of rows) {
-    const [projectRows] = await input.surreal
-      .query<[Array<RecordId<"project", string>>]>(
-        "SELECT VALUE out FROM belongs_to WHERE `in` = $decision AND out IN $projects LIMIT 1;",
-        { decision: row.id, projects: projectRecords },
-      )
-      .collect<[Array<RecordId<"project", string>>]>();
-
-    const project = projectRows[0] ? projectById.get(toRecordIdString(projectRows[0])) : undefined;
-
+    const project = await resolveProjectName(input.surreal, row.id, ctx);
     results.push({
       id: row.id,
       summary: row.summary,
@@ -209,9 +240,7 @@ export type BlockingQuestionRow = {
 export async function listBlockingQuestions(
   input: WorkspaceQueryInput,
 ): Promise<BlockingQuestionRow[]> {
-  const projects = await getWorkspaceProjectRows(input.surreal, input.workspaceRecord);
-  const projectRecords = projects.map((p) => p.id);
-  const projectById = new Map(projects.map((p) => [toRecordIdString(p.id), p.name]));
+  const ctx = await loadProjectContext(input.surreal, input.workspaceRecord);
 
   const [rows] = await input.surreal
     .query<[
@@ -229,13 +258,13 @@ export async function listBlockingQuestions(
         "FROM question",
         "WHERE status = 'open'",
         "AND priority IN ['high', 'critical']",
-        `AND ${buildWorkspaceScopeClause("question")}`,
+        `AND ${WORKSPACE_SCOPE_CLAUSE}`,
         "ORDER BY created_at DESC",
         "LIMIT $limit;",
       ].join(" "),
       {
         workspace: input.workspaceRecord,
-        projects: projectRecords,
+        projects: ctx.projectRecords,
         limit: input.limit,
       },
     )
@@ -253,15 +282,7 @@ export async function listBlockingQuestions(
   const results: BlockingQuestionRow[] = [];
 
   for (const row of rows) {
-    const [projectRows] = await input.surreal
-      .query<[Array<RecordId<"project", string>>]>(
-        "SELECT VALUE out FROM belongs_to WHERE `in` = $question AND out IN $projects LIMIT 1;",
-        { question: row.id, projects: projectRecords },
-      )
-      .collect<[Array<RecordId<"project", string>>]>();
-
-    const project = projectRows[0] ? projectById.get(toRecordIdString(projectRows[0])) : undefined;
-
+    const project = await resolveProjectName(input.surreal, row.id, ctx);
     results.push({
       id: row.id,
       text: row.text,
@@ -292,9 +313,7 @@ export type LowConfidenceDecisionRow = {
 export async function listLowConfidenceDecisions(
   input: WorkspaceQueryInput & { confidenceThreshold: number },
 ): Promise<LowConfidenceDecisionRow[]> {
-  const projects = await getWorkspaceProjectRows(input.surreal, input.workspaceRecord);
-  const projectRecords = projects.map((p) => p.id);
-  const projectById = new Map(projects.map((p) => [toRecordIdString(p.id), p.name]));
+  const ctx = await loadProjectContext(input.surreal, input.workspaceRecord);
 
   const [rows] = await input.surreal
     .query<[
@@ -314,13 +333,13 @@ export async function listLowConfidenceDecisions(
         "WHERE status = 'inferred'",
         "AND extraction_confidence != NONE",
         "AND extraction_confidence < $threshold",
-        `AND ${buildWorkspaceScopeClause("decision")}`,
+        `AND ${WORKSPACE_SCOPE_CLAUSE}`,
         "ORDER BY extraction_confidence ASC",
         "LIMIT $limit;",
       ].join(" "),
       {
         workspace: input.workspaceRecord,
-        projects: projectRecords,
+        projects: ctx.projectRecords,
         threshold: input.confidenceThreshold,
         limit: input.limit,
       },
@@ -340,15 +359,7 @@ export async function listLowConfidenceDecisions(
   const results: LowConfidenceDecisionRow[] = [];
 
   for (const row of rows) {
-    const [projectRows] = await input.surreal
-      .query<[Array<RecordId<"project", string>>]>(
-        "SELECT VALUE out FROM belongs_to WHERE `in` = $decision AND out IN $projects LIMIT 1;",
-        { decision: row.id, projects: projectRecords },
-      )
-      .collect<[Array<RecordId<"project", string>>]>();
-
-    const project = projectRows[0] ? projectById.get(toRecordIdString(projectRows[0])) : undefined;
-
+    const project = await resolveProjectName(input.surreal, row.id, ctx);
     results.push({
       id: row.id,
       summary: row.summary,
@@ -375,9 +386,7 @@ export type BlockedTaskRow = {
 };
 
 export async function listBlockedTasks(input: WorkspaceQueryInput): Promise<BlockedTaskRow[]> {
-  const projects = await getWorkspaceProjectRows(input.surreal, input.workspaceRecord);
-  const projectRecords = projects.map((p) => p.id);
-  const projectById = new Map(projects.map((p) => [toRecordIdString(p.id), p.name]));
+  const ctx = await loadProjectContext(input.surreal, input.workspaceRecord);
 
   const [rows] = await input.surreal
     .query<[
@@ -394,13 +403,13 @@ export async function listBlockedTasks(input: WorkspaceQueryInput): Promise<Bloc
         "SELECT id, title, status, priority, category, created_at",
         "FROM task",
         "WHERE status = 'blocked'",
-        `AND ${buildWorkspaceScopeClause("task")}`,
+        `AND ${WORKSPACE_SCOPE_CLAUSE}`,
         "ORDER BY created_at DESC",
         "LIMIT $limit;",
       ].join(" "),
       {
         workspace: input.workspaceRecord,
-        projects: projectRecords,
+        projects: ctx.projectRecords,
         limit: input.limit,
       },
     )
@@ -418,15 +427,7 @@ export async function listBlockedTasks(input: WorkspaceQueryInput): Promise<Bloc
   const results: BlockedTaskRow[] = [];
 
   for (const row of rows) {
-    const [projectRows] = await input.surreal
-      .query<[Array<RecordId<"project", string>>]>(
-        "SELECT VALUE out FROM belongs_to WHERE `in` = $task AND out IN $projects LIMIT 1;",
-        { task: row.id, projects: projectRecords },
-      )
-      .collect<[Array<RecordId<"project", string>>]>();
-
-    const project = projectRows[0] ? projectById.get(toRecordIdString(projectRows[0])) : undefined;
-
+    const project = await resolveProjectName(input.surreal, row.id, ctx);
     results.push({
       id: row.id,
       title: row.title,
@@ -457,10 +458,7 @@ export type StaleTaskRow = {
 export async function listStaleTasks(
   input: WorkspaceQueryInput & { staleDays: number },
 ): Promise<StaleTaskRow[]> {
-  const projects = await getWorkspaceProjectRows(input.surreal, input.workspaceRecord);
-  const projectRecords = projects.map((p) => p.id);
-  const projectById = new Map(projects.map((p) => [toRecordIdString(p.id), p.name]));
-
+  const ctx = await loadProjectContext(input.surreal, input.workspaceRecord);
   const cutoff = new Date(Date.now() - input.staleDays * 24 * 60 * 60 * 1000);
 
   const [rows] = await input.surreal
@@ -480,13 +478,13 @@ export async function listStaleTasks(
         "FROM task",
         "WHERE status NOT IN ['done', 'completed', 'blocked']",
         "AND created_at < $cutoff",
-        `AND ${buildWorkspaceScopeClause("task")}`,
+        `AND ${WORKSPACE_SCOPE_CLAUSE}`,
         "ORDER BY created_at ASC",
         "LIMIT $limit;",
       ].join(" "),
       {
         workspace: input.workspaceRecord,
-        projects: projectRecords,
+        projects: ctx.projectRecords,
         cutoff,
         limit: input.limit,
       },
@@ -506,15 +504,7 @@ export async function listStaleTasks(
   const results: StaleTaskRow[] = [];
 
   for (const row of rows) {
-    const [projectRows] = await input.surreal
-      .query<[Array<RecordId<"project", string>>]>(
-        "SELECT VALUE out FROM belongs_to WHERE `in` = $task AND out IN $projects LIMIT 1;",
-        { task: row.id, projects: projectRecords },
-      )
-      .collect<[Array<RecordId<"project", string>>]>();
-
-    const project = projectRows[0] ? projectById.get(toRecordIdString(projectRows[0])) : undefined;
-
+    const project = await resolveProjectName(input.surreal, row.id, ctx);
     results.push({
       id: row.id,
       title: row.title,
@@ -543,10 +533,7 @@ export type RecentlyCompletedRow = {
 export async function listRecentlyCompletedItems(
   input: WorkspaceQueryInput & { recentDays: number },
 ): Promise<RecentlyCompletedRow[]> {
-  const projects = await getWorkspaceProjectRows(input.surreal, input.workspaceRecord);
-  const projectRecords = projects.map((p) => p.id);
-  const projectById = new Map(projects.map((p) => [toRecordIdString(p.id), p.name]));
-
+  const ctx = await loadProjectContext(input.surreal, input.workspaceRecord);
   const cutoff = new Date(Date.now() - input.recentDays * 24 * 60 * 60 * 1000);
 
   // Completed tasks
@@ -565,13 +552,13 @@ export async function listRecentlyCompletedItems(
         "FROM task",
         "WHERE status IN ['done', 'completed']",
         "AND updated_at != NONE AND updated_at > $cutoff",
-        `AND ${buildWorkspaceScopeClause("task")}`,
+        `AND ${WORKSPACE_SCOPE_CLAUSE}`,
         "ORDER BY updated_at DESC",
         "LIMIT $limit;",
       ].join(" "),
       {
         workspace: input.workspaceRecord,
-        projects: projectRecords,
+        projects: ctx.projectRecords,
         cutoff,
         limit: input.limit,
       },
@@ -628,15 +615,7 @@ export async function listRecentlyCompletedItems(
   const results: RecentlyCompletedRow[] = [];
 
   for (const row of taskRows) {
-    const [projRows] = await input.surreal
-      .query<[Array<RecordId<"project", string>>]>(
-        "SELECT VALUE out FROM belongs_to WHERE `in` = $task AND out IN $projects LIMIT 1;",
-        { task: row.id, projects: projectRecords },
-      )
-      .collect<[Array<RecordId<"project", string>>]>();
-
-    const project = projRows[0] ? projectById.get(toRecordIdString(projRows[0])) : undefined;
-
+    const project = await resolveProjectName(input.surreal, row.id, ctx);
     results.push({
       id: row.id,
       kind: "task",
@@ -649,15 +628,7 @@ export async function listRecentlyCompletedItems(
   }
 
   for (const row of featureRows) {
-    const [projRows] = await input.surreal
-      .query<[Array<RecordId<"project", string>>]>(
-        "SELECT VALUE `in` FROM has_feature WHERE out = $feature AND `in` IN $projects LIMIT 1;",
-        { feature: row.id, projects: projectRecords },
-      )
-      .collect<[Array<RecordId<"project", string>>]>();
-
-    const project = projRows[0] ? projectById.get(toRecordIdString(projRows[0])) : undefined;
-
+    const project = await resolveProjectName(input.surreal, row.id, ctx, "has_feature");
     results.push({
       id: row.id,
       kind: "feature",

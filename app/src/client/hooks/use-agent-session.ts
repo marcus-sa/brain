@@ -122,10 +122,15 @@ export function useAgentSession(
   const eventSourceRef = useRef<EventSource | undefined>(undefined);
   const stallTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  const resetStallTimer = useCallback(() => {
+  const clearStallTimer = useCallback(() => {
     if (stallTimerRef.current !== undefined) {
       clearTimeout(stallTimerRef.current);
+      stallTimerRef.current = undefined;
     }
+  }, []);
+
+  const resetStallTimer = useCallback(() => {
+    clearStallTimer();
     stallTimerRef.current = setTimeout(() => {
       setState((prev) => ({
         ...prev,
@@ -135,7 +140,7 @@ export function useAgentSession(
         },
       }));
     }, STALL_TIMEOUT_MS);
-  }, []);
+  }, [clearStallTimer]);
 
   useEffect(() => {
     if (!streamUrl) return;
@@ -153,9 +158,7 @@ export function useAgentSession(
         // Close on terminal status
         if (eventType === "agent_status" && isTerminalStatus(data.status)) {
           eventSource.close();
-          if (stallTimerRef.current !== undefined) {
-            clearTimeout(stallTimerRef.current);
-          }
+          clearStallTimer();
         }
       } catch {
         // Malformed event data -- ignore
@@ -185,23 +188,17 @@ export function useAgentSession(
     return () => {
       eventSource.close();
       eventSourceRef.current = undefined;
-      if (stallTimerRef.current !== undefined) {
-        clearTimeout(stallTimerRef.current);
-        stallTimerRef.current = undefined;
-      }
+      clearStallTimer();
     };
-  }, [streamUrl, resetStallTimer]);
+  }, [streamUrl, resetStallTimer, clearStallTimer]);
 
   const close = useCallback(() => {
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
       eventSourceRef.current = undefined;
     }
-    if (stallTimerRef.current !== undefined) {
-      clearTimeout(stallTimerRef.current);
-      stallTimerRef.current = undefined;
-    }
-  }, []);
+    clearStallTimer();
+  }, [clearStallTimer]);
 
   return { state, close };
 }

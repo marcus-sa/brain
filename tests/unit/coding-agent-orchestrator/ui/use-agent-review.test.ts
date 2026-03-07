@@ -14,7 +14,8 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
  */
 
 import {
-  createReviewStateMachine,
+  reduceReviewAction,
+  createInitialReviewState,
   type ReviewState,
   type ReviewAction,
 } from "../../../../app/src/client/hooks/use-agent-review";
@@ -26,7 +27,7 @@ import {
 function applyActions(initial: ReviewState, actions: ReviewAction[]): ReviewState {
   let state = initial;
   for (const action of actions) {
-    state = createReviewStateMachine(state, action);
+    state = reduceReviewAction(state, action);
   }
   return state;
 }
@@ -55,7 +56,7 @@ describe("useAgentReview state machine", () => {
         },
       };
 
-      const state = applyActions(createReviewStateMachine.initial(), [
+      const state = applyActions(createInitialReviewState(), [
         { type: "FETCH_START" },
         { type: "FETCH_SUCCESS", data: reviewData },
       ]);
@@ -66,7 +67,7 @@ describe("useAgentReview state machine", () => {
     });
 
     it("transitions from idle to loading to error on fetch failure", () => {
-      const state = applyActions(createReviewStateMachine.initial(), [
+      const state = applyActions(createInitialReviewState(), [
         { type: "FETCH_START" },
         { type: "FETCH_ERROR", error: "Review not available" },
       ]);
@@ -79,7 +80,7 @@ describe("useAgentReview state machine", () => {
 
   describe("accept mutation lifecycle", () => {
     it("transitions through pending to success", () => {
-      const state = applyActions(createReviewStateMachine.initial(), [
+      const state = applyActions(createInitialReviewState(), [
         { type: "ACCEPT_START" },
         { type: "ACCEPT_SUCCESS" },
       ]);
@@ -89,7 +90,7 @@ describe("useAgentReview state machine", () => {
     });
 
     it("transitions through pending to error", () => {
-      const state = applyActions(createReviewStateMachine.initial(), [
+      const state = applyActions(createInitialReviewState(), [
         { type: "ACCEPT_START" },
         { type: "ACCEPT_ERROR", error: "Session not idle" },
       ]);
@@ -99,7 +100,7 @@ describe("useAgentReview state machine", () => {
     });
 
     it("exposes loading state during pending", () => {
-      const state = applyActions(createReviewStateMachine.initial(), [
+      const state = applyActions(createInitialReviewState(), [
         { type: "ACCEPT_START" },
       ]);
 
@@ -109,7 +110,7 @@ describe("useAgentReview state machine", () => {
 
   describe("reject mutation lifecycle", () => {
     it("transitions through pending to success", () => {
-      const state = applyActions(createReviewStateMachine.initial(), [
+      const state = applyActions(createInitialReviewState(), [
         { type: "REJECT_START" },
         { type: "REJECT_SUCCESS" },
       ]);
@@ -119,7 +120,7 @@ describe("useAgentReview state machine", () => {
     });
 
     it("transitions through pending to error", () => {
-      const state = applyActions(createReviewStateMachine.initial(), [
+      const state = applyActions(createInitialReviewState(), [
         { type: "REJECT_START" },
         { type: "REJECT_ERROR", error: "Cannot reject completed session" },
       ]);
@@ -129,7 +130,7 @@ describe("useAgentReview state machine", () => {
     });
 
     it("exposes loading state during pending", () => {
-      const state = applyActions(createReviewStateMachine.initial(), [
+      const state = applyActions(createInitialReviewState(), [
         { type: "REJECT_START" },
       ]);
 
@@ -139,7 +140,7 @@ describe("useAgentReview state machine", () => {
 
   describe("initial state", () => {
     it("starts with idle status for all operations", () => {
-      const state = createReviewStateMachine.initial();
+      const state = createInitialReviewState();
 
       expect(state.fetchStatus).toBe("idle");
       expect(state.acceptStatus).toBe("idle");

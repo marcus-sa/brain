@@ -74,18 +74,20 @@ async function handleEntityDetail(
 
 const ACTIVE_SESSION_STATUSES = ["spawning", "active", "idle"];
 
+type AgentSessionQueryRow = {
+  id: RecordId<"agent_session", string>;
+  orchestrator_status: string;
+  stream_id: string;
+  started_at: string | Date;
+  files_changed: Array<unknown> | undefined;
+};
+
 async function findActiveAgentSession(
   surreal: Surreal,
   taskRecord: RecordId<string, string>,
 ): Promise<AgentSessionRow | undefined> {
   const [rows] = await surreal
-    .query<[Array<{
-      id: RecordId<"agent_session", string>;
-      orchestrator_status: string;
-      stream_id: string;
-      started_at: string | Date;
-      files_changed: Array<unknown> | undefined;
-    }>]>(
+    .query<[AgentSessionQueryRow[]]>(
       [
         "SELECT id, orchestrator_status, stream_id, started_at, files_changed",
         "FROM agent_session",
@@ -96,13 +98,7 @@ async function findActiveAgentSession(
       ].join(" "),
       { taskRecord, statuses: ACTIVE_SESSION_STATUSES },
     )
-    .collect<[Array<{
-      id: RecordId<"agent_session", string>;
-      orchestrator_status: string;
-      stream_id: string;
-      started_at: string | Date;
-      files_changed: Array<unknown> | undefined;
-    }>]>();
+    .collect<[AgentSessionQueryRow[]]>();
 
   const row = rows[0];
   if (!row) return undefined;

@@ -1,10 +1,10 @@
 export type ActivityType = "tool_call" | "file_change" | "decision" | "error";
 
-export interface ActivityEntry {
+export type ActivityEntry = {
   timestamp: string;
   type: ActivityType;
   description: string;
-}
+};
 
 const TYPE_INDICATORS: Record<ActivityType, { icon: string; label: string }> = {
   tool_call: { icon: "\u2699", label: "Tool" },

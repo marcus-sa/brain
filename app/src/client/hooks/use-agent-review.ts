@@ -12,7 +12,7 @@ import {
 // State Machine (pure, testable)
 // ---------------------------------------------------------------------------
 
-type AsyncStatus = "idle" | "pending" | "success" | "error";
+export type AsyncStatus = "idle" | "pending" | "success" | "error";
 
 export type ReviewState = {
   fetchStatus: AsyncStatus;
@@ -64,11 +64,13 @@ const INITIAL_STATE: ReviewState = {
   rejectStatus: "idle",
 };
 
-/** Exported for testing -- pure state machine reducer with `.initial()` factory. */
-export const createReviewStateMachine = Object.assign(
-  (state: ReviewState, action: ReviewAction): ReviewState => reviewReducer(state, action),
-  { initial: (): ReviewState => ({ ...INITIAL_STATE }) },
-);
+/** Exported for testing -- pure state machine reducer. */
+export const reduceReviewAction = reviewReducer;
+
+/** Create a fresh initial state for testing. */
+export function createInitialReviewState(): ReviewState {
+  return { ...INITIAL_STATE };
+}
 
 // ---------------------------------------------------------------------------
 // React Hook
