@@ -42,7 +42,18 @@ export async function startServer(): Promise<void> {
     sse: createSseRegistry(),
   };
 
-  const workspaceHandlers = createWorkspaceRouteHandlers(deps);
+  // Shell execution — shared by workspace and orchestrator routes
+  const shellExec: ShellExec = async (command, args, cwd) => {
+    const proc = Bun.spawn([command, ...args], { cwd, stdout: "pipe", stderr: "pipe" });
+    const [stdout, stderr] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+    ]);
+    const exitCode = await proc.exited;
+    return { exitCode, stdout, stderr };
+  };
+
+  const workspaceHandlers = createWorkspaceRouteHandlers(deps, shellExec);
   const chatHandlers = createChatIngressHandlers(deps);
   const entitySearchHandler = createEntitySearchHandler(deps);
   const graphHandler = createGraphRouteHandler(deps);
@@ -56,15 +67,6 @@ export async function startServer(): Promise<void> {
   const mcpHandlers = createMcpRouteHandlers(deps);
 
   // Orchestrator wiring
-  const shellExec: ShellExec = async (command, args, cwd) => {
-    const proc = Bun.spawn([command, ...args], { cwd, stdout: "pipe", stderr: "pipe" });
-    const [stdout, stderr] = await Promise.all([
-      new Response(proc.stdout).text(),
-      new Response(proc.stderr).text(),
-    ]);
-    const exitCode = await proc.exited;
-    return { exitCode, stdout, stderr };
-  };
   const orchestratorHandlers = wireOrchestratorRoutes({
     surreal: runtime.surreal,
     shellExec,
@@ -94,6 +96,13 @@ export async function startServer(): Promise<void> {
           "GET /api/workspaces/:workspaceId/sidebar",
           "GET",
           (request) => workspaceHandlers.handleWorkspaceSidebar(request.params.workspaceId),
+        ),
+      },
+      "/api/workspaces/:workspaceId/repo-path": {
+        POST: withRequestLogging(
+          "POST /api/workspaces/:workspaceId/repo-path",
+          "POST",
+          (request) => workspaceHandlers.handleUpdateRepoPath(request.params.workspaceId, request),
         ),
       },
       "/api/workspaces/:workspaceId/conversations/:conversationId": {

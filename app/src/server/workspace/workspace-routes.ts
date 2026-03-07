@@ -22,11 +22,14 @@ import { toOnboardingState } from "../onboarding/onboarding-state";
 import { resolveWorkspaceRecord } from "./workspace-scope";
 import { buildWorkspaceConversationSidebar } from "./conversation-sidebar";
 import { loadMessagesWithInheritance } from "../chat/branch-chain";
+import { validateRepoPath } from "./validate-repo-path";
+import type { ShellExecResult } from "../orchestrator/worktree-manager";
 
 type WorkspaceRow = {
   id: RecordId<"workspace", string>;
   name: string;
   description?: string;
+  repo_path?: string;
   status: string;
   onboarding_complete: boolean;
   onboarding_turn_count: number;
@@ -41,22 +44,30 @@ type ProvenanceEdgeRow = {
   extracted_at: Date | string;
 };
 
-export function createWorkspaceRouteHandlers(deps: ServerDependencies): {
+type ShellExec = (command: string, args: string[], cwd: string) => Promise<ShellExecResult>;
+
+export function createWorkspaceRouteHandlers(
+  deps: ServerDependencies,
+  shellExec?: ShellExec,
+): {
   handleCreateWorkspace: (request: Request) => Promise<Response>;
   handleWorkspaceBootstrap: (workspaceId: string) => Promise<Response>;
   handleWorkspaceSidebar: (workspaceId: string) => Promise<Response>;
   handleWorkspaceConversation: (workspaceId: string, conversationId: string) => Promise<Response>;
+  handleUpdateRepoPath: (workspaceId: string, request: Request) => Promise<Response>;
 } {
   return {
-    handleCreateWorkspace: (request: Request) => handleCreateWorkspace(deps, request),
+    handleCreateWorkspace: (request: Request) => handleCreateWorkspace(deps, request, shellExec),
     handleWorkspaceBootstrap: (workspaceId: string) => handleWorkspaceBootstrap(deps, workspaceId),
     handleWorkspaceSidebar: (workspaceId: string) => handleWorkspaceSidebar(deps, workspaceId),
     handleWorkspaceConversation: (workspaceId: string, conversationId: string) =>
       handleWorkspaceConversation(deps, workspaceId, conversationId),
+    handleUpdateRepoPath: (workspaceId: string, request: Request) =>
+      handleUpdateRepoPath(deps, workspaceId, request, shellExec),
   };
 }
 
-async function handleCreateWorkspace(deps: ServerDependencies, request: Request): Promise<Response> {
+async function handleCreateWorkspace(deps: ServerDependencies, request: Request, shellExec?: ShellExec): Promise<Response> {
   const startedAt = performance.now();
   logInfo("workspace.create.started", "Workspace creation started");
 
@@ -75,6 +86,14 @@ async function handleCreateWorkspace(deps: ServerDependencies, request: Request)
   const parsed = parseCreateWorkspaceRequest(body);
   if (!parsed.ok) {
     return jsonError(parsed.error, 400);
+  }
+
+  // Validate repoPath if provided
+  if (parsed.data.repoPath && shellExec) {
+    const repoValidation = await validateRepoPath(parsed.data.repoPath, shellExec);
+    if (!repoValidation.ok) {
+      return jsonError(repoValidation.error, 400);
+    }
   }
 
   logDebug("http.request.validated", "Workspace request validated");
@@ -121,6 +140,7 @@ async function handleCreateWorkspace(deps: ServerDependencies, request: Request)
     await transaction.create(workspaceRecord).content({
       name: parsed.data.name,
       ...(parsed.data.description ? { description: parsed.data.description } : {}),
+      ...(parsed.data.repoPath ? { repo_path: parsed.data.repoPath } : {}),
       status: "active",
       onboarding_complete: false,
       onboarding_turn_count: 0,
@@ -212,6 +232,7 @@ async function handleWorkspaceBootstrap(deps: ServerDependencies, workspaceId: s
       workspaceId: workspace.id.id as string,
       workspaceName: workspace.name,
       ...(workspace.description ? { workspaceDescription: workspace.description } : {}),
+      ...(workspace.repo_path ? { repoPath: workspace.repo_path } : {}),
       onboardingComplete: workspace.onboarding_complete,
       onboardingState,
       conversationId: conversationRecord.id as string,
@@ -482,6 +503,74 @@ async function handleWorkspaceConversation(
       conversationId,
     });
     const errorText = error instanceof Error ? error.message : "workspace conversation failed";
+    return jsonError(errorText, 500);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/workspaces/:workspaceId/repo-path
+// ---------------------------------------------------------------------------
+
+async function handleUpdateRepoPath(
+  deps: ServerDependencies,
+  workspaceId: string,
+  request: Request,
+  shellExec?: ShellExec,
+): Promise<Response> {
+  const startedAt = performance.now();
+  logInfo("workspace.repo_path.update.started", "Repo path update started", { workspaceId });
+
+  try {
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return jsonError("Request body must be valid JSON", 400);
+    }
+
+    if (!body || typeof body !== "object") {
+      return jsonError("Body must be an object", 400);
+    }
+
+    const { path } = body as { path?: string };
+    if (!path || typeof path !== "string" || path.trim().length === 0) {
+      return jsonError("path is required", 400);
+    }
+
+    if (!shellExec) {
+      return jsonError("shell execution not available", 500);
+    }
+
+    const repoValidation = await validateRepoPath(path.trim(), shellExec);
+    if (!repoValidation.ok) {
+      return jsonError(repoValidation.error, 400);
+    }
+
+    const workspaceRecord = await resolveWorkspaceRecord(deps.surreal, workspaceId);
+
+    await deps.surreal.query(
+      "UPDATE $workspace SET repo_path = $repoPath, updated_at = time::now();",
+      { workspace: workspaceRecord, repoPath: path.trim() },
+    );
+
+    logInfo("workspace.repo_path.update.completed", "Repo path update completed", {
+      workspaceId,
+      repoPath: path.trim(),
+      durationMs: elapsedMs(startedAt),
+    });
+
+    return jsonResponse({ ok: true }, 200);
+  } catch (error) {
+    if (error instanceof HttpError) {
+      logWarn("workspace.repo_path.update.http_error", "Repo path update failed with client-facing error", {
+        workspaceId,
+        statusCode: error.status,
+      });
+      return jsonError(error.message, error.status);
+    }
+
+    logError("workspace.repo_path.update.failed", "Repo path update failed", error, { workspaceId });
+    const errorText = error instanceof Error ? error.message : "repo path update failed";
     return jsonError(errorText, 500);
   }
 }
