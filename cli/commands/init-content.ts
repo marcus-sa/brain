@@ -101,119 +101,107 @@ You can include task IDs (\`task:abc123\`), project names, file paths, or just a
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// OpenCode Plugin Content
+// OpenCode MCP + Plugin Configuration
 // ---------------------------------------------------------------------------
-
-export type OpencodePluginInput = {
-  brainBaseUrl: string;
-  workspaceId: string;
-  authToken: string;
-};
-
-export function buildOpencodePluginContent(input: OpencodePluginInput): string {
-  const baseUrl = input.brainBaseUrl.replace(/\/$/, "");
-  const apiBase = `${baseUrl}/api/mcp/${input.workspaceId}`;
-
-  return `import type { Plugin } from "@opencode-ai/plugin";
-
-const API_BASE = "${apiBase}";
-const AUTH_TOKEN = "${input.authToken}";
-
-async function brainFetch(path: string, body: Record<string, unknown>): Promise<unknown> {
-  const res = await fetch(\`\${API_BASE}\${path}\`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: \`Bearer \${AUTH_TOKEN}\`,
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(\`Brain API error: \${res.status} \${await res.text()}\`);
-  return res.json();
-}
-
-export default {
-  name: "brain",
-
-  tools: {
-    "task-context": {
-      description: "Get task details and context from the Brain knowledge graph",
-      parameters: { task_id: { type: "string", description: "The task identifier" } },
-      async execute({ task_id }) {
-        return brainFetch("/task-context", { task_id });
-      },
-    },
-    "project-context": {
-      description: "Get project overview and decisions from the Brain knowledge graph",
-      parameters: { project_id: { type: "string", description: "The project identifier" } },
-      async execute({ project_id }) {
-        return brainFetch("/project-context", { project_id });
-      },
-    },
-    "status-update": {
-      description: "Update task status in the Brain knowledge graph",
-      parameters: {
-        task_id: { type: "string", description: "The task identifier" },
-        status: { type: "string", description: "New status: open|todo|ready|in_progress|blocked|done|completed" },
-        reason: { type: "string", description: "Reason for status change (required for blocked)", optional: true },
-      },
-      async execute({ task_id, status, reason }) {
-        return brainFetch("/tasks/status", { task_id, status, reason });
-      },
-    },
-    observations: {
-      description: "Log an observation (risk, conflict, or signal) to the Brain knowledge graph",
-      parameters: {
-        text: { type: "string", description: "What was observed" },
-        severity: { type: "string", description: "Severity: info|warning|conflict" },
-        category: { type: "string", description: "Category: architecture|security|performance|data|ux|other" },
-      },
-      async execute({ text, severity, category }) {
-        return brainFetch("/observations", { text, severity, category });
-      },
-    },
-  },
-
-  hooks: {
-    "session.created": async ({ session }) => {
-      await brainFetch("/sessions/start", { agent: "opencode" });
-    },
-    "session.idle": async ({ session }) => {
-      await brainFetch("/sessions/end", {
-        session_id: session?.id,
-        summary: "Session ended",
-      });
-    },
-  },
-} satisfies Plugin;
-`;
-}
 
 export function buildOpencodeJsonContent(): Record<string, unknown> {
   return {
-    plugins: [".opencode/plugins/brain.ts"],
+    $schema: "https://opencode.ai/config.json",
+    mcp: {
+      brain: {
+        type: "local",
+        command: ["brain", "mcp"],
+        enabled: true,
+      },
+    },
   };
 }
 
+export const OPENCODE_PLUGIN_CONTENT = `import type { Plugin } from "@opencode-ai/plugin"
+import { spawn } from "node:child_process"
+
+function brainSystem(subcommand: string, stdin?: string): Promise<string> {
+  return new Promise((resolve) => {
+    const proc = spawn("brain", ["system", subcommand], { stdio: ["pipe", "pipe", "ignore"] })
+    let out = ""
+    proc.stdout.on("data", (chunk) => { out += chunk.toString() })
+    proc.on("close", () => resolve(out))
+    proc.on("error", () => resolve(""))
+    if (stdin) { proc.stdin.write(stdin); proc.stdin.end() }
+    else { proc.stdin.end() }
+  })
+}
+
+export const BrainPlugin: Plugin = async () => {
+  return {
+    // SessionStart equivalent: load workspace/project context
+    "session.created": async (_input, output) => {
+      const context = await brainSystem("load-context")
+      if (context.trim()) {
+        output.instructions = (output.instructions ?? "") + "\\n\\n" + context
+      }
+    },
+
+    // PreToolUse equivalent: inject brain context into agent dispatches
+    "tool.execute.before": async (input, output) => {
+      if (input.tool !== "bash") return
+      const cmd = output.args?.command as string | undefined
+      if (!cmd || !cmd.includes("opencode")) return
+      const context = await brainSystem("pretooluse", JSON.stringify({
+        tool_name: "Task",
+        tool_input: { prompt: cmd },
+      }))
+      if (context.trim()) {
+        output.args.command = \`# Brain context loaded\\n\${cmd}\`
+      }
+    },
+
+    // Compaction context: preserve brain state across compaction
+    "experimental.session.compacting": async (_input, output) => {
+      const context = await brainSystem("load-context")
+      if (context.trim()) {
+        output.context.push("## Brain Knowledge Graph State\\n" + context)
+      }
+    },
+  }
+}
+`;
+
 export const OPENCODE_MD_CONTENT = `# Brain Knowledge Graph Integration (OpenCode)
 
-This project is connected to the Brain knowledge graph via the OpenCode plugin. The graph contains decisions, constraints, tasks, questions, and observations from all agents and humans working on this workspace.
+This project is connected to the Brain knowledge graph via the \`brain\` MCP server. The graph contains decisions, constraints, tasks, questions, and observations from all agents and humans working on this workspace.
 
-## Available Tools
+## MCP Tools
 
-- **task-context**: Get task details and context for the current work item
-- **project-context**: Get project overview, decisions, and constraints
-- **status-update**: Update task status (open, in_progress, blocked, done, etc.)
-- **observations**: Log risks, conflicts, or signals discovered during work
+All Brain tools are available via the \`brain\` MCP server. Key tools:
 
-## Lifecycle Hooks
+### Context (read)
+- **get_context**: Intent-based context loading (preferred entry point)
+- **get_task_context**: Task-focused context with subtasks, dependencies, siblings
+- **get_project_context**: Full project context with decisions, tasks, questions
+- **get_workspace_context**: Lightweight workspace overview
+- **get_entity_detail**: Full detail for any entity by ID
+- **get_active_decisions**: Decisions grouped by status
+- **get_task_dependencies**: Dependency tree for a task
+- **get_architecture_constraints**: Confirmed decisions + open observations
+- **get_recent_changes**: Entities changed since a timestamp
 
-- **session.created**: Automatically registers the agent session with Brain
-- **session.idle**: Automatically ends the session and records summary
+### Reasoning
+- **resolve_decision**: Check if a decision already answers your question
+- **check_constraints**: Validate a proposed action against existing constraints
+
+### Write
+- **create_provisional_decision**: Record an implementation choice for human review
+- **ask_question**: Surface genuine uncertainty for human review
+- **update_task_status**: Update task status (triggers subtask rollup)
+- **create_subtask**: Break work into smaller pieces (with semantic dedup)
+- **log_implementation_note**: Record what was implemented on any entity
+- **log_observation**: Flag risks, conflicts, or signals
+- **create_suggestion**: Propose optimizations, risks, or opportunities
 
 ## Best Practices
 
-1. **Check context first.** Use task-context or project-context before starting work.
+1. **Check context first.** Use \`get_task_context\` or \`get_context\` before starting work.
 2. **Update status as you go.** Mark tasks in_progress when starting, blocked when stuck, done when complete.
 3. **Log observations.** Flag risks, conflicts, and architectural concerns as you discover them.
 4. **Include task IDs in commits.** Use \`task:<id>\` in commit messages for traceability.
@@ -237,7 +225,7 @@ Start a task-scoped session focused on a specific task.
 
 ## Instructions
 
-1. Call \`get_project_context\` with the task_id to get task-scoped context
+1. Call \`get_task_context\` with the task_id to get task-scoped context
 2. Display the task details: title, description, status, dependencies
 3. Show existing subtasks (if a previous agent already decomposed this task — do NOT re-decompose)
 4. Show sibling tasks (for awareness of parallel work)

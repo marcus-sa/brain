@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded by [ADR-008](ADR-008-claude-agent-sdk-over-opencode.md)
 
 ## Context
 

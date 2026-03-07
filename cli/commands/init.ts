@@ -7,10 +7,8 @@ import {
   BRAIN_HOOKS,
   BRAIN_CLAUDE_MD,
   BRAIN_COMMANDS,
-  buildOpencodePluginContent,
   buildOpencodeJsonContent,
   OPENCODE_MD_CONTENT,
-  type OpencodePluginInput,
 } from "./init-content";
 
 const DEFAULT_SERVER_URL = "http://localhost:3000";
@@ -385,24 +383,11 @@ brain check-commit
 }
 
 // ---------------------------------------------------------------------------
-// Step 7: OpenCode plugin files
+// Step 7: OpenCode MCP configuration
 // ---------------------------------------------------------------------------
 
-const BRAIN_PLUGIN_PATH = ".opencode/plugins/brain.ts";
-
-export async function setupOpencode(
-  gitRoot: string,
-  input: OpencodePluginInput,
-): Promise<void> {
-  // 1. Create plugin file
-  const pluginsDir = join(gitRoot, ".opencode", "plugins");
-  if (!existsSync(pluginsDir)) mkdirSync(pluginsDir, { recursive: true });
-
-  const pluginContent = buildOpencodePluginContent(input);
-  await Bun.write(join(gitRoot, BRAIN_PLUGIN_PATH), pluginContent);
-  console.log("✓ OpenCode: .opencode/plugins/brain.ts created");
-
-  // 2. Create/update opencode.json
+export async function setupOpencode(gitRoot: string): Promise<void> {
+  // 1. Create/update opencode.json with brain MCP server
   const jsonPath = join(gitRoot, "opencode.json");
   const jsonFile = Bun.file(jsonPath);
   let opcConfig: Record<string, unknown> = {};
@@ -415,21 +400,33 @@ export async function setupOpencode(
     }
   }
 
-  const plugins = Array.isArray(opcConfig.plugins)
-    ? (opcConfig.plugins as string[])
-    : [];
+  // Merge MCP config (preserve existing MCP servers)
+  const mcp = (opcConfig.mcp ?? {}) as Record<string, unknown>;
+  mcp.brain = { type: "local", command: ["brain", "mcp"], enabled: true };
+  opcConfig.mcp = mcp;
+  opcConfig.$schema ??= "https://opencode.ai/config.json";
 
-  if (!plugins.includes(BRAIN_PLUGIN_PATH)) {
-    plugins.push(BRAIN_PLUGIN_PATH);
+  // Remove legacy plugin reference
+  if (Array.isArray(opcConfig.plugins)) {
+    opcConfig.plugins = (opcConfig.plugins as string[]).filter(
+      (p) => !p.includes("brain"),
+    );
+    if ((opcConfig.plugins as string[]).length === 0) delete opcConfig.plugins;
   }
-  opcConfig.plugins = plugins;
 
   await Bun.write(jsonPath, JSON.stringify(opcConfig, null, 2) + "\n");
-  console.log("✓ OpenCode: opencode.json updated");
+  console.log("✓ OpenCode: opencode.json updated (brain MCP server configured)");
 
-  // 3. Write OPENCODE.md (idempotent overwrite)
+  // 2. Write OPENCODE.md (idempotent overwrite)
   await Bun.write(join(gitRoot, "OPENCODE.md"), OPENCODE_MD_CONTENT);
   console.log("✓ OpenCode: OPENCODE.md created");
+
+  // 3. Clean up legacy plugin file
+  const legacyPlugin = join(gitRoot, ".opencode", "plugins", "brain.ts");
+  if (existsSync(legacyPlugin)) {
+    unlinkSync(legacyPlugin);
+    console.log("  Removed legacy .opencode/plugins/brain.ts");
+  }
 }
 
 export async function setupCommands(gitRoot: string): Promise<void> {
