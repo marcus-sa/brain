@@ -3,7 +3,7 @@
   "checkpoint_id": "d156db5eae3b",
   "strategy": "manual-commit",
   "branch": "marcus-sa/coding-agent-orch",
-  "checkpoints_count": 0,
+  "checkpoints_count": 9,
   "files_touched": [
     "app/src/server/graph/queries.ts",
     "schema/migrations/0015_graph_traversal_functions.surql",
@@ -31,13 +31,20 @@
       "context": "/d1/56db5eae3b/2/context.md",
       "content_hash": "/d1/56db5eae3b/2/content_hash.txt",
       "prompt": "/d1/56db5eae3b/2/prompt.txt"
+    },
+    {
+      "metadata": "/d1/56db5eae3b/3/metadata.json",
+      "transcript": "/d1/56db5eae3b/3/full.jsonl",
+      "context": "/d1/56db5eae3b/3/context.md",
+      "content_hash": "/d1/56db5eae3b/3/content_hash.txt",
+      "prompt": "/d1/56db5eae3b/3/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 0,
-    "cache_creation_tokens": 0,
-    "cache_read_tokens": 0,
-    "output_tokens": 0,
-    "api_call_count": 0
+    "input_tokens": 220,
+    "cache_creation_tokens": 426795,
+    "cache_read_tokens": 7766295,
+    "output_tokens": 50300,
+    "api_call_count": 105
   }
 }

@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "d156db5eae3b",
+  "session_id": "8fea48ee-5ea1-4a47-9138-d92c571bd7cc",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-07T14:09:50.106569Z",
+  "branch": "marcus-sa/coding-agent-orch",
+  "checkpoints_count": 9,
+  "files_touched": [
+    "app/src/server/graph/queries.ts",
+    "schema/surreal-schema.surql",
+    "tests/smoke/graph-relationships.test.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "e3dee1e105b7",
+  "token_usage": {
+    "input_tokens": 220,
+    "cache_creation_tokens": 426795,
+    "cache_read_tokens": 7766295,
+    "output_tokens": 50300,
+    "api_call_count": 105
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-07T14:09:48.925277Z",
+    "agent_lines": 293,
+    "human_added": 0,
+    "human_modified": 98,
+    "human_removed": 89,
+    "total_committed": 391,
+    "agent_percentage": 74.93606138107417
+  }
+}
