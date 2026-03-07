@@ -1,0 +1,24 @@
+events:
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-03-07T18:37:32Z'
+- d: 'NOT_APPLICABLE: pure functions and thin SDK wrapper with no HTTP/SSE integration
+    surface'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 01-01
+  t: '2026-03-07T18:37:37Z'
+- d: PASS
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-03-07T18:38:35Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-03-07T18:39:36Z'
+project_id: claude-agent-sdk-migration
+schema_version: '3.0'
