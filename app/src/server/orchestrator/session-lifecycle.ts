@@ -141,7 +141,10 @@ async function lookupSession(
   if (!session) {
     return { ok: false, error: sessionNotFound(sessionId) };
   }
-  const status = (session.orchestrator_status ?? "spawning") as OrchestratorStatus;
+  if (!session.orchestrator_status) {
+    throw new Error(`agent_session ${sessionId} missing orchestrator_status — data corruption`);
+  }
+  const status = session.orchestrator_status as OrchestratorStatus;
   return { ok: true, session, record, status };
 }
 
@@ -253,7 +256,19 @@ export async function createOrchestratorSession(
   });
 
   const spawnFn = input.spawnOpenCode ?? defaultSpawnOpenCode;
-  const handle = await spawnFn(config, worktreePath);
+  let handle: OpenCodeHandle;
+  try {
+    handle = await spawnFn(config, worktreePath);
+  } catch (err) {
+    // Rollback: remove worktree and delete agent_session on spawn failure
+    await removeWorktree(input.shellExec, input.repoRoot, branchName);
+    const sessionRecord = new RecordId("agent_session", agentSessionId);
+    await input.surreal.delete(sessionRecord);
+    return {
+      ok: false,
+      error: worktreeError(`Failed to spawn OpenCode: ${err instanceof Error ? err.message : String(err)}`),
+    };
+  }
 
   // 5. Register handle for later abort
   handleRegistry.set(agentSessionId, handle);
@@ -371,10 +386,12 @@ export async function abortOrchestratorSession(
   }
 
   // 5. End the agent session
-  const workspaceRecord = session.workspace ?? new RecordId("workspace", "unknown");
+  if (!session.workspace) {
+    throw new Error(`agent_session ${input.sessionId} missing workspace — data corruption`);
+  }
   await input.endAgentSession({
     surreal: input.surreal,
-    workspaceRecord: workspaceRecord as RecordId<"workspace", string>,
+    workspaceRecord: session.workspace as RecordId<"workspace", string>,
     sessionId: input.sessionId,
     summary: "Session aborted",
   });
@@ -434,10 +451,12 @@ export async function acceptOrchestratorSession(
   handleRegistry.delete(input.sessionId);
 
   // 4. End the agent session
-  const workspaceRecord = session.workspace ?? new RecordId("workspace", "unknown");
+  if (!session.workspace) {
+    throw new Error(`agent_session ${input.sessionId} missing workspace — data corruption`);
+  }
   await input.endAgentSession({
     surreal: input.surreal,
-    workspaceRecord: workspaceRecord as RecordId<"workspace", string>,
+    workspaceRecord: session.workspace as RecordId<"workspace", string>,
     sessionId: input.sessionId,
     summary: input.summary,
   });
