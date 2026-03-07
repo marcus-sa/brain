@@ -1,0 +1,996 @@
+<system_instruction>
+You are working inside Conductor, a Mac app that lets the user run many coding agents in parallel.
+Your work should take place in the /Users/marcus/conductor/workspaces/brain/richmond directory (unless otherwise directed), which has been set up for you to work in.
+Each workspace has a .context directory (gitignored) where you can save files to collaborate with other agents.
+The target branch for this workspace is main. Use this for actions like creating new PRs, bisecting, etc., unless you're told otherwise.
+
+If the user asks you to work on several unrelated tasks in parallel, you can suggest they start new workspaces.
+If the user asks for help with Conductor, ask them to email [humans@conductor.build](mailto:humans@conductor.build) or
+click on the comment icon in the bottom left to send feedback.
+</system_instruction>
+
+/nw:discuss coding agent orchestrator ui - in the graph, when a task is clicked, a ui should pop up. it should be possible to delegate a task to a coding agent to implement it. question is. where should this process be followed? in the same task? should this show up in the feed as an agent session task ?
+
+---
+
+Tool loaded.
+
+---
+
+# NW-DISCUSS: Jobs-to-be-Done Analysis, UX Journey Design, and Requirements Gathering
+
+**Wave**: DISCUSS (wave 2 of 6) | **Agent**: Luna (nw-product-owner) | **Command**: `/nw:discuss`
+
+## Overview
+
+Execute DISCUSS wave through Luna's integrated workflow: JTBD analysis|UX journey discovery|emotional arc design|shared artifact tracking|requirements gathering|user story creation|acceptance criteria definition. Luna uncovers jobs users accomplish, maps to journeys and requirements, handles complete lifecycle from user motivations through DoR-validated stories ready for DESIGN. Establishes ATDD foundation.
+
+For greenfield projects (no src/ code, no docs/feature/ history), Luna proposes Walking Skeleton as Feature 0.
+
+## Interactive Decision Points
+
+### Decision 1: Feature Type
+**Question**: What type of feature is this?
+**Options**:
+1. User-facing -- UI/UX functionality visible to end users
+2. Backend -- APIs, services, data processing
+3. Infrastructure -- DevOps, CI/CD, tooling
+4. Cross-cutting -- Spans multiple layers (auth, logging, etc.)
+5. Other -- user provides custom input
+
+### Decision 2: Walking Skeleton
+**Question**: Should we start with a walking skeleton?
+**Options**:
+1. Yes -- recommended for greenfield projects
+2. Depends -- brownfield; Luna evaluates existing structure first
+3. No -- feature is isolated enough to skip
+
+### Decision 3: UX Research Depth
+**Question**: Priority for UX research depth?
+**Options**:
+1. Lightweight -- quick journey map, focus on happy path
+2. Comprehensive -- full experience mapping with emotional arcs
+3. Deep-dive -- extensive user research, multiple personas, edge cases
+
+### Decision 4: Number of User Jobs
+**Question**: How many distinct jobs are your users trying to accomplish with this feature?
+**Options**:
+1. Single job -- one primary job to focus on
+2. Multiple jobs (2-4) -- several related jobs, will need opportunity scoring
+3. Unclear -- Luna will help discover and define the jobs through interview
+
+## Context Files Required
+
+- docs/project-brief.md | docs/stakeholders.yaml | docs/architecture/constraints.md
+
+## Previous Artifacts (Wave Handoff)
+
+- docs/discovery/problem-validation.md | opportunity-tree.md | lean-canvas.md — From DISCOVER
+
+## Agent Invocation
+
+@nw-product-owner
+
+Execute *jtbd-analysis for {feature-name}, then *journey informed by JTBD artifacts, then *gather-requirements informed by both.
+
+Context files: see Context Files Required and Previous Artifacts above.
+
+**Configuration:**
+- format: visual | yaml | gherkin | all (default: all)
+- research_depth: {Decision 3} | interactive: high | output_format: markdown
+- elicitation_depth: comprehensive | feature_type: {Decision 1}
+- walking_skeleton: {Decision 2} | job_count: {Decision 4}
+- output_directory: docs/ux/{epic}/ (JTBD + journeys), docs/requirements/ (stories)
+
+**Phase 1 -- Jobs-to-be-Done Analysis (REQUIRED):**
+
+Grounds all subsequent artifacts in real user motivations.
+
+1. **Job Discovery**: Ask user what users are trying to accomplish. Capture in job story format: "When [situation], I want to [motivation], so I can [outcome]."
+2. **Job Dimensions**: For each job — functional (practical task)|emotional (desired feeling)|social (desired perception)
+3. **Four Forces Analysis**: For each primary job:
+   - **Push** (current frustration): "What frustrated users enough to request this?"
+   - **Pull** (desired future): "What could they do that they cannot now?"
+   - **Anxiety** (adoption concerns): "What concerns about adopting this?"
+   - **Habit** (current behavior): "What behavior must change?"
+   If interview transcripts|support tickets|analytics exist, extract forces from those instead of relying solely on user description.
+4. **Opportunity Scoring** (multiple jobs): Rank by importance vs. satisfaction gap. High importance + low satisfaction = strongest opportunities. Produce scored table.
+5. **JTBD-to-Story Bridge**: Each job story feeds into user stories and acceptance criteria in Phase 3. Every user story must trace to at least one job.
+
+| Artifact | Path |
+|----------|------|
+| Job Stories | `docs/ux/{epic}/jtbd-job-stories.md` |
+| Four Forces | `docs/ux/{epic}/jtbd-four-forces.md` |
+| Opportunity Scores | `docs/ux/{epic}/jtbd-opportunity-scores.md` (when multiple jobs) |
+
+**Phase 2 -- Journey Design:**
+
+Luna runs deep discovery (mental model|emotional arc|shared artifacts|error paths) informed by JTBD, produces visual journey + YAML schema + Gherkin scenarios. Each journey maps to one or more identified jobs.
+
+| Artifact | Path |
+|----------|------|
+| Visual Journey | `docs/ux/{epic}/journey-{name}-visual.md` |
+| Journey Schema | `docs/ux/{epic}/journey-{name}.yaml` |
+| Gherkin Scenarios | `docs/ux/{epic}/journey-{name}.feature` |
+| Artifact Registry | `docs/ux/{epic}/shared-artifacts-registry.md` |
+
+**Phase 3 -- Requirements and User Stories:**
+
+Luna crafts LeanUX stories informed by JTBD + journey artifacts. Every story traces to at least one job story. Validates against DoR, invokes peer review, prepares handoff.
+
+| Artifact | Path |
+|----------|------|
+| Requirements | `docs/requirements/requirements.md` |
+| User Stories | `docs/requirements/user-stories.md` |
+| Acceptance Criteria | `docs/requirements/acceptance-criteria.md` |
+| DoR Checklist | `docs/requirements/dor-checklist.md` |
+
+## Success Criteria
+
+- [ ] JTBD analysis complete: all jobs in job story format
+- [ ] Job dimensions identified: functional|emotional|social per job
+- [ ] Four Forces mapped per job (push|pull|anxiety|habit)
+- [ ] Opportunity scores produced (when multiple jobs)
+- [ ] UX journey map with emotional arcs and shared artifacts
+- [ ] Every journey maps to at least one job
+- [ ] Discovery complete: user mental model understood, no vague steps
+- [ ] Happy path defined: all steps start-to-goal with expected outputs
+- [ ] Emotional arc coherent: confidence builds progressively
+- [ ] Shared artifacts tracked: every ${variable} has single documented source
+- [ ] Requirements completeness score > 0.95
+- [ ] Every user story traces to at least one job story
+- [ ] All acceptance criteria testable
+- [ ] DoR passed: all 8 items validated with evidence
+- [ ] Peer review approved
+- [ ] Handoff accepted by nw-solution-architect (DESIGN wave)
+
+## Next Wave
+
+**Handoff To**: nw-solution-architect (DESIGN wave)
+**Deliverables**: JTBD artifacts (job stories|four forces|opportunity scores) + journey artifacts (visual|YAML|Gherkin|artifact registry) + requirements (stories|acceptance criteria|DoR validation|peer review)
+
+## Expected Outputs
+
+```
+docs/ux/{epic}/
+  jtbd-job-stories.md
+  jtbd-four-forces.md
+  jtbd-opportunity-scores.md    (when multiple jobs)
+  journey-{name}-visual.md
+  journey-{name}.yaml
+  journey-{name}.feature
+  shared-artifacts-registry.md
+
+docs/requirements/
+  requirements.md
+  user-stories.md               (each story traces to a job)
+  acceptance-criteria.md
+  dor-checklist.md
+```
+
+## Examples
+
+### Example 1: User-facing feature with comprehensive UX research
+```
+/nw:discuss first-time-setup
+```
+Orchestrator asks Decision 1-4. User selects "User-facing", "No skeleton", "Comprehensive", "Multiple jobs". Luna starts with JTBD analysis: discovers jobs like "When I first open the app, I want to feel productive immediately, so I can justify the purchase." Maps four forces for each job. Scores opportunities. Then runs journey discovery informed by JTBD, produces visual journey + YAML + Gherkin. Finally crafts stories where each traces to a job, validates DoR, and prepares handoff.
+
+### Example 2: JTBD-only invocation
+```
+/nw:discuss --phase=jtbd onboarding-flow
+```
+Runs only Luna's JTBD analysis phase (job discovery + dimensions + four forces + opportunity scoring). Produces JTBD artifacts without proceeding to journey design or requirements. Useful for early discovery when you need to understand user motivations before committing to UX design.
+
+### Example 3: Journey-only invocation
+```
+/nw:discuss --phase=journey release-nwave
+```
+Runs only Luna's journey design phases (discovery + visualization + coherence validation). Produces journey artifacts without proceeding to requirements crafting. Useful when JTBD is already done and journey design needs standalone iteration.
+
+### Example 4: Requirements-only invocation
+```
+/nw:discuss --phase=requirements new-plugin-system
+```
+Runs only Luna's requirements phases (gathering + crafting + DoR validation). Assumes JTBD and journey artifacts already exist or are not needed (e.g., backend feature).
+
+
+ARGUMENTS: coding agent orchestrator ui - in the graph, when a task is clicked, a ui should pop up. it should be possible to delegate a task to a coding agent to implement it. question is: where should this process be followed? in the same task? should this show up in the feed as an agent session task?
+
+---
+
+Tool loaded.
+
+---
+
+<task-notification>
+<task-id>a3f9cdb08b78cb7ab</task-id>
+<tool-use-id>toolu_01XJ4SxgZZk1mCYmVyRRuskD</tool-use-id>
+<status>completed</status>
+<summary>Agent "Explore coding agent orchestrator" completed</summary>
+<result>Perfect! Now I have all the information I need to provide a comprehensive exploration report. Let me compile my findings:
+
+---
+
+## Coding Agent Orchestrator Codebase Exploration Report
+
+### 1. Overall Architecture & Directory Structure
+
+**Key directories:**
+- `/app/src/server/orchestrator/` - Server-side orchestrator implementation
+- `/app/src/client/` - React client components
+- `/schema/` - SurrealDB schema and migrations
+- `/docs/feature/coding-agent-orchestrator/` - Feature design documents
+- `/docs/evolution/coding-agent-orchestrator/` - Architecture evolution docs
+- `/docs/ux/coding-agent-orchestrator/` - User experience and journey documentation
+- `/docs/requirements/` - Requirements and acceptance test specs
+
+**Architecture Pattern:** The orchestrator uses a modular monolith design with clean separation of concerns. All components are in `/app/src/server/orchestrator/` and use port-adapter patterns for dependency injection.
+
+---
+
+### 2. Agent Session Data Model
+
+**Schema Definition:** `agent_session` table in `/schema/surreal-schema.surql` with orchestrator-specific fields added via migration `/schema/migrations/0014_orchestrator_fields.surql`
+
+**Complete `agent_session` Field Map:**
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `id` | RecordId | Session identifier |
+| `agent` | string | Agent type (e.g., "opencode") |
+| `started_at` | datetime | Session start time |
+| `ended_at` | option<datetime> | Session end time |
+| `workspace` | record<workspace> | Workspace scope |
+| `project` | option<record<project>> | Project scope |
+| `task_id` | option<record<task>> | Assigned task |
+| `summary` | option<string> | Session summary (set on end) |
+| `decisions_made` | option<array<record<decision>>> | Decisions during session |
+| `questions_asked` | option<array<record<question>>> | Questions raised |
+| `tasks_progressed` | option<array<object>> | Task status transitions with task_id, from_status, to_status |
+| `files_changed` | option<array<object>> | Files modified with path and change_type |
+| `observations_logged` | option<array<record<observation>>> | Observations created |
+| `created_at` | datetime | Record creation time |
+| **New (Migration 0014):** | | |
+| `opencode_session_id` | option<string> | OpenCode session identifier |
+| `orchestrator_status` | option<string> | Orchestrator lifecycle state (spawning, active, idle, completed, aborted, error) |
+| `worktree_branch` | option<string> | Git branch name (e.g., "agent/fix-login-bug") |
+| `worktree_path` | option<string> | Filesystem path to worktree |
+| `stream_id` | option<string> | SSE stream ID for event bridging |
+| `last_event_at` | option<datetime> | Last OpenCode event timestamp (stall detection) |
+| `error_message` | option<string> | Error details if orchestrator_status = "error" |
+
+**Orchestrator Status State Machine:**
+```
+spawning -> active     (OpenCode session created, first message sent)
+active   -> idle       (Agent completed current chat turn, awaiting feedback)
+active   -> completed  (Agent finished task, session ended normally)
+active   -> error      (OpenCode process error or timeout)
+active   -> aborted    (User or system initiated abort)
+idle     -> active     (Rejection feedback sent, agent resumes)
+idle     -> completed  (User accepts work)
+idle     -> aborted    (User or system aborts)
+spawning -> error      (OpenCode failed to start within timeout)
+```
+
+**Guard Rules:**
+- One-agent-per-task enforcement via compound index on `(task_id, orchestrator_status)`
+- Task must be in status `["ready", "todo"]` to be assignable
+- Task promoted to `in_progress` on successful assignment
+
+**Files:** 
+- `/app/src/server/orchestrator/types.ts` - TypeScript type definitions
+- `/docs/feature/coding-agent-orchestrator/design/data-models.md` - Detailed data model spec
+
+---
+
+### 3. Graph UI (Task Visualization)
+
+**Graph Rendering:**
+- **Component:** `/app/src/client/components/graph/KnowledgeGraph.tsx`
+- **Visualization Library:** reagraph (force-directed 2D layout)
+- **Supported Views:**
+  - Workspace overview: All entities across workspace
+  - Project view: Entities scoped to single project
+  - Focused view: Entity + neighbors at configurable depth (1-3)
+
+**Graph API Route:**
+- **Endpoint:** `GET /api/graph/:workspaceId`
+- **Query Parameters:** `?project=:id` OR `?center=:id&depth=N`
+- **Response:** GraphResponse with nodes[] and edges[]
+- **Implementation:** `/app/src/server/graph/graph-route.ts` and `/app/src/server/graph/queries.ts`
+
+**Entity Detail Panel (Task Popup on Click):**
+- **Component:** `/app/src/client/components/graph/EntityDetailPanel.tsx`
+- **Features:**
+  - Displays entity metadata (status, priority, category, owner, created date)
+  - Shows description and rationale sections
+  - Lists relationships to other entities
+  - Shows provenance (which message created this entity)
+  - Action buttons: Discuss, Confirm (for decisions), Complete (for tasks), Accept/Convert/Defer/Dismiss (for suggestions)
+  - Priority selector dropdown
+  - Links to jump to message in chat
+
+**No current UI for agent session visualization in graph** - The entity detail panel currently shows task metadata but no agent assignment status. Agent sessions are tracked in `agent_session` table but not visualized in the graph UI yet.
+
+**Files:**
+- `/app/src/client/components/graph/KnowledgeGraph.tsx` - Graph canvas
+- `/app/src/client/components/graph/EntityDetailPanel.tsx` - Entity detail popup/panel
+- `/app/src/client/routes/graph-page.tsx` - Graph page container
+
+---
+
+### 4. Feed (Activity Feed)
+
+**Governance Feed:**
+- **Component:** `/app/src/client/components/feed/GovernanceFeed.tsx`
+- **Sub-components:** 
+  - `FeedSection.tsx` - Groups feed items by tier
+  - `FeedItem.tsx` - Individual feed item rendering
+- **Hook:** `/app/src/client/hooks/use-governance-feed.ts` - Fetches feed data
+
+**Feed Structure:**
+```typescript
+type GovernanceFeedResponse = {
+  blocking: GovernanceFeedItem[];   // Tier 1: must address
+  review: GovernanceFeedItem[];     // Tier 2: should review
+  awareness: GovernanceFeedItem[];  // Tier 3: informational
+};
+
+type GovernanceFeedItem = {
+  entityId: string;
+  entityKind: "task" | "feature" | "decision" | "question" | "project";
+  entityName: string;
+  reason: string;                   // Why this item needs attention
+  status?: string;
+  category?: string;
+  priority?: string;
+  tier: "blocking" | "review" | "awareness";
+  conflictTarget?: { entityName: string };
+  project?: string;
+  actions: GovernanceFeedAction[];
+};
+
+type GovernanceFeedAction = {
+  action: "discuss" | string;       // Button action
+  label: string;                    // Button text
+};
+```
+
+**Feed Queries:**
+- **Endpoint:** `GET /api/feed/:workspaceId`
+- **Implementation:** `/app/src/server/feed/feed-route.ts` and `/app/src/server/feed/feed-queries.ts`
+- **Queries decisions, questions, tasks, observations** by status and workspace
+
+**Current Feed Behavior:**
+- Shows decisions (provisional, proposed, extracted), questions, tasks (open), and observations
+- No built-in display of agent sessions
+- Actions: "discuss" (navigate to chat) or entity-specific actions (accept, defer, etc.)
+
+**No current agent session feed items** - Agent sessions are not surfaced in the governance feed yet. Only governance entities (decisions, tasks, observations) appear.
+
+**Files:**
+- `/app/src/server/feed/feed-queries.ts` - Query builders
+- `/app/src/server/feed/feed-route.ts` - HTTP route handler
+- `/app/src/client/components/feed/GovernanceFeed.tsx` - Feed component
+- `/app/src/client/hooks/use-governance-feed.ts` - Data hook
+
+---
+
+### 5. Orchestrator Server Implementation
+
+**Route Handler Structure:**
+- **File:** `/app/src/server/orchestrator/routes.ts`
+- **Dependency Injection:** `OrchestratorRouteDeps` interface
+
+**Available Routes:**
+
+| Method | Path | Handler | Description |
+|--------|------|---------|-------------|
+| POST | `/api/orchestrator/:workspaceId/assign` | createSession | Assign task to agent |
+| GET | `/api/orchestrator/:workspaceId/sessions` | getSessionStatus (not listed but in types) | List active sessions |
+| GET | `/api/orchestrator/:workspaceId/sessions/:sessionId` | getSessionStatus | Get session status |
+| GET | `/api/orchestrator/:workspaceId/sessions/:sessionId/review` | getReview | Get diff + summary for review |
+| GET | `/api/orchestrator/stream/:streamId` | SSE endpoint | Stream agent events |
+| POST | `/api/orchestrator/:workspaceId/sessions/:sessionId/accept` | acceptSession | Accept and merge |
+| POST | `/api/orchestrator/:workspaceId/sessions/:sessionId/reject` | rejectSession | Reject with feedback |
+| POST | `/api/orchestrator/:workspaceId/sessions/:sessionId/abort` | abortSession | Abort and cleanup |
+
+**Core Components:**
+
+1. **Assignment Guard** (`assignment-guard.ts`)
+   - Validates task eligibility for assignment
+   - Enforces one-agent-per-task constraint
+   - Checks IAM authority for `code_agent` role
+   - Returns `AssignmentValidation` or `AssignmentError`
+
+2. **Session Lifecycle** (`session-lifecycle.ts`)
+   - Creates OpenCode server via `@opencode-ai/sdk`
+   - Manages in-memory `OpenCodeHandle` registry
+   - Creates `agent_session` records in SurrealDB
+   - Handles process cleanup via `AbortController`
+   - Supports status polling and feedback submission
+
+3. **Worktree Manager** (`worktree-manager.ts`)
+   - Creates git worktrees under `.brain/worktrees/`
+   - Generates diffs between branches
+   - Merges and removes branches
+   - Validates paths (no arbitrary commands)
+
+4. **Event Bridge** (`event-bridge.ts` - referenced but not fully explored)
+   - Subscribes to OpenCode SSE streams
+   - Transforms OpenCode events to Brain `StreamEvent` types
+   - Forwards to Brain SSE registry
+   - Implements stall detection
+
+5. **OpenCode Config Builder** (`config-builder.ts`)
+   - Builds config object with MCP URLs, auth tokens
+   - Sets environment for OpenCode process
+   - Injects workspace context
+
+6. **Stall Detector** (`stall-detector.ts`)
+   - Monitors inactivity timeout (default: 5 minutes)
+   - Counts agent steps (max: 100)
+   - Auto-aborts stalled sessions
+   - Creates observations on stall detection
+   - Emits `agent_stall_warning` events
+
+**Files:**
+- `/app/src/server/orchestrator/routes.ts` - HTTP handlers
+- `/app/src/server/orchestrator/session-lifecycle.ts` - OpenCode lifecycle (117 lines)
+- `/app/src/server/orchestrator/assignment-guard.ts` - Task validation (80 lines)
+- `/app/src/server/orchestrator/types.ts` - TypeScript types (77 lines)
+- `/app/src/server/orchestrator/stall-detector.ts` - Activity monitoring (194 lines)
+
+---
+
+### 6. Streaming Events (SSE)
+
+**Stream Event Types for Agent Orchestrator:**
+
+```typescript
+type AgentTokenEvent = {
+  type: "agent_token";
+  sessionId: string;
+  token: string;
+};
+
+type AgentFileChangeEvent = {
+  type: "agent_file_change";
+  sessionId: string;
+  file: string;
+  changeType: "created" | "modified" | "deleted";
+};
+
+type AgentStatusEvent = {
+  type: "agent_status";
+  sessionId: string;
+  status: "active" | "idle" | "completed" | "aborted" | "error";
+  error?: string;
+};
+
+type AgentStallWarningEvent = {
+  type: "agent_stall_warning";
+  sessionId: string;
+  lastEventAt: string;
+  stallDurationSeconds: number;
+};
+```
+
+**SSE Registry Integration:**
+- Reuses existing `/streaming/sse-registry.ts` for event forwarding
+- OpenCode events bridged to Brain client via SSE
+- Real-time monitoring in UI via event stream
+
+**Files:**
+- `/app/src/shared/contracts.ts` - Event type definitions (lines ~90-120)
+
+---
+
+### 7. In-Memory Registry (Runtime Only)
+
+**OrchestratorRegistry** - Not persisted, lost on server restart
+
+```typescript
+type ActiveSession = {
+  agentSessionId: string;
+  opencodeSessionId: string;
+  opencodeClient: OpencodeClient;
+  serverClose: () => void;
+  abortController: AbortController;
+  worktreePath: string;
+  branchName: string;
+  streamId: string;
+  eventBridgeStop: () => void;
+};
+```
+
+**Purpose:**
+- Tracks live OpenCode process handles and client connections
+- Enables cleanup on session abort or timeout
+- Maps `agent_session` ID to in-flight process state
+
+**Server Restart Behavior:**
+- On startup, query `agent_session` records with `orchestrator_status IN ["spawning", "active", "idle"]`
+- Mark orphaned sessions as `error` (OpenCode processes died)
+
+---
+
+### 8. Documentation Structure
+
+**Design Documents:**
+- `/docs/feature/coding-agent-orchestrator/design/architecture-design.md` - C4 diagrams, data flows, integration points (438 lines)
+- `/docs/feature/coding-agent-orchestrator/design/data-models.md` - Schema spec, state machine, query patterns
+- `/docs/feature/coding-agent-orchestrator/design/component-boundaries.md` - Component responsibilities, interface contracts, dependency rules
+- `/docs/feature/coding-agent-orchestrator/design/technology-stack.md` - Technology choices and rationale
+
+**Requirements:**
+- `/docs/requirements/coding-agent-orchestrator-requirements.md` - Functional and non-functional requirements
+- `/docs/requirements/coding-agent-orchestrator-user-stories.md` - User stories
+- `/docs/requirements/coding-agent-orchestrator-dor-checklist.md` - Definition of ready checklist
+
+**UX/Journey:**
+- `/docs/ux/coding-agent-orchestrator/journey-assign-monitor-review-visual.md` - Detailed user journey with emotional arc, decision points, error paths
+- `/docs/ux/coding-agent-orchestrator/journey-assign-monitor-review.feature` - Gherkin feature file
+- `/docs/ux/coding-agent-orchestrator/jtbd-four-forces.md` - Jobs to be Done analysis
+- `/docs/ux/coding-agent-orchestrator/jtbd-job-stories.md` - Job stories
+
+**Evolution/Walking Skeleton:**
+- `/docs/evolution/coding-agent-orchestrator/distill/walking-skeleton.md` - Minimum viable E2E path with test scenarios
+- `/docs/evolution/coding-agent-orchestrator/distill/test-scenarios.md` - Acceptance test scenarios
+
+---
+
+### 9. Review/Acceptance Flow
+
+**Review Endpoint Response Shape:**
+
+```typescript
+type ReviewResponse = {
+  agentSessionId: string;
+  taskId: string;
+  taskTitle: string;
+  summary?: string;
+  diff: {
+    files: Array<{
+      path: string;
+      status: "added" | "modified" | "deleted";
+      additions: number;
+      deletions: number;
+    }>;
+    rawDiff: string;
+    stats: {
+      filesChanged: number;
+      insertions: number;
+      deletions: number;
+    };
+  };
+  session: {
+    startedAt: string;
+    lastEventAt?: string;
+    decisionsCount: number;
+    questionsCount: number;
+    observationsCount: number;
+  };
+};
+```
+
+**Review → Accept Flow:**
+1. User calls `GET /api/orchestrator/:ws/sessions/:sessionId/review`
+2. Platform generates diff from worktree branch
+3. User calls `POST .../sessions/:sessionId/accept`
+4. Platform merges branch to main, removes worktree
+5. Task status promoted to `done`
+6. Session marked as `completed`
+
+**Review → Reject Flow:**
+1. User calls `POST .../sessions/:sessionId/reject` with feedback
+2. Platform sends feedback as follow-up prompt to OpenCode agent
+3. Agent continues in same worktree, same session
+4. Cycle returns to monitoring (idle → active)
+
+**Review → Abort Flow:**
+1. User calls `POST .../sessions/:sessionId/abort`
+2. Platform kills OpenCode process via `AbortController`
+3. Worktree removed
+4. Session marked as `aborted`
+5. Task returns to `ready` status
+
+---
+
+### 10. Brain OpenCode Plugin
+
+**Architecture:**
+- OpenCode plugin at `.opencode/plugins/brain.ts` (generated by `brain init --opencode`)
+- Exposes Brain tools as native OpenCode custom tools
+- Replaces/supplements MCP for OpenCode runtime
+
+**Integration with Orchestrator:**
+- When orchestrator spawns OpenCode, it configures plugin via `OPENCODE_CONFIG_CONTENT`
+- Plugin auto-loads because worktree inherits project's `.opencode/plugins/` directory
+- Plugin registers tools for context, task status, observations, etc.
+
+**Files (not fully explored - in separate CLI codebase):**
+- `cli/http-client.ts` - Shared HTTP client (used by both MCP and plugin)
+- `.opencode/plugins/brain.ts` - Plugin implementation (template from init-content)
+
+---
+
+### 11. Current UI Status for Orchestrator
+
+**What EXISTS:**
+- Task detail panel in graph shows task metadata, priority, status, owner, created date
+- Entity actions in detail panel (Discuss, Confirm, Complete, etc.)
+- Feed shows governance items (decisions, tasks, questions, observations)
+- Graph visualizes entity relationships
+
+**What DOES NOT EXIST (for orchestrator visibility):**
+- No "Assign to Agent" button on task cards
+- No agent session status indicator in graph or feed
+- No activity feed for agent progress (file changes, errors, etc.)
+- No diff review UI component
+- No agent session monitoring dashboard
+- No stall warnings in UI
+
+**These UI components would need to be built separately** to surface:
+- Agent assignment status
+- Live progress (tokens, file changes)
+- Review/accept/reject interface
+- Stall detection alerts
+
+---
+
+### 12. Key Integration Points
+
+**Existing Infrastructure Reused:**
+
+| Component | Purpose | Location |
+|-----------|---------|----------|
+| `agent_session` table | Session tracking | Schema, extended with 8 new fields |
+| `createAgentSession()` / `endAgentSession()` | MCP session lifecycle | `mcp/mcp-queries.ts` |
+| SSE Registry | Event forwarding | `streaming/sse-registry.ts` |
+| IAM Authority | Permission checks | `iam/authority.ts` (code_agent role) |
+| MCP Route Handlers | Context/tools for agents | `mcp/mcp-route.ts` |
+| ServerDependencies | Dependency injection | `runtime/types.ts` |
+
+**New Dependencies Added:**
+- `@opencode-ai/sdk` - OpenCode process management
+- `git` CLI - Worktree and diff operations
+
+---
+
+## Summary
+
+The coding agent orchestrator is a **modular, well-documented feature** that extends Brain's existing monolith with OpenCode integration. All orchestrator logic lives in `/app/src/server/orchestrator/` with clear separation of concerns:
+
+- **Routes** → HTTP handling
+- **Assignment Guard** → Task validation
+- **Session Lifecycle** → Process management
+- **Worktree Manager** → Git operations
+- **Event Bridge** → Streaming integration
+- **Stall Detector** → Activity monitoring
+
+**Data is persisted** in `agent_session` table with orchestrator-specific fields for lifecycle tracking, worktree metadata, and error handling. **In-memory registry** holds live process handles for cleanup and event forwarding.
+
+**The graph and feed exist and work** but don't currently surface agent session information. Building UI for agent assignment, monitoring, and review would be the next layer.
+
+---
+
+## File Locations Summary
+
+**Server Implementation:**
+- `/app/src/server/orchestrator/routes.ts` (143 lines)
+- `/app/src/server/orchestrator/session-lifecycle.ts` (117+ lines)
+- `/app/src/server/orchestrator/assignment-guard.ts` (80+ lines)
+- `/app/src/server/orchestrator/types.ts` (77 lines)
+- `/app/src/server/orchestrator/stall-detector.ts` (194 lines)
+- `/app/src/server/orchestrator/worktree-manager.ts` (not fully explored)
+- `/app/src/server/orchestrator/config-builder.ts` (not fully explored)
+
+**Schema:**
+- `/schema/surreal-schema.surql` (agent_session definition)
+- `/schema/migrations/0014_orchestrator_fields.surql` (orchestrator additions)
+
+**Client Components:**
+- `/app/src/client/components/graph/KnowledgeGraph.tsx` (graph visualization)
+- `/app/src/client/components/graph/EntityDetailPanel.tsx` (entity detail popup)
+- `/app/src/client/components/feed/GovernanceFeed.tsx` (activity feed)
+- `/app/src/client/routes/graph-page.tsx` (graph page)
+
+**Types & Contracts:**
+- `/app/src/shared/contracts.ts` (StreamEvent types for agent events)
+
+**Documentation:**
+- `/docs/feature/coding-agent-orchestrator/design/` - Design documents
+- `/docs/evolution/coding-agent-orchestrator/` - Architecture and walking skeleton
+- `/docs/ux/coding-agent-orchestrator/` - User journeys and UX specs
+- `/docs/requirements/` - Requirements and acceptance tests</result>
+<usage><total_tokens>75545</total_tokens><tool_uses>49</tool_uses><duration_ms>127184</duration_ms></usage>
+</task-notification>
+Full transcript available at: /private/tmp/claude-501/-Users-marcus-conductor-workspaces-brain-richmond/tasks/a3f9cdb08b78cb7ab.output
+
+---
+
+hybrid sounds good
+
+---
+
+Tool loaded.
+
+---
+
+Tool loaded.
+
+---
+
+proceed to design wave
+
+---
+
+# NW-DESIGN: Architecture Design
+
+**Wave**: DESIGN (wave 3 of 6) | **Agents**: Morgan (nw-solution-architect) | **Command**: `*design-architecture`
+
+## Overview
+
+Execute DESIGN wave through discovery-driven architecture design. Morgan asks about business drivers and constraints first, then recommends architecture that fits. Analyzes existing codebase, evaluates open-source alternatives, produces C4 diagrams (Mermaid) as mandatory output.
+
+## Context Files Required
+
+- docs/feature/{feature-name}/discuss/requirements.md
+- docs/feature/{feature-name}/discuss/user-stories.md
+- docs/feature/{feature-name}/discuss/domain-model.md
+- docs/feature/{feature-name}/discuss/ux-journey.md
+- docs/feature/{feature-name}/discuss/jtbd-job-stories.md — Job stories (JTBD Phase 1)
+- docs/feature/{feature-name}/discuss/jtbd-four-forces.md — Four Forces analysis
+- docs/feature/{feature-name}/discuss/jtbd-opportunity-scores.md — Opportunity scores (if multiple jobs)
+- docs/feature/{feature-name}/design/constraints.md — Technical and business constraints
+
+## Discovery Flow
+
+Architecture decisions driven by quality attributes, not pattern shopping:
+
+### Step 1: Understand the Problem
+Review JTBD artifacts from DISCUSS to understand which jobs the architecture must serve. Morgan asks: What are we building? For whom? Which quality attributes matter most? (scalability|maintainability|testability|time-to-market|fault tolerance|auditability)
+
+### Step 2: Understand Constraints
+Morgan asks: Team size/experience? Timeline? Existing systems to integrate? Regulatory requirements? Operational maturity (CI/CD, monitoring)?
+
+### Step 3: Team Structure (Conway's Law)
+Morgan asks: How many teams? Communication patterns? Does proposed architecture match org chart?
+
+### Step 3.5: Development Paradigm Selection
+
+Morgan identifies primary language(s) from constraints, then applies:
+
+- **FP-native** (Haskell|F#|Scala|Clojure|Elixir): recommend Functional
+- **OOP-native** (Java|C#|Go): recommend OOP
+- **Multi-paradigm** (TypeScript|Kotlin|Python|Rust|Swift): present both, let user choose based on team experience and domain fit
+
+After confirmation, ask user permission to write paradigm to project CLAUDE.md:
+- FP: `This project follows the **functional programming** paradigm. Use @nw-functional-software-crafter for implementation.`
+- OOP: `This project follows the **object-oriented** paradigm. Use @nw-software-crafter for implementation.`
+
+Default if user declines/unsure: OOP. User can override later.
+
+### Step 4: Recommend Architecture Based on Drivers
+Recommend based on quality attribute priorities|constraints|paradigm from Steps 1-3.5. Default: modular monolith with dependency inversion (ports-and-adapters). Overrides require evidence.
+
+If functional paradigm selected, Morgan adapts architectural strategy:
+- Types-first design: define algebraic data types and domain models before components
+- Composition pipelines: data flows through transformation chains, not method dispatch
+- Pure core / effect shell: domain logic is pure, IO lives at boundaries (adapters are functions)
+- Effect boundaries replace port interfaces: function signatures serve as ports
+- Immutable state: state changes produce new values, no mutation in the domain
+These are strategic guidance items for the architecture document — no code snippets.
+
+### Step 5: Advanced Architecture Stress Analysis (HIDDEN -- `--residuality` flag only)
+When activated: apply complexity-science-based stress analysis — stressors|attractors|residues|incidence matrix|resilience modifications. See `stress-analysis` skill.
+When not activated: skip entirely, do not mention.
+
+### Step 6: Produce Deliverables
+- Architecture document with component boundaries|tech stack|integration patterns
+- C4 System Context diagram (Mermaid) -- MANDATORY
+- C4 Container diagram (Mermaid) -- MANDATORY
+- C4 Component diagrams (Mermaid) -- only for complex subsystems
+- ADRs for significant decisions
+
+## Rigor Profile Integration
+
+Before dispatching the architect agent, read rigor config from `.nwave/des-config.json` (key: `rigor`). If absent, use standard defaults.
+
+- **`agent_model`**: Pass as `model` parameter to Task tool. If `"inherit"`, omit `model` (inherits from session).
+- **`reviewer_model`**: If design review is performed, use this model for the reviewer agent. If `"skip"`, skip design review.
+- **`review_enabled`**: If `false`, skip post-design review step.
+
+## Agent Invocation
+
+@nw-solution-architect
+
+Execute \*design-architecture for {feature-name}.
+
+Context files: see Context Files Required above.
+
+**Configuration:**
+- model: rigor.agent_model (omit if "inherit")
+- interactive: moderate
+- output_format: markdown
+- diagram_format: mermaid (C4)
+- stress_analysis: {true if --residuality flag, false otherwise}
+
+## Success Criteria
+
+- [ ] Business drivers and constraints gathered before architecture selection
+- [ ] Existing system analyzed before design (codebase search performed)
+- [ ] Integration points with existing components documented
+- [ ] Reuse vs. new component decisions justified
+- [ ] Architecture supports all business requirements
+- [ ] Technology stack selected with clear rationale
+- [ ] Development paradigm selected and (optionally) written to project CLAUDE.md
+- [ ] Component boundaries defined with dependency-inversion compliance
+- [ ] C4 System Context + Container diagrams produced (Mermaid)
+- [ ] ADRs written with alternatives considered
+- [ ] Handoff accepted by nw-platform-architect (DEVOP wave)
+
+## Next Wave
+
+**Handoff To**: nw-platform-architect (DEVOP wave)
+**Deliverables**: See Morgan's handoff package specification in agent file
+
+## Expected Outputs
+
+```
+docs/feature/{feature-name}/design/
+  architecture-design.md       (includes C4 diagrams in Mermaid)
+  technology-stack.md
+  component-boundaries.md
+  data-models.md
+docs/adrs/
+  ADR-NNN-*.md
+CLAUDE.md (project root)   (optional: ## Development Paradigm section)
+```
+
+
+ARGUMENTS: coding-agent-orchestrator UI - hybrid pattern with three surfaces: task popup (EntityDetailPanel) for delegation trigger + status badge, governance feed for attention-needed alerts, and a new Agent Review View for full diff review + accept/reject. See docs/ux/coding-agent-orchestrator/ui-surface-mapping.md for the surface mapping spec and docs/requirements/coding-agent-orchestrator-user-stories.md for user stories US-0.4, US-0.5, US-1.1, US-1.2, US-1.3, US-2.1, US-2.2, US-2.3.
+
+---
+
+how do i update rigor mode in nwave des config
+
+---
+
+Tool loaded.
+
+---
+
+yes, agent model inherit, reviewer model inherit, review enabled
+
+---
+
+distill
+
+---
+
+# NW-DISTILL: Acceptance Test Creation and Business Validation
+
+**Wave**: DISTILL (wave 5 of 6) | **Agent**: Quinn (nw-acceptance-designer)
+
+## Overview
+
+Create E2E acceptance tests from requirements|architecture|infrastructure design using Given-When-Then format. Produces executable specifications bridging business requirements and technical implementation. Infrastructure design from DEVOP informs test environment setup.
+
+## Interactive Decision Points
+
+### Decision 1: Feature Scope
+**Question**: What is the scope of this feature?
+**Options**:
+1. Core feature -- primary application functionality
+2. Extension -- modular add-on or integration
+3. Bug fix -- regression tests for a known defect
+
+### Decision 2: Test Framework
+**Question**: Which test framework to use?
+**Options**:
+1. pytest-bdd -- Python BDD framework
+2. Cucumber -- Ruby/JS BDD framework
+3. SpecFlow -- .NET BDD framework
+4. Custom -- user provides details
+
+### Decision 3: Integration Approach
+**Question**: How should integration tests connect to services?
+**Options**:
+1. Real services -- test against actual running services
+2. Test containers -- ephemeral containers for dependencies
+3. Mocks for external only -- real internal, mocked external services
+
+### Decision 4: Infrastructure Testing
+**Question**: Should acceptance tests cover infrastructure concerns?
+**Options**:
+1. Yes -- include CI/CD validation, deployment smoke tests
+2. No -- functional acceptance tests only
+
+## Context Files Required
+
+- docs/feature/{feature-name}/discuss/requirements.md | user-stories.md
+- docs/feature/{feature-name}/design/architecture-design.md | component-boundaries.md | technology-stack.md
+- docs/feature/{feature-name}/deliver/* (infrastructure design from DEVOP)
+
+## Rigor Profile Integration
+
+Before dispatching the acceptance designer, read rigor config from `.nwave/des-config.json` (key: `rigor`). If absent, use standard defaults.
+
+- **`agent_model`**: Pass as `model` parameter to Task tool. If `"inherit"`, omit `model` (inherits from session).
+
+## Agent Invocation
+
+@nw-acceptance-designer
+
+Execute \*create-acceptance-tests for {feature-name}.
+
+Context files: see above.
+
+**Configuration:**
+- model: rigor.agent_model (omit if "inherit")
+- test_type: {Decision 1: core|extension|bugfix}
+- test_framework: {Decision 2: specflow|cucumber|pytest-bdd}
+- integration_approach: {Decision 3} | infrastructure_testing: {Decision 4}
+- interactive: moderate | output_format: gherkin
+
+## Success Criteria
+
+- [ ] All user stories have corresponding acceptance tests
+- [ ] Step methods call real production services (no mocks at acceptance level)
+- [ ] One-at-a-time implementation strategy established (@skip/@pending tags)
+- [ ] Tests exercise driving ports, not internal components (hexagonal boundary)
+- [ ] Walking skeleton created first with user-centric scenarios (features only; optional for bugs)
+- [ ] Infrastructure test scenarios included (if Decision 4 = Yes)
+- [ ] Handoff package ready for nw-software-crafter (DELIVER wave)
+
+## Examples
+
+### Example 1: Core feature acceptance tests
+```
+/nw:distill payment-webhook --test-framework=pytest-bdd --integration=real-services
+```
+Quinn creates Given-When-Then acceptance tests from requirements and architecture, establishes walking skeleton first, then milestone features with @skip tags for one-at-a-time implementation.
+
+## Next Wave
+
+**Handoff To**: nw-software-crafter (DELIVER wave)
+**Deliverables**: Feature files|step definitions|test-scenarios.md|walking-skeleton.md
+
+## Expected Outputs
+
+```
+tests/{test-type-path}/{feature-name}/acceptance/
+  walking-skeleton.feature
+  milestone-{N}-{description}.feature
+  integration-checkpoints.feature
+  steps/
+    conftest.py
+    {domain}_steps.py
+
+docs/feature/{feature-name}/distill/
+  test-scenarios.md
+  walking-skeleton.md
+  acceptance-review.md
+```
+
+Bug fix regression tests:
+```
+tests/regression/{component-or-module}/
+  bug-{ticket-or-description}.feature
+  steps/
+    conftest.py
+    {domain}_steps.py
+
+tests/unit/{component-or-module}/
+  test_{module}_bug_{ticket-or-description}.py
+```
+
+
+ARGUMENTS: coding-agent-orchestrator UI - hybrid three-surface pattern. User stories in docs/requirements/coding-agent-orchestrator-user-stories.md (US-0.4, US-0.5, US-1.1-1.3, US-2.1-2.3). Architecture in docs/feature/coding-agent-orchestrator/design/ui-architecture.md. Surface mapping in docs/ux/coding-agent-orchestrator/ui-surface-mapping.md.
+
+---
+
+commit and deliver
