@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "071c5e5e0bcd",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/coding-agent-orch",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "docs/feature/coding-agent-orchestrator/execution-log.yaml",
+    "tests/acceptance/coding-agent-orchestrator/assignment-guard.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/07/1c5e5e0bcd/0/metadata.json",
+      "transcript": "/07/1c5e5e0bcd/0/full.jsonl",
+      "context": "/07/1c5e5e0bcd/0/context.md",
+      "content_hash": "/07/1c5e5e0bcd/0/content_hash.txt",
+      "prompt": "/07/1c5e5e0bcd/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 0,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 0,
+    "output_tokens": 0,
+    "api_call_count": 0
+  }
+}
