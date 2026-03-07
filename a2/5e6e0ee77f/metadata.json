@@ -1,0 +1,41 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "a25e6e0ee77f",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/coding-agent-orch",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "docs/adrs/ADR-001-opencode-sdk-integration-pattern.md",
+    "docs/adrs/ADR-002-git-worktree-isolation.md",
+    "docs/adrs/ADR-003-opencode-plugin-over-mcp.md",
+    "docs/feature/coding-agent-orchestrator/design/architecture-design.md",
+    "docs/feature/coding-agent-orchestrator/design/component-boundaries.md",
+    "docs/feature/coding-agent-orchestrator/design/data-models.md",
+    "docs/feature/coding-agent-orchestrator/design/technology-stack.md",
+    "docs/requirements/coding-agent-orchestrator-dor-checklist.md",
+    "docs/requirements/coding-agent-orchestrator-requirements.md",
+    "docs/requirements/coding-agent-orchestrator-user-stories.md",
+    "docs/ux/coding-agent-orchestrator/journey-assign-monitor-review-visual.md",
+    "docs/ux/coding-agent-orchestrator/journey-assign-monitor-review.feature",
+    "docs/ux/coding-agent-orchestrator/journey-assign-monitor-review.yaml",
+    "docs/ux/coding-agent-orchestrator/jtbd-four-forces.md",
+    "docs/ux/coding-agent-orchestrator/jtbd-job-stories.md",
+    "docs/ux/coding-agent-orchestrator/shared-artifacts-registry.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/a2/5e6e0ee77f/0/metadata.json",
+      "transcript": "/a2/5e6e0ee77f/0/full.jsonl",
+      "context": "/a2/5e6e0ee77f/0/context.md",
+      "content_hash": "/a2/5e6e0ee77f/0/content_hash.txt",
+      "prompt": "/a2/5e6e0ee77f/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 7,
+    "cache_creation_tokens": 53994,
+    "cache_read_tokens": 76533,
+    "output_tokens": 319,
+    "api_call_count": 4
+  }
+}
