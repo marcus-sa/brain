@@ -1,0 +1,72 @@
+events:
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 05-01
+  t: '2026-03-07T12:10:32Z'
+- d: 'NOT_APPLICABLE: API client is a thin adapter layer; acceptance tests for orchestrator
+    endpoints already exist in orchestrator-test-kit.ts. Unit tests verify the client
+    contract.'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 05-01
+  t: '2026-03-07T12:10:41Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 05-04
+  t: '2026-03-07T12:10:50Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 05-05
+  t: '2026-03-07T12:11:06Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 06-03
+  t: '2026-03-07T12:11:08Z'
+- d: 'NOT_APPLICABLE: entity detail extension is IO-boundary integration; unit tests
+    cover response assembly logic'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 05-05
+  t: '2026-03-07T12:11:13Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 05-04
+  t: '2026-03-07T12:11:20Z'
+- d: 'NOT_APPLICABLE: acceptance test covers all unit behaviors for this pure mapping
+    function'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 05-04
+  t: '2026-03-07T12:11:20Z'
+- d: PASS
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 05-01
+  t: '2026-03-07T12:11:29Z'
+- d: PASS
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 05-05
+  t: '2026-03-07T12:11:37Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 06-03
+  t: '2026-03-07T12:11:55Z'
+- d: PASS
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 06-03
+  t: '2026-03-07T12:11:55Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 05-01
+  t: '2026-03-07T12:12:14Z'
+project_id: coding-agent-orchestrator-ui
+schema_version: '3.0'
