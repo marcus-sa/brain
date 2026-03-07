@@ -1986,6 +1986,7 @@ body {
 .chat-message-text pre {
   background: var(--muted);
   border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   padding: 0.5rem;
   overflow-x: auto;
   font-size: 0.82rem;
@@ -2011,6 +2012,7 @@ body {
 .thinking-block {
   margin: 0.3rem 0;
   border: 1px solid var(--border);
+  border-radius: var(--radius);
   background: color-mix(in srgb, var(--muted) 50%, transparent);
 }
 
@@ -2043,6 +2045,7 @@ body {
   font-size: 0.75rem;
   padding: 0.25rem 0.5rem;
   border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
   background: var(--muted);
   color: var(--muted-foreground);
 }
@@ -2057,6 +2060,7 @@ body {
 
 .suggestion-tool-card {
   border: 1px solid;
+  border-radius: var(--radius);
   padding: 0.5rem 0.75rem;
   font-size: 0.8rem;
   display: flex;
@@ -2102,6 +2106,7 @@ body {
   align-items: flex-end;
   gap: 0.5rem;
   border: 1px solid var(--border);
+  border-radius: var(--radius);
   background: var(--card);
   padding: 0.5rem;
 }
