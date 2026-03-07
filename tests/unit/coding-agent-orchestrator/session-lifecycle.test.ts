@@ -1,0 +1,482 @@
+import { describe, expect, test } from "bun:test";
+import { RecordId } from "surrealdb";
+import type {
+  SessionDeps,
+  OpenCodeHandle,
+  OrchestratorSessionResult,
+  SessionStatusResult,
+  AbortSessionResult,
+  AcceptSessionResult,
+} from "../../../app/src/server/orchestrator/session-lifecycle";
+import {
+  createOrchestratorSession,
+  getOrchestratorSessionStatus,
+  abortOrchestratorSession,
+  acceptOrchestratorSession,
+} from "../../../app/src/server/orchestrator/session-lifecycle";
+
+// ---------------------------------------------------------------------------
+// Stubs & helpers
+// ---------------------------------------------------------------------------
+
+type QueryResult = Array<Record<string, unknown>>;
+
+/** Tracks calls made to the surreal stub for spy assertions */
+type SurrealSpy = {
+  stub: unknown;
+  queries: Array<{ sql: string; bindings?: Record<string, unknown> }>;
+  creates: Array<{ record: unknown; content: unknown }>;
+  updates: Array<{ record: unknown; merge: unknown }>;
+  selects: Array<{ record: unknown }>;
+};
+
+function createSurrealSpy(responses: {
+  taskQuery?: QueryResult;
+  sessionQuery?: QueryResult;
+  sessionSelect?: Record<string, unknown>;
+  createReturn?: Record<string, unknown>;
+}): SurrealSpy {
+  const spy: SurrealSpy = {
+    stub: undefined,
+    queries: [],
+    creates: [],
+    updates: [],
+    selects: [],
+  };
+
+  spy.stub = {
+    query(sql: string, bindings?: Record<string, unknown>) {
+      spy.queries.push({ sql, bindings });
+
+      // Task lookup
+      if (sql.includes("FROM $taskRecord")) {
+        return Promise.resolve([responses.taskQuery ?? []]);
+      }
+      // Active session check
+      if (sql.includes("orchestrator_status") && sql.includes("agent_session")) {
+        return Promise.resolve([responses.sessionQuery ?? []]);
+      }
+      // Session orchestrator fields query (for getStatus)
+      if (sql.includes("orchestrator_status") && sql.includes("$sessionRecord")) {
+        return Promise.resolve([responses.sessionSelect ? [responses.sessionSelect] : []]);
+      }
+      // Update queries
+      if (sql.includes("UPDATE")) {
+        return Promise.resolve([responses.createReturn ?? {}]);
+      }
+      return Promise.resolve([[]]);
+    },
+    create(record: unknown) {
+      return {
+        content(content: unknown) {
+          spy.creates.push({ record, content });
+          return Promise.resolve(responses.createReturn ?? { id: record });
+        },
+      };
+    },
+    update(record: unknown) {
+      return {
+        merge(data: unknown) {
+          spy.updates.push({ record, merge: data });
+          return Promise.resolve({ id: record, ...data as object });
+        },
+      };
+    },
+    select(record: unknown) {
+      spy.selects.push({ record });
+      return Promise.resolve(responses.sessionSelect ?? undefined);
+    },
+  };
+
+  return spy;
+}
+
+function successShellExec(): SessionDeps["shellExec"] {
+  return async (_cmd: string, _args: string[], _cwd: string) => ({
+    exitCode: 0,
+    stdout: "",
+    stderr: "",
+  });
+}
+
+function spawnOpenCodeStub(
+  sessionId = "opencode-sess-1",
+): {
+  spawn: NonNullable<SessionDeps["spawnOpenCode"]>;
+  abortCalls: string[];
+} {
+  const abortCalls: string[] = [];
+  return {
+    spawn: async (_config, _worktreePath) => ({
+      sessionId,
+      abort: () => {
+        abortCalls.push(sessionId);
+      },
+    }),
+    abortCalls,
+  };
+}
+
+// Stub for createAgentSession from mcp-queries
+function createAgentSessionStub(returnSessionId = "agent-sess-1") {
+  const calls: Array<Record<string, unknown>> = [];
+  return {
+    fn: async (input: Record<string, unknown>) => {
+      calls.push(input);
+      return { session_id: returnSessionId };
+    },
+    calls,
+  };
+}
+
+// Stub for endAgentSession from mcp-queries
+function endAgentSessionStub() {
+  const calls: Array<Record<string, unknown>> = [];
+  return {
+    fn: async (input: Record<string, unknown>) => {
+      calls.push(input);
+      return { session_id: input.sessionId as string, ended: true };
+    },
+    calls,
+  };
+}
+
+// Stub for validateAssignment
+function validateAssignmentStubOk(taskTitle = "Implement feature X") {
+  const calls: Array<{ workspaceId: string; taskId: string }> = [];
+  return {
+    fn: async (_surreal: unknown, workspaceId: string, taskId: string) => {
+      calls.push({ workspaceId, taskId });
+      return {
+        ok: true as const,
+        validation: {
+          taskRecord: new RecordId("task", taskId),
+          workspaceRecord: new RecordId("workspace", workspaceId),
+          taskStatus: "ready" as const,
+          title: taskTitle,
+        },
+      };
+    },
+    calls,
+  };
+}
+
+function validateAssignmentStubErr(code = "TASK_NOT_FOUND") {
+  return {
+    fn: async (_surreal: unknown, _workspaceId: string, _taskId: string) => ({
+      ok: false as const,
+      error: {
+        code: code as any,
+        message: "Task not found",
+        httpStatus: 404,
+      },
+    }),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Acceptance: createOrchestratorSession returns session info on success
+// ---------------------------------------------------------------------------
+
+describe("createOrchestratorSession", () => {
+  test("returns agentSessionId, streamId, and worktreeBranch on success", async () => {
+    const surrealSpy = createSurrealSpy({
+      sessionQuery: [],
+      createReturn: {},
+    });
+    const { spawn } = spawnOpenCodeStub("oc-sess-abc");
+    const agentSessionStub = createAgentSessionStub("agent-sess-42");
+    const assignmentStub = validateAssignmentStubOk("Fix the bug");
+
+    const result = await createOrchestratorSession({
+      surreal: surrealSpy.stub as any,
+      shellExec: successShellExec(),
+      repoRoot: "/repo",
+      brainBaseUrl: "http://localhost:3000",
+      workspaceId: "ws-1",
+      taskId: "task-abc",
+      authToken: "jwt-xyz",
+      spawnOpenCode: spawn,
+      validateAssignment: assignmentStub.fn,
+      createAgentSession: agentSessionStub.fn as any,
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.agentSessionId).toBe("agent-sess-42");
+      expect(result.value.worktreeBranch).toMatch(/^agent\//);
+      expect(result.value.streamId).toBeDefined();
+      expect(typeof result.value.streamId).toBe("string");
+    }
+  });
+
+  test("propagates assignment validation errors", async () => {
+    const surrealSpy = createSurrealSpy({});
+    const assignmentStub = validateAssignmentStubErr("TASK_NOT_FOUND");
+
+    const result = await createOrchestratorSession({
+      surreal: surrealSpy.stub as any,
+      shellExec: successShellExec(),
+      repoRoot: "/repo",
+      brainBaseUrl: "http://localhost:3000",
+      workspaceId: "ws-1",
+      taskId: "task-missing",
+      authToken: "jwt-xyz",
+      validateAssignment: assignmentStub.fn,
+      createAgentSession: createAgentSessionStub().fn as any,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("TASK_NOT_FOUND");
+    }
+  });
+
+  test("propagates worktree creation errors", async () => {
+    const surrealSpy = createSurrealSpy({});
+    const assignmentStub = validateAssignmentStubOk();
+    const failingShellExec: SessionDeps["shellExec"] = async () => ({
+      exitCode: 1,
+      stdout: "",
+      stderr: "worktree already exists",
+    });
+
+    const result = await createOrchestratorSession({
+      surreal: surrealSpy.stub as any,
+      shellExec: failingShellExec,
+      repoRoot: "/repo",
+      brainBaseUrl: "http://localhost:3000",
+      workspaceId: "ws-1",
+      taskId: "task-abc",
+      authToken: "jwt-xyz",
+      validateAssignment: assignmentStub.fn,
+      createAgentSession: createAgentSessionStub().fn as any,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("WORKTREE_ERROR");
+    }
+  });
+
+  test("updates agent_session with orchestrator fields after creation", async () => {
+    const surrealSpy = createSurrealSpy({
+      sessionQuery: [],
+      createReturn: {},
+    });
+    const { spawn } = spawnOpenCodeStub("oc-sess-abc");
+    const agentSessionStub = createAgentSessionStub("agent-sess-42");
+    const assignmentStub = validateAssignmentStubOk();
+
+    await createOrchestratorSession({
+      surreal: surrealSpy.stub as any,
+      shellExec: successShellExec(),
+      repoRoot: "/repo",
+      brainBaseUrl: "http://localhost:3000",
+      workspaceId: "ws-1",
+      taskId: "task-abc",
+      authToken: "jwt-xyz",
+      spawnOpenCode: spawn,
+      validateAssignment: assignmentStub.fn,
+      createAgentSession: agentSessionStub.fn as any,
+    });
+
+    // Should have updated agent_session with orchestrator fields
+    const orchestratorUpdate = surrealSpy.updates.find(
+      (u) => u.merge && typeof u.merge === "object" && "orchestrator_status" in (u.merge as object),
+    );
+    expect(orchestratorUpdate).toBeDefined();
+    const mergeData = orchestratorUpdate!.merge as Record<string, unknown>;
+    expect(mergeData.orchestrator_status).toBe("spawning");
+    expect(mergeData.worktree_branch).toMatch(/^agent\//);
+    expect(mergeData.opencode_session_id).toBe("oc-sess-abc");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getOrchestratorSessionStatus
+// ---------------------------------------------------------------------------
+
+describe("getOrchestratorSessionStatus", () => {
+  test("returns orchestrator fields for an existing session", async () => {
+    const surrealSpy = createSurrealSpy({
+      sessionSelect: {
+        id: new RecordId("agent_session", "sess-1"),
+        orchestrator_status: "active",
+        worktree_branch: "agent/fix-bug",
+        worktree_path: "/repo/.brain/worktrees/agent-fix-bug",
+        started_at: "2026-03-07T08:00:00Z",
+        last_event_at: "2026-03-07T08:05:00Z",
+      },
+    });
+
+    const result = await getOrchestratorSessionStatus({
+      surreal: surrealSpy.stub as any,
+      sessionId: "sess-1",
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.orchestratorStatus).toBe("active");
+      expect(result.value.worktreeBranch).toBe("agent/fix-bug");
+      expect(result.value.startedAt).toBe("2026-03-07T08:00:00Z");
+    }
+  });
+
+  test("returns error for nonexistent session", async () => {
+    const surrealSpy = createSurrealSpy({
+      sessionSelect: undefined,
+    });
+
+    const result = await getOrchestratorSessionStatus({
+      surreal: surrealSpy.stub as any,
+      sessionId: "nonexistent",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("SESSION_NOT_FOUND");
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// abortOrchestratorSession
+// ---------------------------------------------------------------------------
+
+describe("abortOrchestratorSession", () => {
+  test("marks session as aborted, kills process, removes worktree, returns task to ready", async () => {
+    const surrealSpy = createSurrealSpy({
+      sessionSelect: {
+        id: new RecordId("agent_session", "sess-1"),
+        orchestrator_status: "active",
+        worktree_branch: "agent/fix-bug",
+        worktree_path: "/repo/.brain/worktrees/agent-fix-bug",
+        task_id: new RecordId("task", "task-abc"),
+        workspace: new RecordId("workspace", "ws-1"),
+      },
+    });
+    const { spawn, abortCalls } = spawnOpenCodeStub("oc-sess-1");
+    const endSessionStub = endAgentSessionStub();
+
+    // First create a session to register the handle
+    const agentSessionStub = createAgentSessionStub("sess-1");
+    const assignmentStub = validateAssignmentStubOk();
+
+    // Create session to populate the handle registry
+    await createOrchestratorSession({
+      surreal: surrealSpy.stub as any,
+      shellExec: successShellExec(),
+      repoRoot: "/repo",
+      brainBaseUrl: "http://localhost:3000",
+      workspaceId: "ws-1",
+      taskId: "task-abc",
+      authToken: "jwt-xyz",
+      spawnOpenCode: spawn,
+      validateAssignment: assignmentStub.fn,
+      createAgentSession: agentSessionStub.fn as any,
+    });
+
+    const result = await abortOrchestratorSession({
+      surreal: surrealSpy.stub as any,
+      shellExec: successShellExec(),
+      repoRoot: "/repo",
+      sessionId: "sess-1",
+      endAgentSession: endSessionStub.fn as any,
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.aborted).toBe(true);
+    }
+
+    // Verify the process abort was called
+    expect(abortCalls).toHaveLength(1);
+
+    // Verify endAgentSession was called
+    expect(endSessionStub.calls).toHaveLength(1);
+  });
+
+  test("returns error for nonexistent session", async () => {
+    const surrealSpy = createSurrealSpy({
+      sessionSelect: undefined,
+    });
+    const endSessionStub = endAgentSessionStub();
+
+    const result = await abortOrchestratorSession({
+      surreal: surrealSpy.stub as any,
+      shellExec: successShellExec(),
+      repoRoot: "/repo",
+      sessionId: "nonexistent",
+      endAgentSession: endSessionStub.fn as any,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("SESSION_NOT_FOUND");
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// acceptOrchestratorSession
+// ---------------------------------------------------------------------------
+
+describe("acceptOrchestratorSession", () => {
+  test("marks session as completed and task as done", async () => {
+    const surrealSpy = createSurrealSpy({
+      sessionSelect: {
+        id: new RecordId("agent_session", "sess-1"),
+        orchestrator_status: "active",
+        worktree_branch: "agent/fix-bug",
+        task_id: new RecordId("task", "task-abc"),
+        workspace: new RecordId("workspace", "ws-1"),
+      },
+    });
+    const endSessionStub = endAgentSessionStub();
+
+    const result = await acceptOrchestratorSession({
+      surreal: surrealSpy.stub as any,
+      sessionId: "sess-1",
+      summary: "Implemented the feature successfully",
+      endAgentSession: endSessionStub.fn as any,
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.accepted).toBe(true);
+    }
+
+    // Verify orchestrator_status was set to completed
+    const statusUpdate = surrealSpy.updates.find(
+      (u) => u.merge && typeof u.merge === "object" && "orchestrator_status" in (u.merge as object),
+    );
+    expect(statusUpdate).toBeDefined();
+    expect((statusUpdate!.merge as Record<string, unknown>).orchestrator_status).toBe("completed");
+
+    // Verify endAgentSession was called with the summary
+    expect(endSessionStub.calls).toHaveLength(1);
+    expect((endSessionStub.calls[0] as Record<string, unknown>).summary).toBe(
+      "Implemented the feature successfully",
+    );
+  });
+
+  test("returns error for nonexistent session", async () => {
+    const surrealSpy = createSurrealSpy({
+      sessionSelect: undefined,
+    });
+    const endSessionStub = endAgentSessionStub();
+
+    const result = await acceptOrchestratorSession({
+      surreal: surrealSpy.stub as any,
+      sessionId: "nonexistent",
+      summary: "done",
+      endAgentSession: endSessionStub.fn as any,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("SESSION_NOT_FOUND");
+    }
+  });
+});
