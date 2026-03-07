@@ -1,14 +1,14 @@
 /**
- * Unit tests for event-bridge: OpenCode event -> Brain StreamEvent transforms.
+ * Unit tests for event-bridge: SDK Message -> Brain StreamEvent transforms.
  *
  * Pure transform functions tested directly. Bridge handle tested with
  * function stubs for emitEvent and updateLastEventAt.
  */
 import { describe, expect, it } from "bun:test";
 import {
-  transformOpencodeEvent,
+  transformSdkMessage,
   startEventBridge,
-  type OpencodeEvent,
+  type SdkMessage,
   type EventBridgeDeps,
 } from "../../../app/src/server/orchestrator/event-bridge";
 
@@ -36,124 +36,197 @@ function stubDeps(overrides: Partial<EventBridgeDeps> = {}): EventBridgeDeps & {
 }
 
 // ---------------------------------------------------------------------------
-// Pure transform: transformOpencodeEvent
+// Pure transform: transformSdkMessage
 // ---------------------------------------------------------------------------
 
-describe("transformOpencodeEvent", () => {
+describe("transformSdkMessage", () => {
   const sessionId = "sess-abc";
 
-  it("transforms message.part.updated with text to AgentTokenEvent", () => {
-    const opencodeEvent: OpencodeEvent = {
-      type: "message.part.updated",
-      sessionId,
-      part: { type: "text", content: "hello world" },
+  it("transforms assistant message with text content to AgentTokenEvent", () => {
+    const message: SdkMessage = {
+      type: "assistant",
+      content: [{ type: "text", text: "hello world" }],
     };
 
-    const result = transformOpencodeEvent(opencodeEvent);
+    const result = transformSdkMessage(message, sessionId);
 
-    expect(result).toEqual({
-      type: "agent_token",
-      sessionId,
-      token: "hello world",
-    });
+    expect(result).toEqual([
+      {
+        type: "agent_token",
+        sessionId,
+        token: "hello world",
+      },
+    ]);
   });
 
-  it("transforms file.edited to AgentFileChangeEvent", () => {
-    const opencodeEvent: OpencodeEvent = {
-      type: "file.edited",
-      sessionId,
-      file: "src/index.ts",
+  it("transforms assistant message with multiple text blocks to multiple AgentTokenEvents", () => {
+    const message: SdkMessage = {
+      type: "assistant",
+      content: [
+        { type: "text", text: "first" },
+        { type: "text", text: "second" },
+      ],
     };
 
-    const result = transformOpencodeEvent(opencodeEvent);
+    const result = transformSdkMessage(message, sessionId);
 
-    expect(result).toEqual({
-      type: "agent_file_change",
-      sessionId,
-      file: "src/index.ts",
-      changeType: "modified",
-    });
+    expect(result).toEqual([
+      { type: "agent_token", sessionId, token: "first" },
+      { type: "agent_token", sessionId, token: "second" },
+    ]);
   });
 
-  it("transforms session.updated to AgentStatusEvent", () => {
-    const opencodeEvent: OpencodeEvent = {
-      type: "session.updated",
-      sessionId,
-      status: "busy",
+  it("transforms assistant message with tool_use Write to AgentFileChangeEvent", () => {
+    const message: SdkMessage = {
+      type: "assistant",
+      content: [
+        {
+          type: "tool_use",
+          id: "tool-1",
+          name: "Write",
+          input: { file_path: "src/index.ts", content: "console.log('hi')" },
+        },
+      ],
     };
 
-    const result = transformOpencodeEvent(opencodeEvent);
+    const result = transformSdkMessage(message, sessionId);
 
-    expect(result).toEqual({
-      type: "agent_status",
-      sessionId,
-      status: "active",
-    });
+    expect(result).toEqual([
+      {
+        type: "agent_file_change",
+        sessionId,
+        file: "src/index.ts",
+        changeType: "created",
+      },
+    ]);
   });
 
-  it("maps session.updated idle status to idle", () => {
-    const opencodeEvent: OpencodeEvent = {
-      type: "session.updated",
-      sessionId,
-      status: "idle",
+  it("transforms assistant message with tool_use Edit to AgentFileChangeEvent", () => {
+    const message: SdkMessage = {
+      type: "assistant",
+      content: [
+        {
+          type: "tool_use",
+          id: "tool-2",
+          name: "Edit",
+          input: { file_path: "src/main.ts", old_string: "foo", new_string: "bar" },
+        },
+      ],
     };
 
-    const result = transformOpencodeEvent(opencodeEvent);
+    const result = transformSdkMessage(message, sessionId);
 
-    expect(result).toEqual({
-      type: "agent_status",
-      sessionId,
-      status: "idle",
-    });
+    expect(result).toEqual([
+      {
+        type: "agent_file_change",
+        sessionId,
+        file: "src/main.ts",
+        changeType: "modified",
+      },
+    ]);
   });
 
-  it("maps session.updated completed status to completed", () => {
-    const opencodeEvent: OpencodeEvent = {
-      type: "session.updated",
-      sessionId,
-      status: "completed",
+  it("transforms result success to AgentStatusEvent completed", () => {
+    const message: SdkMessage = {
+      type: "result",
+      subtype: "success",
+      duration_ms: 5000,
     };
 
-    const result = transformOpencodeEvent(opencodeEvent);
+    const result = transformSdkMessage(message, sessionId);
 
-    expect(result).toEqual({
-      type: "agent_status",
-      sessionId,
-      status: "completed",
-    });
+    expect(result).toEqual([
+      {
+        type: "agent_status",
+        sessionId,
+        status: "completed",
+      },
+    ]);
   });
 
-  it("maps unknown session status to active", () => {
-    const opencodeEvent: OpencodeEvent = {
-      type: "session.updated",
-      sessionId,
-      status: "some_unknown_status",
-    };
-
-    const result = transformOpencodeEvent(opencodeEvent);
-
-    expect(result).toEqual({
-      type: "agent_status",
-      sessionId,
-      status: "active",
-    });
-  });
-
-  it("transforms session.error to AgentStatusEvent with error", () => {
-    const opencodeEvent: OpencodeEvent = {
-      type: "session.error",
-      sessionId,
+  it("transforms result error to AgentStatusEvent with error", () => {
+    const message: SdkMessage = {
+      type: "result",
+      subtype: "error",
       error: "Out of memory",
     };
 
-    const result = transformOpencodeEvent(opencodeEvent);
+    const result = transformSdkMessage(message, sessionId);
 
-    expect(result).toEqual({
-      type: "agent_status",
-      sessionId,
-      status: "error",
-      error: "Out of memory",
-    });
+    expect(result).toEqual([
+      {
+        type: "agent_status",
+        sessionId,
+        status: "error",
+        error: "Out of memory",
+      },
+    ]);
+  });
+
+  it("returns empty array for tool_use without file operation", () => {
+    const message: SdkMessage = {
+      type: "assistant",
+      content: [
+        {
+          type: "tool_use",
+          id: "tool-3",
+          name: "Grep",
+          input: { pattern: "foo" },
+        },
+      ],
+    };
+
+    const result = transformSdkMessage(message, sessionId);
+
+    expect(result).toEqual([]);
+  });
+
+  it("transforms mixed content blocks to appropriate events", () => {
+    const message: SdkMessage = {
+      type: "assistant",
+      content: [
+        { type: "text", text: "Let me edit that file." },
+        {
+          type: "tool_use",
+          id: "tool-4",
+          name: "Write",
+          input: { file_path: "package.json", content: "{}" },
+        },
+      ],
+    };
+
+    const result = transformSdkMessage(message, sessionId);
+
+    expect(result).toEqual([
+      { type: "agent_token", sessionId, token: "Let me edit that file." },
+      { type: "agent_file_change", sessionId, file: "package.json", changeType: "created" },
+    ]);
+  });
+
+  it("transforms Bash tool_use to AgentFileChangeEvent when file path detectable", () => {
+    const message: SdkMessage = {
+      type: "assistant",
+      content: [
+        {
+          type: "tool_use",
+          id: "tool-5",
+          name: "Bash",
+          input: { command: "echo hello > output.txt" },
+        },
+      ],
+    };
+
+    // Bash commands without clear file_path are not file changes
+    const result = transformSdkMessage(message, sessionId);
+    expect(result).toEqual([]);
+  });
+
+  it("returns empty array for unknown message types", () => {
+    const message = { type: "user" } as SdkMessage;
+
+    const result = transformSdkMessage(message, sessionId);
+
+    expect(result).toEqual([]);
   });
 });
 
@@ -169,10 +242,9 @@ describe("startEventBridge", () => {
     const deps = stubDeps();
     const bridge = startEventBridge(deps, streamId, sessionId);
 
-    bridge.handleEvent({
-      type: "message.part.updated",
-      sessionId,
-      part: { type: "text", content: "token-1" },
+    bridge.handleMessage({
+      type: "assistant",
+      content: [{ type: "text", text: "token-1" }],
     });
 
     expect(deps.emitted).toHaveLength(1);
@@ -184,14 +256,13 @@ describe("startEventBridge", () => {
     });
   });
 
-  it("calls updateLastEventAt for each event", async () => {
+  it("calls updateLastEventAt for each message", async () => {
     const deps = stubDeps();
     const bridge = startEventBridge(deps, streamId, sessionId);
 
-    bridge.handleEvent({
-      type: "file.edited",
-      sessionId,
-      file: "src/main.ts",
+    bridge.handleMessage({
+      type: "assistant",
+      content: [{ type: "text", text: "hello" }],
     });
 
     // Allow microtask to resolve
@@ -206,22 +277,21 @@ describe("startEventBridge", () => {
 
     bridge.stop();
 
-    bridge.handleEvent({
-      type: "message.part.updated",
-      sessionId,
-      part: { type: "text", content: "should-not-appear" },
+    bridge.handleMessage({
+      type: "assistant",
+      content: [{ type: "text", text: "should-not-appear" }],
     });
 
     expect(deps.emitted).toHaveLength(0);
   });
 
-  it("forwards session errors with diagnostic information", () => {
+  it("forwards result errors with diagnostic information", () => {
     const deps = stubDeps();
     const bridge = startEventBridge(deps, streamId, sessionId);
 
-    bridge.handleEvent({
-      type: "session.error",
-      sessionId,
+    bridge.handleMessage({
+      type: "result",
+      subtype: "error",
       error: "Process crashed: segfault",
     });
 
@@ -231,29 +301,59 @@ describe("startEventBridge", () => {
     expect(event.error).toBe("Process crashed: segfault");
   });
 
-  it("handles multiple events in sequence", () => {
+  it("handles multiple messages in sequence", () => {
     const deps = stubDeps();
     const bridge = startEventBridge(deps, streamId, sessionId);
 
-    bridge.handleEvent({
-      type: "message.part.updated",
-      sessionId,
-      part: { type: "text", content: "first" },
+    bridge.handleMessage({
+      type: "assistant",
+      content: [{ type: "text", text: "first" }],
     });
-    bridge.handleEvent({
-      type: "file.edited",
-      sessionId,
-      file: "package.json",
+    bridge.handleMessage({
+      type: "assistant",
+      content: [
+        {
+          type: "tool_use",
+          id: "t1",
+          name: "Write",
+          input: { file_path: "package.json", content: "{}" },
+        },
+      ],
     });
-    bridge.handleEvent({
-      type: "session.updated",
-      sessionId,
-      status: "completed",
+    bridge.handleMessage({
+      type: "result",
+      subtype: "success",
+      duration_ms: 1000,
     });
 
     expect(deps.emitted).toHaveLength(3);
     expect((deps.emitted[0].event as { type: string }).type).toBe("agent_token");
     expect((deps.emitted[1].event as { type: string }).type).toBe("agent_file_change");
     expect((deps.emitted[2].event as { type: string }).type).toBe("agent_status");
+  });
+
+  it("increments stall detector step count for file operation tool_use", () => {
+    const deps = stubDeps();
+    let stepCount = 0;
+    const stallDetector = {
+      recordActivity: () => {},
+      incrementStepCount: () => { stepCount++; },
+      stop: () => {},
+    };
+    const bridge = startEventBridge(deps, streamId, sessionId, stallDetector);
+
+    bridge.handleMessage({
+      type: "assistant",
+      content: [
+        {
+          type: "tool_use",
+          id: "t1",
+          name: "Write",
+          input: { file_path: "src/index.ts", content: "" },
+        },
+      ],
+    });
+
+    expect(stepCount).toBe(1);
   });
 });

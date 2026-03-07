@@ -20,5 +20,30 @@ events:
   s: EXECUTED
   sid: 01-01
   t: '2026-03-07T18:39:36Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-03-07T18:41:13Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-03-07T18:43:54Z'
+- d: 'NOT_APPLICABLE: unit tests sufficient for pure transform function'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 01-02
+  t: '2026-03-07T18:43:59Z'
+- d: PASS
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-03-07T18:44:48Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-03-07T18:47:21Z'
 project_id: claude-agent-sdk-migration
 schema_version: '3.0'
