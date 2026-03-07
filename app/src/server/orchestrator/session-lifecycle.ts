@@ -4,7 +4,11 @@ import { buildOpencodeConfig } from "./config-builder";
 import type { ShellExec } from "./worktree-manager";
 import { createWorktree, removeWorktree } from "./worktree-manager";
 import type { AssignmentResult } from "./assignment-guard";
-import type { AssignmentError, OrchestratorStatus } from "./types";
+import type { AssignmentError, OrchestratorStatus, TerminalOrchestratorStatus } from "./types";
+import { TERMINAL_ORCHESTRATOR_STATUSES } from "./types";
+import { transformOpencodeEvent, startEventBridge, type OpencodeEvent } from "./event-bridge";
+import type { StreamEvent } from "../../shared/contracts";
+import type { StallDetectorHandle } from "./stall-detector";
 
 // ---------------------------------------------------------------------------
 // Types — exported for tests
@@ -13,16 +17,21 @@ import type { AssignmentError, OrchestratorStatus } from "./types";
 export type OpenCodeHandle = {
   sessionId: string;
   abort: () => void;
+  sendPrompt: (text: string) => Promise<void>;
+  eventStream: AsyncIterable<unknown>;
 };
+
+export type SpawnOpenCodeFn = (
+  config: OpencodeConfig,
+  worktreePath: string,
+  taskId: string,
+) => Promise<OpenCodeHandle>;
 
 export type SessionDeps = {
   surreal: Surreal;
   shellExec: ShellExec;
   brainBaseUrl: string;
-  spawnOpenCode?: (
-    config: OpencodeConfig,
-    worktreePath: string,
-  ) => Promise<OpenCodeHandle>;
+  spawnOpenCode?: SpawnOpenCodeFn;
 };
 
 export type SessionErrorCode =
@@ -97,6 +106,83 @@ const handleRegistry = new Map<string, OpenCodeHandle>();
 // Exported for testing cleanup
 export function clearHandleRegistry(): void {
   handleRegistry.clear();
+}
+
+// ---------------------------------------------------------------------------
+// Event iteration — port (dependencies as function signatures)
+// ---------------------------------------------------------------------------
+
+export type EventIterationDeps = {
+  emitEvent: (streamId: string, event: StreamEvent) => void;
+  updateSessionStatus: (
+    sessionId: string,
+    status: OrchestratorStatus,
+    error?: string,
+  ) => Promise<void>;
+  updateLastEventAt: (sessionId: string) => Promise<void>;
+  getSessionStatus: (sessionId: string) => Promise<OrchestratorStatus>;
+  startStallDetector: (sessionId: string, streamId: string) => StallDetectorHandle;
+};
+
+const TERMINAL_STATUSES: ReadonlySet<string> = new Set<string>(
+  TERMINAL_ORCHESTRATOR_STATUSES,
+);
+
+/**
+ * Iterates the OpenCode event stream, forwarding events through the event
+ * bridge. Transitions session to "active" on first event, starts stall
+ * detection, and stops on terminal status or error.
+ *
+ * Returns a Promise that resolves when iteration ends (for testing).
+ * In production, this is launched fire-and-forget.
+ */
+export function startEventIteration(
+  deps: EventIterationDeps,
+  eventStream: AsyncIterable<unknown>,
+  streamId: string,
+  sessionId: string,
+): Promise<void> {
+  const stallDetector = deps.startStallDetector(sessionId, streamId);
+
+  const bridge = startEventBridge(
+    {
+      emitEvent: deps.emitEvent,
+      updateLastEventAt: deps.updateLastEventAt,
+    },
+    streamId,
+    sessionId,
+    stallDetector,
+  );
+
+  let firstEventReceived = false;
+
+  async function iterate(): Promise<void> {
+    try {
+      for await (const rawEvent of eventStream) {
+        // Check if session has reached terminal status
+        const currentStatus = await deps.getSessionStatus(sessionId);
+        if (TERMINAL_STATUSES.has(currentStatus)) {
+          break;
+        }
+
+        // Transition to active on first event
+        if (!firstEventReceived) {
+          firstEventReceived = true;
+          await deps.updateSessionStatus(sessionId, "active");
+        }
+
+        // Forward through event bridge (transform + emit + stall detection)
+        bridge.handleEvent(rawEvent as OpencodeEvent);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      await deps.updateSessionStatus(sessionId, "error", errorMessage);
+    } finally {
+      bridge.stop();
+    }
+  }
+
+  return iterate();
 }
 
 // ---------------------------------------------------------------------------
@@ -186,10 +272,7 @@ type CreateSessionInput = {
   workspaceId: string;
   taskId: string;
   authToken: string;
-  spawnOpenCode?: (
-    config: OpencodeConfig,
-    worktreePath: string,
-  ) => Promise<OpenCodeHandle>;
+  spawnOpenCode?: SpawnOpenCodeFn;
   validateAssignment: (
     surreal: Surreal,
     workspaceId: string,
@@ -257,7 +340,7 @@ export async function createOrchestratorSession(
   const spawnFn = input.spawnOpenCode ?? defaultSpawnOpenCode;
   let handle: OpenCodeHandle;
   try {
-    handle = await spawnFn(config, worktreePath);
+    handle = await spawnFn(config, worktreePath, input.taskId);
   } catch (err) {
     // Rollback: remove worktree and delete agent_session on spawn failure
     await removeWorktree(input.shellExec, repoRoot, branchName);
@@ -296,6 +379,7 @@ export async function createOrchestratorSession(
 async function defaultSpawnOpenCode(
   _config: OpencodeConfig,
   _worktreePath: string,
+  _taskId: string,
 ): Promise<OpenCodeHandle> {
   throw new Error(
     "spawnOpenCode not provided -- must be injected for production use",
