@@ -129,7 +129,8 @@ export function AgentStatusSection({
     setAssigning(true);
     setAssignError(undefined);
     try {
-      const result = await assignAgent(workspaceId, entityId);
+      const rawTaskId = entityId.includes(":") ? entityId.split(":")[1] : entityId;
+      const result = await assignAgent(workspaceId, rawTaskId);
       setAssignResult(result);
     } catch (err) {
       setAssignError(err instanceof Error ? err.message : "Failed to assign agent");
