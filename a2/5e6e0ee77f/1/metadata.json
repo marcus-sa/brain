@@ -1,0 +1,45 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "a25e6e0ee77f",
+  "session_id": "6e176e1f-92e0-4c3f-a41e-4c5ebaebed81",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-07T07:08:51.818845Z",
+  "branch": "marcus-sa/coding-agent-orch",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "docs/feature/coding-agent-orchestrator/design/architecture-design.md",
+    "docs/feature/coding-agent-orchestrator/design/data-models.md",
+    "docs/ux/coding-agent-orchestrator/journey-assign-monitor-review-visual.md",
+    "docs/ux/coding-agent-orchestrator/journey-assign-monitor-review.yaml",
+    "docs/ux/coding-agent-orchestrator/jtbd-four-forces.md",
+    "docs/adrs/ADR-003-opencode-plugin-over-mcp.md",
+    "docs/feature/coding-agent-orchestrator/design/component-boundaries.md",
+    "docs/ux/coding-agent-orchestrator/journey-assign-monitor-review.feature",
+    "docs/adrs/ADR-002-git-worktree-isolation.md",
+    "docs/feature/coding-agent-orchestrator/design/technology-stack.md",
+    "docs/requirements/coding-agent-orchestrator-user-stories.md",
+    "docs/ux/coding-agent-orchestrator/shared-artifacts-registry.md",
+    "docs/adrs/ADR-001-opencode-sdk-integration-pattern.md",
+    "docs/requirements/coding-agent-orchestrator-dor-checklist.md",
+    "docs/requirements/coding-agent-orchestrator-requirements.md",
+    "docs/ux/coding-agent-orchestrator/jtbd-job-stories.md"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "cd35f12d6d9a",
+  "token_usage": {
+    "input_tokens": 6,
+    "cache_creation_tokens": 24381,
+    "cache_read_tokens": 154572,
+    "output_tokens": 707,
+    "api_call_count": 4
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-07T07:08:51.809012Z",
+    "agent_lines": 2049,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 2049,
+    "agent_percentage": 100
+  }
+}
