@@ -97,9 +97,13 @@ export function AgentStatusSection({
   agentSession?: AgentSessionSummary;
 }) {
   const repoPath = useWorkspaceState((s) => s.repoPath);
+  const setStoreRepoPath = useWorkspaceState((s) => s.setRepoPath);
   const [assigning, setAssigning] = useState(false);
   const [assignError, setAssignError] = useState<string | undefined>();
   const [assignResult, setAssignResult] = useState<AssignAgentResponse | undefined>();
+  const [repoPathInput, setRepoPathInput] = useState("");
+  const [settingRepoPath, setSettingRepoPath] = useState(false);
+  const [repoPathError, setRepoPathError] = useState<string | undefined>();
 
   // Derive the initial view from props
   const initialView = deriveAgentStatusView({ entityKind, entityStatus, agentSession });
@@ -188,9 +192,56 @@ export function AgentStatusSection({
         {missingRepoPath ? (
           <div className="agent-repo-path-banner" data-testid="agent-repo-path-banner">
             <p>Repository path is not configured for this workspace. Set it before assigning an agent.</p>
-            <a href="/settings" className="agent-repo-path-action" data-testid="agent-repo-path-action">
-              Configure repository path
-            </a>
+            <form
+              className="agent-repo-path-form"
+              data-testid="agent-repo-path-form"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const trimmed = repoPathInput.trim();
+                if (!trimmed || settingRepoPath) return;
+                setSettingRepoPath(true);
+                setRepoPathError(undefined);
+                try {
+                  const res = await fetch(`/api/workspaces/${encodeURIComponent(workspaceId)}/repo-path`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ path: trimmed }),
+                  });
+                  if (!res.ok) {
+                    const body = await res.json().catch(() => ({ error: "Failed to set repository path" }));
+                    setRepoPathError(body.error ?? "Failed to set repository path");
+                    return;
+                  }
+                  setStoreRepoPath(trimmed);
+                  setRepoPathInput("");
+                } catch {
+                  setRepoPathError("Network error");
+                } finally {
+                  setSettingRepoPath(false);
+                }
+              }}
+            >
+              <input
+                type="text"
+                className="agent-repo-path-input"
+                data-testid="agent-repo-path-input"
+                placeholder="/path/to/git/repository"
+                value={repoPathInput}
+                onChange={(e) => setRepoPathInput(e.target.value)}
+                disabled={settingRepoPath}
+              />
+              <button
+                type="submit"
+                className="agent-repo-path-action"
+                data-testid="agent-repo-path-action"
+                disabled={settingRepoPath || repoPathInput.trim().length === 0}
+              >
+                {settingRepoPath ? "Setting..." : "Set Path"}
+              </button>
+            </form>
+            {repoPathError ? (
+              <p className="agent-repo-path-error" data-testid="agent-repo-path-error">{repoPathError}</p>
+            ) : undefined}
           </div>
         ) : undefined}
         <button
