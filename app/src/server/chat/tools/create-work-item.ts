@@ -13,6 +13,7 @@ import { seedDescriptionEntry } from "../../descriptions/persist";
 import { fireDescriptionUpdates } from "../../descriptions/triggers";
 import { ensureProjectFeatureEdge } from "../../workspace/workspace-scope";
 import { requireAuthorizedContext } from "../../iam/authority";
+import { logError } from "../../http/observability";
 import type { ChatToolDeps } from "./types";
 
 export function createCreateWorkItemTool(deps: ChatToolDeps) {
@@ -116,8 +117,8 @@ export function createCreateWorkItemTool(deps: ChatToolDeps) {
                 added_at: now,
               })
               .output("after");
-          } catch {
-            // project resolution is best-effort
+          } catch (err) {
+            logError("create_work_item", `failed to link task to project "${input.project}"`, err);
           }
         }
 
@@ -151,6 +152,7 @@ export function createCreateWorkItemTool(deps: ChatToolDeps) {
       await deps.surreal.create(featureRecord).content({
         name: input.title,
         status: "active",
+        workspace: context.workspaceRecord,
         ...(input.category ? { category: input.category } : {}),
         ...(embedding ? { embedding } : {}),
         created_at: now,
@@ -175,8 +177,8 @@ export function createCreateWorkItemTool(deps: ChatToolDeps) {
               summary: `Feature added: ${input.title}`,
             },
           }).catch(() => undefined);
-        } catch {
-          // project resolution is best-effort
+        } catch (err) {
+          logError("create_work_item", `failed to link feature to project "${input.project}"`, err);
         }
       }
 
