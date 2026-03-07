@@ -108,5 +108,41 @@ events:
   s: EXECUTED
   sid: 05-04
   t: '2026-03-07T12:14:09Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 05-03
+  t: '2026-03-07T12:17:15Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 05-02
+  t: '2026-03-07T12:17:26Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 05-03
+  t: '2026-03-07T12:17:51Z'
+- d: 'NOT_APPLICABLE: acceptance tests already test the pure state machine at unit
+    granularity'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 05-03
+  t: '2026-03-07T12:17:58Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 05-02
+  t: '2026-03-07T12:18:09Z'
+- d: PASS
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 05-02
+  t: '2026-03-07T12:18:09Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 05-03
+  t: '2026-03-07T12:18:47Z'
 project_id: coding-agent-orchestrator-ui
 schema_version: '3.0'
