@@ -3,7 +3,7 @@
   "checkpoint_id": "065e667c9355",
   "strategy": "manual-commit",
   "branch": "marcus-sa/coding-agent-orch",
-  "checkpoints_count": 0,
+  "checkpoints_count": 5,
   "files_touched": [
     "app/src/shared/contracts.ts",
     "docs/feature/workspace-repo-path/design/architecture-design.md",
@@ -56,13 +56,20 @@
       "context": "/06/5e667c9355/5/context.md",
       "content_hash": "/06/5e667c9355/5/content_hash.txt",
       "prompt": "/06/5e667c9355/5/prompt.txt"
+    },
+    {
+      "metadata": "/06/5e667c9355/6/metadata.json",
+      "transcript": "/06/5e667c9355/6/full.jsonl",
+      "context": "/06/5e667c9355/6/context.md",
+      "content_hash": "/06/5e667c9355/6/content_hash.txt",
+      "prompt": "/06/5e667c9355/6/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 0,
-    "cache_creation_tokens": 0,
-    "cache_read_tokens": 0,
-    "output_tokens": 0,
-    "api_call_count": 0
+    "input_tokens": 51,
+    "cache_creation_tokens": 148889,
+    "cache_read_tokens": 1160375,
+    "output_tokens": 10462,
+    "api_call_count": 23
   }
 }
