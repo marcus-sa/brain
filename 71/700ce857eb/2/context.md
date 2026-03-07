@@ -111,3 +111,7 @@ disable it
 
 continue
 
+### Prompt 18
+
+Tool loaded.
+
