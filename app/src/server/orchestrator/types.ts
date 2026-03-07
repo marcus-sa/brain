@@ -7,17 +7,6 @@ import type { RecordId } from "surrealdb";
 export const ASSIGNABLE_TASK_STATUSES = ["ready", "todo"] as const;
 export type AssignableTaskStatus = (typeof ASSIGNABLE_TASK_STATUSES)[number];
 
-export const ALL_TASK_STATUSES = [
-  "open",
-  "todo",
-  "ready",
-  "in_progress",
-  "blocked",
-  "done",
-  "completed",
-] as const;
-export type TaskStatus = (typeof ALL_TASK_STATUSES)[number];
-
 // ---------------------------------------------------------------------------
 // Orchestrator session status
 // ---------------------------------------------------------------------------

@@ -558,7 +558,7 @@ describe("getOrchestratorReview", () => {
     }
   });
 
-  test("returns 404 for aborted session", async () => {
+  test("returns 409 for aborted session", async () => {
     const surrealSpy = createSurrealSpy({
       sessionSelect: {
         id: new RecordId("agent_session", "sess-1"),
@@ -578,7 +578,7 @@ describe("getOrchestratorReview", () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error.httpStatus).toBe(404);
+      expect(result.error.httpStatus).toBe(409);
     }
   });
 

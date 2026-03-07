@@ -258,7 +258,7 @@ export async function listProjectConstraints(input: {
     constraints.push({
       text: d.text,
       source: `decision:${(d.id as RecordId<string, string>).id as string}`,
-      severity: d.status === "contested" ? "hard" : "hard",
+      severity: "hard",
     });
   }
 

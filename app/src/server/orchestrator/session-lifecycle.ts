@@ -128,6 +128,23 @@ function fromAssignmentError(error: AssignmentError): SessionError {
   };
 }
 
+type SessionLookup =
+  | { ok: true; session: SessionRow; record: RecordId<"agent_session", string>; status: OrchestratorStatus }
+  | { ok: false; error: SessionError };
+
+async function lookupSession(
+  surreal: Surreal,
+  sessionId: string,
+): Promise<SessionLookup> {
+  const record = new RecordId("agent_session", sessionId);
+  const session = await surreal.select<SessionRow>(record);
+  if (!session) {
+    return { ok: false, error: sessionNotFound(sessionId) };
+  }
+  const status = (session.orchestrator_status ?? "spawning") as OrchestratorStatus;
+  return { ok: true, session, record, status };
+}
+
 function generateStreamId(sessionId: string): string {
   return `stream-${sessionId}`;
 }
@@ -283,17 +300,16 @@ type GetStatusInput = {
 export async function getOrchestratorSessionStatus(
   input: GetStatusInput,
 ): Promise<SessionStatusResult> {
-  const sessionRecord = new RecordId("agent_session", input.sessionId);
-  const session = await input.surreal.select<SessionRow>(sessionRecord);
-
-  if (!session) {
-    return { ok: false, error: sessionNotFound(input.sessionId) };
+  const lookup = await lookupSession(input.surreal, input.sessionId);
+  if (!lookup.ok) {
+    return { ok: false, error: lookup.error };
   }
+  const { session } = lookup;
 
   return {
     ok: true,
     value: {
-      orchestratorStatus: (session.orchestrator_status ?? "spawning") as OrchestratorStatus,
+      orchestratorStatus: lookup.status,
       ...(session.worktree_branch ? { worktreeBranch: session.worktree_branch } : {}),
       ...(session.worktree_path ? { worktreePath: session.worktree_path } : {}),
       ...(session.started_at ? { startedAt: session.started_at } : {}),
@@ -323,12 +339,11 @@ type AbortSessionInput = {
 export async function abortOrchestratorSession(
   input: AbortSessionInput,
 ): Promise<AbortSessionResult> {
-  const sessionRecord = new RecordId("agent_session", input.sessionId);
-  const session = await input.surreal.select<SessionRow>(sessionRecord);
-
-  if (!session) {
-    return { ok: false, error: sessionNotFound(input.sessionId) };
+  const lookup = await lookupSession(input.surreal, input.sessionId);
+  if (!lookup.ok) {
+    return { ok: false, error: lookup.error };
   }
+  const { session, record: sessionRecord } = lookup;
 
   // 1. Kill the OpenCode process if handle exists
   const handle = handleRegistry.get(input.sessionId);
@@ -392,14 +407,11 @@ type AcceptSessionInput = {
 export async function acceptOrchestratorSession(
   input: AcceptSessionInput,
 ): Promise<AcceptSessionResult> {
-  const sessionRecord = new RecordId("agent_session", input.sessionId);
-  const session = await input.surreal.select<SessionRow>(sessionRecord);
-
-  if (!session) {
-    return { ok: false, error: sessionNotFound(input.sessionId) };
+  const lookup = await lookupSession(input.surreal, input.sessionId);
+  if (!lookup.ok) {
+    return { ok: false, error: lookup.error };
   }
-
-  const status = (session.orchestrator_status ?? "spawning") as OrchestratorStatus;
+  const { session, record: sessionRecord, status } = lookup;
 
   if (!ACCEPTABLE_STATUSES.includes(status)) {
     return { ok: false, error: sessionStateConflict(input.sessionId, status, "accept") };
@@ -457,9 +469,9 @@ function sessionStateConflict(sessionId: string, currentStatus: string, action: 
 
 function sessionAborted(sessionId: string): SessionError {
   return {
-    code: "SESSION_NOT_FOUND",
+    code: "SESSION_ERROR",
     message: `Session ${sessionId} has been aborted`,
-    httpStatus: 404,
+    httpStatus: 409,
   };
 }
 
@@ -477,14 +489,11 @@ type GetReviewInput = {
 export async function getOrchestratorReview(
   input: GetReviewInput,
 ): Promise<ReviewResult> {
-  const sessionRecord = new RecordId("agent_session", input.sessionId);
-  const session = await input.surreal.select<SessionRow>(sessionRecord);
-
-  if (!session) {
-    return { ok: false, error: sessionNotFound(input.sessionId) };
+  const lookup = await lookupSession(input.surreal, input.sessionId);
+  if (!lookup.ok) {
+    return { ok: false, error: lookup.error };
   }
-
-  const status = (session.orchestrator_status ?? "spawning") as OrchestratorStatus;
+  const { session, status } = lookup;
 
   if (status === "aborted") {
     return { ok: false, error: sessionAborted(input.sessionId) };
@@ -534,14 +543,11 @@ type RejectSessionInput = {
 export async function rejectOrchestratorSession(
   input: RejectSessionInput,
 ): Promise<RejectSessionResult> {
-  const sessionRecord = new RecordId("agent_session", input.sessionId);
-  const session = await input.surreal.select<SessionRow>(sessionRecord);
-
-  if (!session) {
-    return { ok: false, error: sessionNotFound(input.sessionId) };
+  const lookup = await lookupSession(input.surreal, input.sessionId);
+  if (!lookup.ok) {
+    return { ok: false, error: lookup.error };
   }
-
-  const status = (session.orchestrator_status ?? "spawning") as OrchestratorStatus;
+  const { session, record: sessionRecord, status } = lookup;
 
   if (!REJECTABLE_STATUSES.includes(status)) {
     return { ok: false, error: sessionStateConflict(input.sessionId, status, "reject") };
