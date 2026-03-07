@@ -1,0 +1,226 @@
+roadmap:
+  project_id: coding-agent-orchestrator-ui
+  created_at: '2026-03-07T14:00:00Z'
+  total_steps: 10
+  phases: 3
+  continues_from: coding-agent-orchestrator
+  note: >
+    UI layer for coding agent orchestrator. Backend phases 01-04 are complete.
+    Three surfaces: task popup (EntityDetailPanel), governance feed, agent review view.
+    ADR-004 governs SSE strategy: per-session EventSource via useAgentSession hook.
+
+phases:
+- id: '05'
+  name: Client Foundation
+  steps:
+  - id: 05-01
+    name: Orchestrator API client
+    description: >
+      Typed fetch wrappers for all orchestrator endpoints: assignAgent, getSessionStatus,
+      getSessionReview, acceptSession, rejectSession, abortSession. Follows existing
+      pattern in graph/actions.ts.
+    criteria: >
+      All six orchestrator endpoints callable via typed functions.
+      Functions accept workspaceId as first parameter.
+      Error responses throw with status and message.
+    files_to_modify:
+    - app/src/client/graph/orchestrator-api.ts
+    dependencies: []
+
+  - id: 05-02
+    name: useAgentSession hook (SSE subscription)
+    description: >
+      React hook managing per-session EventSource per ADR-004. Exposes AgentSessionState
+      (status, filesChanged, startedAt, stallWarning, connectionError). Opens SSE on
+      active session, bootstraps via status poll on mount, closes on terminal status
+      or unmount.
+    criteria: >
+      Hook opens EventSource when given active sessionId and streamId.
+      agent_status events update status field.
+      agent_file_change events increment filesChanged counter.
+      agent_stall_warning events populate stallWarning.
+      EventSource closed on completed/aborted/error status or unmount.
+      On SSE endpoint 404, hook falls back to single status poll and closes.
+      On connection error, hook sets connectionError flag and allows EventSource native retry.
+    files_to_modify:
+    - app/src/client/hooks/use-agent-session.ts
+    dependencies:
+    - 05-01
+
+  - id: 05-03
+    name: useAgentReview hook (review data + mutations)
+    description: >
+      React hook fetching review data (diff, session metadata, task title) and
+      providing accept/reject mutation functions with loading/error state tracking.
+    criteria: >
+      Hook fetches review data on mount given sessionId.
+      accept() calls POST accept endpoint, tracks pending/success/error.
+      reject(feedback) calls POST reject endpoint, tracks pending/resumed/error.
+      After reject success, return state signals transition to monitoring mode;
+      calling code must re-subscribe useAgentSession for live status updates.
+      isLoading true during initial fetch, false after.
+    files_to_modify:
+    - app/src/client/hooks/use-agent-review.ts
+    dependencies:
+    - 05-01
+
+  - id: 05-04
+    name: Server-side feed query for agent sessions
+    description: >
+      Add listAgentAttentionSessions query to feed-queries.ts. Query agent_session
+      records with orchestrator_status in {idle, error} joined to task for title.
+      Extend feed-route.ts to include agent items in blocking/review tiers.
+      Add agentSessionId to GovernanceFeedItem and GovernanceFeedAction union.
+    criteria: >
+      Idle agent sessions produce review-tier feed items with "Review" and "Abort" actions.
+      Error agent sessions produce blocking-tier feed items with "Discuss" action.
+      Feed items use entityKind "task" with task entityId and entityName.
+      Feed items include agentSessionId field for review navigation.
+      Agent start does not create feed items.
+    files_to_modify:
+    - app/src/server/feed/feed-queries.ts
+    - app/src/server/feed/feed-route.ts
+    - app/src/shared/contracts.ts
+    dependencies: []
+
+  - id: 05-05
+    name: Entity detail response extension for agent sessions
+    description: >
+      Extend entity detail handler to include optional agentSession field when
+      entity is a task with an active session (spawning/active/idle). Query
+      agent_session table for matching task. No extra round-trip for non-task entities.
+    criteria: >
+      Task entity detail includes agentSession with agentSessionId, orchestratorStatus,
+      streamId, startedAt, filesChangedCount when active session exists.
+      Non-task entities and tasks without sessions return no agentSession field.
+      Terminal sessions (completed/aborted/error) excluded from response.
+    files_to_modify:
+    - app/src/server/entities/entity-detail-route.ts
+    dependencies: []
+
+- id: '06'
+  name: UI Components
+  steps:
+  - id: 06-01
+    name: AgentStatusSection in EntityDetailPanel
+    description: >
+      New AgentStatusSection component rendered inside EntityDetailPanel for tasks.
+      Shows assign button (ready/todo without session), status badge, file count,
+      elapsed time, review navigation. Uses useAgentSession for live updates.
+      Extend EntityDetailPanel to conditionally render it.
+    criteria: >
+      Assign button visible for tasks with status ready or todo and no active session.
+      Clicking assign calls assignAgent and transitions to status badge.
+      Status badge reflects agent state (spawning, working, review ready, error, aborted).
+      File change counter and elapsed time update via SSE events.
+      Review button appears when session status is idle.
+    files_to_modify:
+    - app/src/client/components/graph/AgentStatusSection.tsx
+    - app/src/client/components/graph/EntityDetailPanel.tsx
+    dependencies:
+    - 05-01
+    - 05-02
+    - 05-05
+
+  - id: 06-02
+    name: Feed extension for agent review action
+    description: >
+      Extend GovernanceFeed handleAction to route "review" action to review view
+      via router navigation instead of entity action API. Extract agentSessionId
+      from feed item metadata for navigation target.
+    criteria: >
+      "Review" action on agent feed item navigates to /review/$sessionId.
+      "Abort" action on agent feed item calls abortSession endpoint.
+      "Discuss" action continues to navigate to chat (existing behavior).
+      Non-agent feed items unaffected.
+    files_to_modify:
+    - app/src/client/components/feed/GovernanceFeed.tsx
+    dependencies:
+    - 05-04
+
+  - id: 06-03
+    name: DiffViewer and AgentActivityLog components
+    description: >
+      DiffViewer renders unified diff with per-file expand/collapse sections.
+      Parses rawDiff string into file-level groups. AgentActivityLog renders
+      agent activity timeline (file changes, tool calls, key events).
+    criteria: >
+      DiffViewer renders file list with additions/deletions count per file.
+      Each file section expandable/collapsible showing unified diff content.
+      AgentActivityLog renders chronological event list.
+      Both components are pure renderers with no data fetching.
+    files_to_modify:
+    - app/src/client/components/review/DiffViewer.tsx
+    - app/src/client/components/review/AgentActivityLog.tsx
+    dependencies: []
+
+  - id: 06-04
+    name: Agent Review View route and page
+    description: >
+      New review-page.tsx route component at /review/$sessionId. Uses useAgentReview
+      for diff and session data. Renders task title, agent summary, DiffViewer,
+      AgentActivityLog, session metadata, accept/reject buttons. Reject shows
+      feedback textarea. After reject, subscribes to useAgentSession for live
+      monitoring. Add route to router.tsx.
+    criteria: >
+      Review view accessible at /review/$sessionId path.
+      Displays task title, diff summary, file list, session metadata.
+      Accept button calls accept endpoint, shows success, navigates to graph.
+      Reject button reveals feedback form, submit sends feedback.
+      After reject, view transitions to monitoring state with live SSE updates.
+    files_to_modify:
+    - app/src/client/routes/review-page.tsx
+    - app/src/client/router.tsx
+    dependencies:
+    - 05-02
+    - 05-03
+    - 06-03
+
+- id: '07'
+  name: Walking Skeleton Integration
+  steps:
+  - id: 07-01
+    name: Walking skeleton wiring and acceptance test pass
+    description: >
+      Wire all three surfaces end-to-end. Verify entity detail returns agentSession,
+      feed returns agent items, review endpoint returns diff data. Fix integration
+      gaps discovered by running walking-skeleton.test.ts acceptance test.
+    criteria: >
+      Gherkin scenario "Assign from popup, monitor in feed, accept in review view"
+      in walking-skeleton.feature passes all steps against test server.
+      openTaskPopup returns agentSession after assignment.
+      getGovernanceFeed includes agent review-ready item after completion.
+      openReviewView returns task title and diff data.
+      acceptAgentWork marks task done.
+    files_to_modify:
+    - tests/acceptance/orchestrator-ui/walking-skeleton.test.ts
+    - tests/acceptance/orchestrator-ui/orchestrator-ui-test-kit.ts
+    dependencies:
+    - 05-04
+    - 05-05
+    - 06-01
+    - 06-02
+    - 06-04
+
+implementation_scope:
+  source_directories:
+  - app/src/client/components/graph/
+  - app/src/client/components/feed/
+  - app/src/client/components/review/
+  - app/src/client/hooks/
+  - app/src/client/graph/
+  - app/src/client/routes/
+  - app/src/server/feed/
+  - app/src/server/entities/
+  - app/src/shared/
+  test_directories:
+  - tests/acceptance/orchestrator-ui/
+  excluded_patterns:
+  - node_modules/**
+  - dist/**
+
+validation:
+  status: approved
+  reviewer: nw-software-crafter-reviewer
+  approved_at: '2026-03-07T14:15:00Z'
+  defects_fixed: [D4, D5, D7, D8, D9, D10]
