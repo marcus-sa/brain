@@ -83,6 +83,16 @@ function assignResponse(
   );
 }
 
+function pickDefined<T extends Record<string, unknown>>(obj: T): Partial<T> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined && value !== null) {
+      result[key] = value;
+    }
+  }
+  return result as Partial<T>;
+}
+
 function statusResponse(
   sessionId: string,
   value: {
@@ -98,11 +108,13 @@ function statusResponse(
     {
       agentSessionId: sessionId,
       orchestratorStatus: value.orchestratorStatus,
-      ...(value.worktreeBranch ? { worktreeBranch: value.worktreeBranch } : {}),
-      ...(value.worktreePath ? { worktreePath: value.worktreePath } : {}),
-      ...(value.startedAt ? { startedAt: value.startedAt } : {}),
-      ...(value.lastEventAt ? { lastEventAt: value.lastEventAt } : {}),
-      ...(value.error ? { error: value.error } : {}),
+      ...pickDefined({
+        worktreeBranch: value.worktreeBranch,
+        worktreePath: value.worktreePath,
+        startedAt: value.startedAt,
+        lastEventAt: value.lastEventAt,
+        error: value.error,
+      }),
     },
     200,
   );

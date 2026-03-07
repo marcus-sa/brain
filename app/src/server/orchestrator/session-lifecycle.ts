@@ -193,6 +193,16 @@ export function startEventIteration(
 // Pure helpers
 // ---------------------------------------------------------------------------
 
+function pickDefined<T extends Record<string, unknown>>(obj: T): Partial<T> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined && value !== null) {
+      result[key] = value;
+    }
+  }
+  return result as Partial<T>;
+}
+
 function sessionNotFound(sessionId: string): SessionError {
   return {
     code: "SESSION_NOT_FOUND",
@@ -217,6 +227,22 @@ function fromAssignmentError(error: AssignmentError): SessionError {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Session row shape (DB query result)
+// ---------------------------------------------------------------------------
+
+type SessionRow = {
+  id: RecordId<"agent_session", string>;
+  orchestrator_status?: string;
+  worktree_branch?: string;
+  worktree_path?: string;
+  started_at?: string;
+  last_event_at?: string;
+  task_id?: RecordId<"task", string>;
+  workspace?: RecordId<"workspace", string>;
+  error?: string;
+};
+
 type SessionLookup =
   | { ok: true; session: SessionRow; record: RecordId<"agent_session", string>; status: OrchestratorStatus }
   | { ok: false; error: SessionError };
@@ -237,6 +263,13 @@ async function lookupSession(
   return { ok: true, session, record, status };
 }
 
+function requireWorkspace(session: SessionRow, sessionId: string): RecordId<"workspace", string> {
+  if (!session.workspace) {
+    throw new Error(`agent_session ${sessionId} missing workspace — data corruption`);
+  }
+  return session.workspace as RecordId<"workspace", string>;
+}
+
 function generateStreamId(sessionId: string): string {
   return `stream-${sessionId}`;
 }
@@ -248,22 +281,6 @@ function slugFromTitle(title: string): string {
     .replace(/^-|-$/g, "")
     .slice(0, 50);
 }
-
-// ---------------------------------------------------------------------------
-// Session row shape (DB query result)
-// ---------------------------------------------------------------------------
-
-type SessionRow = {
-  id: RecordId<"agent_session", string>;
-  orchestrator_status?: string;
-  worktree_branch?: string;
-  worktree_path?: string;
-  started_at?: string;
-  last_event_at?: string;
-  task_id?: RecordId<"task", string>;
-  workspace?: RecordId<"workspace", string>;
-  error?: string;
-};
 
 // ---------------------------------------------------------------------------
 // createOrchestratorSession
@@ -412,11 +429,13 @@ export async function getOrchestratorSessionStatus(
     ok: true,
     value: {
       orchestratorStatus: lookup.status,
-      ...(session.worktree_branch ? { worktreeBranch: session.worktree_branch } : {}),
-      ...(session.worktree_path ? { worktreePath: session.worktree_path } : {}),
-      ...(session.started_at ? { startedAt: session.started_at } : {}),
-      ...(session.last_event_at ? { lastEventAt: session.last_event_at } : {}),
-      ...(session.error ? { error: session.error } : {}),
+      ...pickDefined({
+        worktreeBranch: session.worktree_branch,
+        worktreePath: session.worktree_path,
+        startedAt: session.started_at,
+        lastEventAt: session.last_event_at,
+        error: session.error,
+      }),
     },
   };
 }
@@ -459,9 +478,11 @@ export async function abortOrchestratorSession(
     orchestrator_status: "aborted" as OrchestratorStatus,
   });
 
+  const workspaceRecord = requireWorkspace(session, input.sessionId);
+
   // 3. Remove worktree if branch name exists
-  if (session.worktree_branch && session.workspace) {
-    const repoRoot = await input.resolveRepoRoot(session.workspace as RecordId<"workspace", string>);
+  if (session.worktree_branch) {
+    const repoRoot = await input.resolveRepoRoot(workspaceRecord);
     await removeWorktree(input.shellExec, repoRoot, session.worktree_branch);
   }
 
@@ -474,12 +495,9 @@ export async function abortOrchestratorSession(
   }
 
   // 5. End the agent session
-  if (!session.workspace) {
-    throw new Error(`agent_session ${input.sessionId} missing workspace — data corruption`);
-  }
   await input.endAgentSession({
     surreal: input.surreal,
-    workspaceRecord: session.workspace as RecordId<"workspace", string>,
+    workspaceRecord,
     sessionId: input.sessionId,
     summary: "Session aborted",
   });
@@ -522,6 +540,8 @@ export async function acceptOrchestratorSession(
     return { ok: false, error: sessionStateConflict(input.sessionId, status, "accept") };
   }
 
+  const workspaceRecord = requireWorkspace(session, input.sessionId);
+
   // 1. Update orchestrator_status to completed
   await input.surreal.update(sessionRecord).merge({
     orchestrator_status: "completed" as OrchestratorStatus,
@@ -539,12 +559,9 @@ export async function acceptOrchestratorSession(
   handleRegistry.delete(input.sessionId);
 
   // 4. End the agent session
-  if (!session.workspace) {
-    throw new Error(`agent_session ${input.sessionId} missing workspace — data corruption`);
-  }
   await input.endAgentSession({
     surreal: input.surreal,
-    workspaceRecord: session.workspace as RecordId<"workspace", string>,
+    workspaceRecord,
     sessionId: input.sessionId,
     summary: input.summary,
   });
@@ -614,10 +631,8 @@ export async function getOrchestratorReview(
 
   // Get diff from the branch
   const branchName = session.worktree_branch ?? "";
-  if (!session.workspace) {
-    throw new Error(`agent_session ${input.sessionId} missing workspace — data corruption`);
-  }
-  const repoRoot = await input.resolveRepoRoot(session.workspace as RecordId<"workspace", string>);
+  const workspaceRecord = requireWorkspace(session, input.sessionId);
+  const repoRoot = await input.resolveRepoRoot(workspaceRecord);
   const diffResult = await input.getDiff(repoRoot, branchName);
 
   const diff = diffResult.ok
@@ -635,9 +650,11 @@ export async function getOrchestratorReview(
       diff,
       session: {
         orchestratorStatus: status,
-        ...(session.worktree_branch ? { worktreeBranch: session.worktree_branch } : {}),
-        ...(session.started_at ? { startedAt: session.started_at } : {}),
-        ...(session.last_event_at ? { lastEventAt: session.last_event_at } : {}),
+        ...pickDefined({
+          worktreeBranch: session.worktree_branch,
+          startedAt: session.started_at,
+          lastEventAt: session.last_event_at,
+        }),
       },
     },
   };

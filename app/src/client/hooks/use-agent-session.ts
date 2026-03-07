@@ -109,11 +109,7 @@ export function reduceAgentSessionEvent(
         stallWarning: undefined,
         outputEntries: [
           ...state.outputEntries,
-          {
-            kind: "file_change" as const,
-            file: event.file,
-            changeType: event.changeType,
-          },
+          { kind: "file_change", file: event.file, changeType: event.changeType },
         ],
       };
 
@@ -134,7 +130,7 @@ export function reduceAgentSessionEvent(
         stallWarning: undefined,
         outputEntries: [
           ...state.outputEntries,
-          { kind: "token" as const, text: event.token },
+          { kind: "token", text: event.token },
         ],
       };
 
@@ -144,7 +140,7 @@ export function reduceAgentSessionEvent(
         lastEventAt: now,
         stallWarning: undefined,
         outputEntries: [
-          { kind: "prompt" as const, text: event.text },
+          { kind: "prompt", text: event.text },
         ],
       };
   }

@@ -8,7 +8,6 @@
  * receives signals, and iteration stops on terminal status or error.
  */
 import { describe, expect, test, beforeEach } from "bun:test";
-import { RecordId } from "surrealdb";
 import {
   startEventIteration,
   clearHandleRegistry,

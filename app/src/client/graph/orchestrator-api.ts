@@ -74,7 +74,7 @@ export type SendPromptResponse = {
 // Internal Helpers
 // ---------------------------------------------------------------------------
 
-function orchestratorUrl(workspaceId: string, ...segments: string[]): string {
+function buildOrchestratorUrl(workspaceId: string, ...segments: string[]): string {
   const base = `/api/orchestrator/${encodeURIComponent(workspaceId)}`;
   if (segments.length === 0) return base;
   return `${base}/${segments.map(encodeURIComponent).join("/")}`;
@@ -98,7 +98,7 @@ export function assignAgent(
   taskId: string,
 ): Promise<AssignAgentResponse> {
   return orchestratorFetch<AssignAgentResponse>(
-    orchestratorUrl(workspaceId, "assign"),
+    buildOrchestratorUrl(workspaceId, "assign"),
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -112,7 +112,7 @@ export function getSessionStatus(
   sessionId: string,
 ): Promise<SessionStatusResponse> {
   return orchestratorFetch<SessionStatusResponse>(
-    orchestratorUrl(workspaceId, "sessions", sessionId),
+    buildOrchestratorUrl(workspaceId, "sessions", sessionId),
   );
 }
 
@@ -121,7 +121,7 @@ export function getSessionReview(
   sessionId: string,
 ): Promise<SessionReviewResponse> {
   return orchestratorFetch<SessionReviewResponse>(
-    orchestratorUrl(workspaceId, "sessions", sessionId, "review"),
+    buildOrchestratorUrl(workspaceId, "sessions", sessionId, "review"),
   );
 }
 
@@ -131,7 +131,7 @@ export function acceptSession(
   summary?: string,
 ): Promise<AcceptSessionResponse> {
   return orchestratorFetch<AcceptSessionResponse>(
-    orchestratorUrl(workspaceId, "sessions", sessionId, "accept"),
+    buildOrchestratorUrl(workspaceId, "sessions", sessionId, "accept"),
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -146,7 +146,7 @@ export function rejectSession(
   feedback: string,
 ): Promise<RejectSessionResponse> {
   return orchestratorFetch<RejectSessionResponse>(
-    orchestratorUrl(workspaceId, "sessions", sessionId, "reject"),
+    buildOrchestratorUrl(workspaceId, "sessions", sessionId, "reject"),
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -160,7 +160,7 @@ export function abortSession(
   sessionId: string,
 ): Promise<AbortSessionResponse> {
   return orchestratorFetch<AbortSessionResponse>(
-    orchestratorUrl(workspaceId, "sessions", sessionId, "abort"),
+    buildOrchestratorUrl(workspaceId, "sessions", sessionId, "abort"),
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -174,7 +174,7 @@ export function sendPrompt(
   text: string,
 ): Promise<SendPromptResponse> {
   return orchestratorFetch<SendPromptResponse>(
-    orchestratorUrl(workspaceId, "sessions", sessionId, "prompt"),
+    buildOrchestratorUrl(workspaceId, "sessions", sessionId, "prompt"),
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
