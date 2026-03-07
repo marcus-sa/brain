@@ -248,5 +248,82 @@ events:
   s: EXECUTED
   sid: 03-02
   t: '2026-03-07T09:05:05Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 03-02
+  t: '2026-03-07T09:05:49Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 03-03
+  t: '2026-03-07T09:07:32Z'
+- d: 'NOT_APPLICABLE: acceptance tests already exist as integration-level skipped
+    tests; unit tests will cover the pure stall detection logic'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 03-03
+  t: '2026-03-07T09:07:38Z'
+- d: PASS
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 03-03
+  t: '2026-03-07T09:08:37Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 03-03
+  t: '2026-03-07T09:09:51Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 03-03
+  t: '2026-03-07T09:10:27Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 04-01
+  t: '2026-03-07T09:13:55Z'
+- d: 'CHECKPOINT_PENDING: acceptance tests already exist in plugin-tools.test.ts with
+    .skip; they require running server infrastructure'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 04-01
+  t: '2026-03-07T09:14:04Z'
+- d: PASS
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 04-01
+  t: '2026-03-07T09:14:32Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 04-01
+  t: '2026-03-07T09:17:44Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 04-01
+  t: '2026-03-07T09:18:26Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 04-02
+  t: '2026-03-07T09:23:05Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 04-02
+  t: '2026-03-07T09:23:48Z'
+- d: PASS
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 04-02
+  t: '2026-03-07T09:24:29Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 04-02
+  t: '2026-03-07T09:25:48Z'
 project_id: coding-agent-orchestrator
 schema_version: '3.0'

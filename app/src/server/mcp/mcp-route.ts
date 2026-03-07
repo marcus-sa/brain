@@ -1071,19 +1071,30 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
       return jsonError(error instanceof Error ? error.message : "invalid id", 400);
     }
 
-    const result = await endAgentSession({
-      surreal,
-      workspaceRecord: auth.workspaceRecord,
-      sessionId: body.session_id,
-      summary: body.summary,
-      decisionsMade: body.decisions_made,
-      questionsAsked: body.questions_asked,
-      tasksProgressed: body.tasks_progressed,
-      filesChanged: body.files_changed,
-      observationsLogged: body.observations_logged,
-    });
+    try {
+      const result = await endAgentSession({
+        surreal,
+        workspaceRecord: auth.workspaceRecord,
+        sessionId: body.session_id,
+        summary: body.summary,
+        decisionsMade: body.decisions_made,
+        questionsAsked: body.questions_asked,
+        tasksProgressed: body.tasks_progressed,
+        filesChanged: body.files_changed,
+        observationsLogged: body.observations_logged,
+      });
 
-    return jsonResponse(result, 200);
+      return jsonResponse(result, 200);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "session end failed";
+      if (message.includes("session not found")) {
+        return jsonError(message, 404);
+      }
+      if (message.includes("outside the current workspace scope")) {
+        return jsonError(message, 403);
+      }
+      return jsonError(message, 500);
+    }
   }
 
   /** POST /api/mcp/:workspaceId/commits — Log git commit */

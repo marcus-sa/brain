@@ -578,12 +578,17 @@ export async function endAgentSession(input: {
 }): Promise<{ session_id: string; ended: boolean }> {
   const now = new Date();
   const sessionRecord = new RecordId("agent_session", requireRawId(input.sessionId, "session_id"));
-  const session = await input.surreal.select<{ workspace: RecordId<"workspace", string> }>(sessionRecord);
+  const session = await input.surreal.select<{ workspace: RecordId<"workspace", string>; ended_at?: Date; summary?: string }>(sessionRecord);
   if (!session) {
     throw new Error(`session not found: ${input.sessionId}`);
   }
   if ((session.workspace.id as string) !== (input.workspaceRecord.id as string)) {
     throw new Error("session is outside the current workspace scope");
+  }
+
+  // Idempotent: if session already ended, return without overwriting
+  if (session.ended_at) {
+    return { session_id: toRawId(sessionRecord), ended: true };
   }
 
   await input.surreal.update(sessionRecord).merge({
