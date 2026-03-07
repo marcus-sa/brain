@@ -1,0 +1,203 @@
+roadmap:
+  project_id: claude-agent-sdk-migration
+  feature: claude-agent-sdk-migration
+  description: Replace OpenCode-based orchestrator with Claude Agent SDK query() invocation
+  paradigm: functional
+  created: "2026-03-08"
+  created_at: "2026-03-08"
+  total_steps: 8
+
+  rejected_simple_alternatives:
+    - alternative: "Configuration-only swap (point spawn at Claude CLI)"
+      expected_impact: "40% - eliminates process management"
+      why_insufficient: "OpenCode SDK types, event format, and session model differ fundamentally from Claude Agent SDK; config swap alone cannot bridge the type/protocol gap"
+    - alternative: "Adapter wrapper around existing spawn-opencode"
+      expected_impact: "60% - preserves existing wiring"
+      why_insufficient: "OpenCode requires child process + HTTP server + SSE subscription; Claude SDK uses in-process AsyncIterable. Adapter would duplicate complexity rather than eliminate it"
+
+phases:
+  - id: "01"
+    phase_id: "01"
+    name: "SDK Foundation"
+    description: "New modules and type changes for Claude Agent SDK integration"
+    steps:
+      - id: "01-01"
+        name: "Agent options builder and spawn function"
+        description: "Create agent-options.ts (pure buildAgentOptions) and spawn-agent.ts (query() invocation returning AgentHandle). Add @anthropic-ai/claude-agent-sdk dependency."
+        criteria:
+          - "buildAgentOptions produces valid SDK options from AgentSpawnConfig"
+          - "Brain MCP server configured as stdio transport in options"
+          - "spawnAgent returns AgentHandle with messages AsyncIterable and abort function"
+          - "Spawn failure rejects the returned promise (no partial state)"
+        files_to_modify:
+          - app/src/server/orchestrator/agent-options.ts
+          - app/src/server/orchestrator/spawn-agent.ts
+          - package.json
+        dependencies: []
+        estimated_hours: 3
+        deliverables:
+          - "agent-options.ts with pure buildAgentOptions function"
+          - "spawn-agent.ts with spawnAgent using query()"
+
+      - id: "01-02"
+        name: "Event bridge SDK message translation"
+        description: "Replace OpencodeEvent with SDK Message type in event-bridge.ts. Implement transformSdkMessage producing StreamEvent variants."
+        criteria:
+          - "SDK text content messages produce agent_token StreamEvents"
+          - "SDK tool_use messages with file operations produce agent_file_change events"
+          - "SDK result/stop_reason maps to agent_status events (completed/error)"
+          - "Bridge handle pattern and stall detector integration unchanged"
+          - "Transform output matches StreamEvent union type; no new event variants added"
+        files_to_modify:
+          - app/src/server/orchestrator/event-bridge.ts
+        dependencies:
+          - "01-01"
+        estimated_hours: 2
+        deliverables:
+          - "event-bridge.ts with transformSdkMessage replacing transformOpencodeEvent"
+
+  - id: "02"
+    phase_id: "02"
+    name: "Lifecycle and Route Wiring"
+    description: "Wire new types through session lifecycle and route layer"
+    steps:
+      - id: "02-01"
+        name: "Session lifecycle type migration"
+        description: "Replace OpenCodeHandle with AgentHandle, SpawnOpenCodeFn with SpawnAgentFn. Update handle registry, createOrchestratorSession, and event iteration to use SDK types."
+        criteria:
+          - "AgentHandle type used throughout session lifecycle (no OpenCode references)"
+          - "createOrchestratorSession calls SpawnAgentFn with AgentSpawnConfig"
+          - "Spawn failure rolls back worktree and agent_session record (reuses existing error path from createOrchestratorSession)"
+          - "Event iteration consumes AgentHandle.messages via bridge"
+        files_to_modify:
+          - app/src/server/orchestrator/session-lifecycle.ts
+        dependencies:
+          - "01-02"
+        estimated_hours: 3
+        deliverables:
+          - "session-lifecycle.ts with AgentHandle and SpawnAgentFn types"
+
+      - id: "02-02"
+        name: "Route wiring and env var rename"
+        description: "Update routes.ts to import spawnAgent instead of spawnOpenCode. Rename ORCHESTRATOR_MOCK_OPENCODE env var to ORCHESTRATOR_MOCK_AGENT."
+        criteria:
+          - "routes.ts imports spawn from spawn-agent module"
+          - "Mock spawn branch uses ORCHESTRATOR_MOCK_AGENT env var"
+          - "Mock spawn returns AgentHandle shape (messages AsyncIterable, abort function)"
+          - "All route handlers continue to work unchanged"
+          - "No references to ORCHESTRATOR_MOCK_OPENCODE remain in codebase"
+        files_to_modify:
+          - app/src/server/orchestrator/routes.ts
+        dependencies:
+          - "02-01"
+        estimated_hours: 1
+        deliverables:
+          - "routes.ts with spawn-agent import and renamed env var"
+
+  - id: "03"
+    phase_id: "03"
+    name: "CLI Cleanup and OpenCode Removal"
+    description: "Remove OpenCode artifacts from CLI init and delete obsolete modules"
+    steps:
+      - id: "03-01"
+        name: "CLI init OpenCode removal"
+        description: "Remove setupOpencode() from init.ts. Remove OPENCODE_PLUGIN_CONTENT, buildOpencodeJsonContent(), and OPENCODE_MD_CONTENT from init-content.ts."
+        criteria:
+          - "brain init no longer creates opencode.json or OPENCODE.md"
+          - "brain init still configures auth, MCP, hooks, CLAUDE.md, commands, git hooks"
+          - "No OpenCode-specific exports remain in init-content.ts"
+          - "BRAIN_HOOKS, BRAIN_CLAUDE_MD, BRAIN_COMMANDS exports preserved (Claude Code integration unchanged)"
+          - "Only OPENCODE_PLUGIN_CONTENT, buildOpencodeJsonContent(), OPENCODE_MD_CONTENT removed"
+        files_to_modify:
+          - cli/commands/init.ts
+          - cli/commands/init-content.ts
+        dependencies:
+          - "02-02"
+        estimated_hours: 1
+        deliverables:
+          - "init.ts without setupOpencode call"
+          - "init-content.ts without OpenCode content constants"
+
+      - id: "03-02"
+        name: "Delete OpenCode modules and dependency"
+        description: "Delete spawn-opencode.ts and config-builder.ts. Remove @opencode-ai/sdk from package.json dependencies."
+        criteria:
+          - "spawn-opencode.ts and config-builder.ts no longer exist"
+          - "@opencode-ai/sdk removed from package.json"
+          - "No remaining imports reference deleted modules"
+        files_to_modify:
+          - app/src/server/orchestrator/spawn-opencode.ts
+          - app/src/server/orchestrator/config-builder.ts
+          - package.json
+        dependencies:
+          - "03-01"
+        estimated_hours: 0.5
+        deliverables:
+          - "Deleted spawn-opencode.ts and config-builder.ts"
+          - "Updated package.json without @opencode-ai/sdk"
+
+  - id: "04"
+    phase_id: "04"
+    name: "Test Migration and ADRs"
+    description: "Update test fixtures and mocks for SDK types, finalize ADRs"
+    steps:
+      - id: "04-01"
+        name: "Test kit and acceptance test updates"
+        description: "Update orchestrator-test-kit mock to return AgentHandle. Rewrite event-bridge, plugin-lifecycle (rename to agent-lifecycle), and plugin-tools (rename to agent-tools) tests with SDK message fixtures. Update walking-skeleton and coding-session tests."
+        criteria:
+          - "orchestrator-test-kit mock spawn returns AgentHandle with messages AsyncIterable"
+          - "Event bridge tests use SDK Message fixtures"
+          - "Agent lifecycle tests verify spawn/abort/completion via SDK types"
+          - "All walking-skeleton and coding-session tests pass with mock AgentHandle"
+          - "Obsolete unit tests deleted (config-builder.test.ts, opencode-plugin-init.test.ts if present)"
+        files_to_modify:
+          - tests/acceptance/coding-agent-orchestrator/orchestrator-test-kit.ts
+          - tests/acceptance/coding-agent-orchestrator/event-bridge.test.ts
+          - tests/acceptance/coding-agent-orchestrator/plugin-lifecycle.test.ts
+          - tests/acceptance/coding-agent-orchestrator/plugin-tools.test.ts
+          - tests/acceptance/coding-agent-orchestrator/walking-skeleton.test.ts
+          - tests/acceptance/coding-session/coding-session-test-kit.ts
+          - tests/acceptance/coding-session/event-stream-wiring.test.ts
+          - tests/acceptance/coding-session/walking-skeleton.test.ts
+        dependencies:
+          - "03-02"
+        estimated_hours: 4
+        deliverables:
+          - "Updated test kit with AgentHandle mock"
+          - "Rewritten event bridge and agent lifecycle/tools tests"
+          - "Updated walking-skeleton and coding-session tests"
+
+      - id: "04-02"
+        name: "ADR status updates"
+        description: "Mark ADR-008 as accepted. Mark ADR-001 and ADR-003 as superseded by ADR-008."
+        criteria:
+          - "ADR-008 status is Accepted"
+          - "ADR-001 status is Superseded with reference to ADR-008"
+          - "ADR-003 status is Superseded with reference to ADR-008"
+        files_to_modify:
+          - docs/adrs/ADR-008-claude-agent-sdk-over-opencode.md
+          - docs/adrs/ADR-001-opencode-sdk-integration-pattern.md
+          - docs/adrs/ADR-003-opencode-plugin-over-mcp.md
+        dependencies:
+          - "03-02"
+        estimated_hours: 0.5
+        deliverables:
+          - "Updated ADR status fields"
+
+implementation_scope:
+  total_production_files: 9
+  total_test_files: 8
+  total_doc_files: 3
+  total_steps: 8
+  decomposition_ratio: 0.89
+  estimated_total_hours: 15
+
+validation:
+  status: "approved"
+  reviewed_at: "2026-03-08"
+  checks:
+  - "StreamEvent contract unchanged (UI compatibility preserved)"
+  - "All acceptance tests pass with mock AgentHandle"
+  - "No references to @opencode-ai/sdk remain in codebase"
+  - "No references to spawn-opencode or config-builder remain"
+  - "ORCHESTRATOR_MOCK_AGENT env var works in test infrastructure"

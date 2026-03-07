@@ -37,12 +37,14 @@ export function parseCreateWorkspaceRequest(body: unknown):
   }
 
   const description = typeof payload.description === "string" ? payload.description.trim() : undefined;
+  const repoPath = typeof payload.repoPath === "string" ? payload.repoPath.trim() : undefined;
 
   return {
     ok: true,
     data: {
       name: payload.name.trim(),
       ...(description && description.length > 0 ? { description } : {}),
+      ...(repoPath && repoPath.length > 0 ? { repoPath } : {}),
     },
   };
 }

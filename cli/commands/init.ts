@@ -3,7 +3,11 @@ import { join } from "node:path";
 import { randomBytes, createHash } from "node:crypto";
 import { findGitRoot, saveRepoConfig, loadGlobalConfig } from "../config";
 import { BrainHttpClient } from "../http-client";
-import { BRAIN_HOOKS, BRAIN_CLAUDE_MD, BRAIN_COMMANDS } from "./init-content";
+import {
+  BRAIN_HOOKS,
+  BRAIN_CLAUDE_MD,
+  BRAIN_COMMANDS,
+} from "./init-content";
 
 const DEFAULT_SERVER_URL = "http://localhost:3000";
 

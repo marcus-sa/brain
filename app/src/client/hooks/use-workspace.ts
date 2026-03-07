@@ -17,9 +17,11 @@ type UseWorkspaceReturn = {
   errorMessage?: string;
   createWorkspaceName: string;
   createWorkspaceDescription: string;
+  createWorkspaceRepoPath: string;
   canCreateWorkspace: boolean;
   setCreateWorkspaceName: (name: string) => void;
   setCreateWorkspaceDescription: (description: string) => void;
+  setCreateWorkspaceRepoPath: (path: string) => void;
   onCreateWorkspace: (event: FormEvent<HTMLFormElement>) => void;
 };
 
@@ -42,6 +44,7 @@ export function useWorkspace(): UseWorkspaceReturn {
   const store = useWorkspaceState();
   const [createWorkspaceName, setCreateWorkspaceName] = useState("");
   const [createWorkspaceDescription, setCreateWorkspaceDescription] = useState("");
+  const [createWorkspaceRepoPath, setCreateWorkspaceRepoPath] = useState("");
   const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
 
@@ -95,6 +98,7 @@ export function useWorkspace(): UseWorkspaceReturn {
     store.applyWorkspace({
       id: payload.workspaceId,
       name: payload.workspaceName,
+      repoPath: payload.repoPath,
       onboardingComplete: payload.onboardingComplete,
       onboardingState: payload.onboardingState,
       conversationId: payload.conversationId,
@@ -118,9 +122,11 @@ export function useWorkspace(): UseWorkspaceReturn {
     setIsCreatingWorkspace(true);
 
     const description = createWorkspaceDescription.trim();
+    const repoPath = createWorkspaceRepoPath.trim();
     const requestBody: CreateWorkspaceRequest = {
       name,
       ...(description.length > 0 ? { description } : {}),
+      ...(repoPath.length > 0 ? { repoPath } : {}),
     };
 
     try {
@@ -147,6 +153,7 @@ export function useWorkspace(): UseWorkspaceReturn {
       await bootstrapWorkspace(payload.workspaceId);
       setCreateWorkspaceName("");
       setCreateWorkspaceDescription("");
+      setCreateWorkspaceRepoPath("");
     } catch (error) {
       const messageText = error instanceof Error ? error.message : "Workspace creation failed";
       setErrorMessage(messageText);
@@ -162,9 +169,11 @@ export function useWorkspace(): UseWorkspaceReturn {
     errorMessage,
     createWorkspaceName,
     createWorkspaceDescription,
+    createWorkspaceRepoPath,
     canCreateWorkspace,
     setCreateWorkspaceName,
     setCreateWorkspaceDescription,
+    setCreateWorkspaceRepoPath,
     onCreateWorkspace,
   };
 }

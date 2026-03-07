@@ -114,7 +114,7 @@ Start a task-scoped session focused on a specific task.
 
 ## Instructions
 
-1. Call \`get_project_context\` with the task_id to get task-scoped context
+1. Call \`get_task_context\` with the task_id to get task-scoped context
 2. Display the task details: title, description, status, dependencies
 3. Show existing subtasks (if a previous agent already decomposed this task — do NOT re-decompose)
 4. Show sibling tasks (for awareness of parallel work)

@@ -1,4 +1,4 @@
-export type EntityKind = "workspace" | "project" | "person" | "feature" | "task" | "decision" | "question" | "observation" | "suggestion" | "message";
+export type EntityKind = "workspace" | "project" | "person" | "feature" | "task" | "decision" | "question" | "observation" | "suggestion" | "message" | "agent_session";
 
 export type SourceKind = "message" | "document_chunk" | "git_commit";
 
@@ -11,6 +11,7 @@ export type EntityPriority = (typeof ENTITY_PRIORITIES)[number];
 export type CreateWorkspaceRequest = {
   name: string;
   description?: string;
+  repoPath?: string;
 };
 
 export type CreateWorkspaceResponse = {
@@ -177,6 +178,7 @@ export type WorkspaceBootstrapResponse = {
   workspaceId: string;
   workspaceName: string;
   workspaceDescription?: string;
+  repoPath?: string;
   onboardingComplete: boolean;
   onboardingState: OnboardingState;
   conversationId: string;
@@ -241,6 +243,39 @@ export type ReasoningEvent = {
   token: string;
 };
 
+export type AgentTokenEvent = {
+  type: "agent_token";
+  sessionId: string;
+  token: string;
+};
+
+export type AgentFileChangeEvent = {
+  type: "agent_file_change";
+  sessionId: string;
+  file: string;
+  changeType: "created" | "modified" | "deleted";
+};
+
+export type AgentStatusEvent = {
+  type: "agent_status";
+  sessionId: string;
+  status: "active" | "idle" | "completed" | "aborted" | "error";
+  error?: string;
+};
+
+export type AgentStallWarningEvent = {
+  type: "agent_stall_warning";
+  sessionId: string;
+  lastEventAt: string;
+  stallDurationSeconds: number;
+};
+
+export type AgentPromptEvent = {
+  type: "agent_prompt";
+  sessionId: string;
+  text: string;
+};
+
 export type StreamEvent =
   | TokenEvent
   | ReasoningEvent
@@ -250,7 +285,12 @@ export type StreamEvent =
   | OnboardingStateEvent
   | ObservationEvent
   | DoneEvent
-  | ErrorEvent;
+  | ErrorEvent
+  | AgentTokenEvent
+  | AgentFileChangeEvent
+  | AgentStatusEvent
+  | AgentStallWarningEvent
+  | AgentPromptEvent;
 
 export type SearchEntityResponse = {
   id: string;
@@ -290,6 +330,14 @@ export type GraphResponse = {
   edges: ReagraphEdge[];
 };
 
+export type AgentSessionSummary = {
+  agentSessionId: string;
+  orchestratorStatus: string;
+  streamId: string;
+  startedAt: string;
+  filesChangedCount: number;
+};
+
 export type EntityDetailResponse = {
   entity: {
     id: string;
@@ -316,6 +364,7 @@ export type EntityDetailResponse = {
     resolvedFrom?: string;
     fromText?: string;
   }>;
+  agentSession?: AgentSessionSummary;
 };
 
 export type BranchConversationRequest = {
@@ -331,7 +380,7 @@ export type BranchConversationResponse = {
 export type GovernanceTier = "blocking" | "review" | "awareness";
 
 export type GovernanceFeedAction = {
-  action: "confirm" | "override" | "acknowledge" | "resolve" | "complete" | "discuss" | "dismiss" | "accept" | "defer";
+  action: "confirm" | "override" | "acknowledge" | "resolve" | "complete" | "discuss" | "dismiss" | "accept" | "defer" | "abort" | "review";
   label: string;
 };
 
@@ -363,8 +412,16 @@ export type GovernanceFeedResponse = {
   updatedAt: string;
 };
 
+export type SessionPromptRequest = {
+  text: string;
+};
+
+export type SendPromptResponse = {
+  delivered: boolean;
+};
+
 export type EntityActionRequest = {
-  action: "confirm" | "override" | "complete" | "set_priority" | "acknowledge" | "resolve" | "dismiss" | "accept" | "defer" | "convert";
+  action: "confirm" | "override" | "complete" | "set_priority" | "acknowledge" | "resolve" | "dismiss" | "accept" | "defer" | "convert" | "abort" | "review";
   notes?: string;
   newSummary?: string;
   priority?: EntityPriority;

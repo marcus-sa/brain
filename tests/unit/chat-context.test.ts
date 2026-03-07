@@ -33,7 +33,7 @@ describe("chat context", () => {
 
     const systemPrompt = buildSystemPrompt(context);
     expect(systemPrompt.includes("- none")).toBe(true);
-    expect(systemPrompt.includes("## Tool Results")).toBe(true);
+    expect(systemPrompt.includes("## Response Format")).toBe(true);
   });
 
   it("returns populated conversation entities and workspace summaries", async () => {

@@ -63,6 +63,7 @@ DEFINE FIELD onboarding_started_at ON workspace TYPE datetime;
 DEFINE FIELD onboarding_completed_at ON workspace TYPE option<datetime>;
 DEFINE FIELD created_at ON workspace TYPE datetime;
 DEFINE FIELD updated_at ON workspace TYPE option<datetime>;
+DEFINE FIELD repo_path ON workspace TYPE option<string>;
 DEFINE INDEX workspace_name ON workspace FIELDS name;
 
 DEFINE TABLE project SCHEMAFULL;
@@ -209,10 +210,20 @@ DEFINE FIELD files_changed ON agent_session TYPE option<array<object>>;
 DEFINE FIELD files_changed[*].path ON agent_session TYPE string;
 DEFINE FIELD files_changed[*].change_type ON agent_session TYPE string ASSERT $value IN ["created", "modified", "deleted"];
 DEFINE FIELD observations_logged ON agent_session TYPE option<array<record<observation>>>;
+DEFINE FIELD opencode_session_id ON agent_session TYPE option<string>;
+DEFINE FIELD orchestrator_status ON agent_session TYPE option<string>
+  ASSERT $value IS NONE OR $value IN ["spawning", "active", "idle", "completed", "aborted", "error"];
+DEFINE FIELD worktree_branch ON agent_session TYPE option<string>;
+DEFINE FIELD worktree_path ON agent_session TYPE option<string>;
+DEFINE FIELD stream_id ON agent_session TYPE option<string>;
+DEFINE FIELD last_event_at ON agent_session TYPE option<datetime>;
+DEFINE FIELD error_message ON agent_session TYPE option<string>;
+DEFINE FIELD last_feedback ON agent_session TYPE option<string>;
 DEFINE FIELD created_at ON agent_session TYPE datetime;
 DEFINE INDEX agent_session_workspace ON agent_session FIELDS workspace;
 DEFINE INDEX agent_session_project ON agent_session FIELDS project;
 DEFINE INDEX agent_session_started_at ON agent_session FIELDS started_at;
+DEFINE INDEX agent_session_task_active ON agent_session FIELDS task_id, orchestrator_status;
 
 DEFINE TABLE observation SCHEMAFULL;
 DEFINE FIELD text ON observation TYPE string;
@@ -594,6 +605,75 @@ DEFINE FUNCTION fn::entity_neighbors($entity: record) {
     ->entity_relation->(workspace, project, person, feature, task, decision, question) AS outgoing,
     <-entity_relation<-(workspace, project, person, feature, task, decision, question) AS incoming
   FROM $entity;
+};
+
+-- Graph traversal functions: query edges across all relation tables from SurrealQL.
+
+DEFINE FUNCTION fn::entity_edges($entity: record, $lim: int) {
+  RETURN SELECT id, `in`, out, kind, confidence
+    FROM entity_relation, belongs_to, has_feature, has_task, has_project,
+         depends_on, owns, observes, suggests_for, subtask_of
+    WHERE `in` = $entity OR out = $entity
+    LIMIT $lim;
+};
+
+DEFINE FUNCTION fn::edges_between($ids: array) {
+  RETURN SELECT id, `in`, out, kind, confidence
+    FROM entity_relation, belongs_to, has_feature, has_task, has_project,
+         depends_on, owns, observes, suggests_for, subtask_of
+    WHERE `in` IN $ids AND out IN $ids;
+};
+
+DEFINE FUNCTION fn::graph_neighbors($ids: array) {
+  RETURN SELECT `in`, out
+    FROM entity_relation, belongs_to, has_feature, has_task, has_project,
+         depends_on, owns, observes, suggests_for, subtask_of
+    WHERE `in` IN $ids OR out IN $ids;
+};
+
+DEFINE FUNCTION fn::workspace_entity_ids($ws: record<workspace>) {
+  LET $projects = (SELECT VALUE out FROM has_project WHERE `in` = $ws);
+  LET $features = (SELECT VALUE out FROM has_feature WHERE `in` IN $projects);
+  LET $tasks = (SELECT VALUE out FROM has_task WHERE `in` IN $features);
+  LET $belongs_project = (SELECT VALUE `in` FROM belongs_to WHERE out IN $projects);
+  LET $belongs_feature = (SELECT VALUE `in` FROM belongs_to WHERE out IN $features);
+  LET $persons = (SELECT VALUE `in` FROM member_of WHERE out = $ws);
+  LET $provenance = (
+    SELECT VALUE out FROM extraction_relation
+    WHERE `in` IN (
+      SELECT VALUE id FROM message
+      WHERE conversation IN (
+        SELECT VALUE id FROM conversation WHERE workspace = $ws
+      )
+    )
+  );
+  RETURN array::distinct(
+    $projects + $features + $tasks +
+    $belongs_project + $belongs_feature +
+    $persons + $provenance
+  );
+};
+
+DEFINE FUNCTION fn::project_entity_ids($ws: record<workspace>, $project: record<project>) {
+  LET $features = (SELECT VALUE out FROM has_feature WHERE `in` = $project);
+  LET $tasks = (SELECT VALUE out FROM has_task WHERE `in` IN $features);
+  LET $belongs_project = (SELECT VALUE `in` FROM belongs_to WHERE out = $project);
+  LET $belongs_feature = (SELECT VALUE `in` FROM belongs_to WHERE out IN $features);
+  LET $persons = (SELECT VALUE `in` FROM member_of WHERE out = $ws);
+  LET $provenance = (
+    SELECT VALUE out FROM extraction_relation
+    WHERE `in` IN (
+      SELECT VALUE id FROM message
+      WHERE conversation IN (
+        SELECT VALUE id FROM conversation WHERE workspace = $ws
+      )
+    )
+  );
+  RETURN array::distinct(
+    [$project] + $features + $tasks +
+    $belongs_project + $belongs_feature +
+    $persons + $provenance
+  );
 };
 
 -- Auth: session

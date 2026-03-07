@@ -20,6 +20,7 @@ export type BootstrapPayload = {
 type WorkspaceStateStore = {
   workspaceId?: string;
   workspaceName?: string;
+  repoPath?: string;
   onboardingComplete: boolean;
   onboardingState?: OnboardingState;
   conversationId?: string;
@@ -31,6 +32,7 @@ type WorkspaceStateStore = {
 
   setWorkspaceId: (workspaceId: string | undefined) => void;
   setWorkspaceName: (name: string) => void;
+  setRepoPath: (path: string | undefined) => void;
   setOnboardingState: (state: OnboardingState) => void;
   setConversationId: (id: string | undefined) => void;
   setSidebar: (sidebar: WorkspaceConversationSidebarResponse | undefined) => void;
@@ -43,6 +45,7 @@ type WorkspaceStateStore = {
   applyWorkspace: (ws: {
     id: string;
     name: string;
+    repoPath?: string;
     onboardingComplete: boolean;
     onboardingState: OnboardingState;
     conversationId: string;
@@ -52,6 +55,7 @@ type WorkspaceStateStore = {
 export const useWorkspaceState = create<WorkspaceStateStore>((set, get) => ({
   workspaceId: undefined,
   workspaceName: undefined,
+  repoPath: undefined,
   onboardingComplete: false,
   onboardingState: undefined,
   conversationId: undefined,
@@ -63,6 +67,7 @@ export const useWorkspaceState = create<WorkspaceStateStore>((set, get) => ({
 
   setWorkspaceId: (workspaceId) => set({ workspaceId }),
   setWorkspaceName: (name) => set({ workspaceName: name }),
+  setRepoPath: (repoPath) => set({ repoPath }),
   setOnboardingState: (onboardingState) =>
     set({ onboardingState, onboardingComplete: onboardingState === "complete" }),
   setConversationId: (conversationId) => set({ conversationId }),
@@ -88,6 +93,7 @@ export const useWorkspaceState = create<WorkspaceStateStore>((set, get) => ({
     set({
       workspaceId: undefined,
       workspaceName: undefined,
+      repoPath: undefined,
       onboardingComplete: false,
       onboardingState: undefined,
       conversationId: undefined,
@@ -101,6 +107,7 @@ export const useWorkspaceState = create<WorkspaceStateStore>((set, get) => ({
     set({
       workspaceId: ws.id,
       workspaceName: ws.name,
+      repoPath: ws.repoPath,
       onboardingComplete: ws.onboardingComplete,
       onboardingState: ws.onboardingState,
       conversationId: ws.conversationId,

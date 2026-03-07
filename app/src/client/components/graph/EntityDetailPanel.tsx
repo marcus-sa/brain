@@ -7,6 +7,7 @@ import { DescriptionSection } from "./DescriptionSection";
 import { EntityBadge } from "./EntityBadge";
 import { RelationshipList } from "./RelationshipList";
 import { ProvenanceSection } from "./ProvenanceSection";
+import { AgentStatusSection } from "./AgentStatusSection";
 import { useViewState } from "../../stores/view-state";
 import { acceptSuggestion, confirmDecision, convertSuggestion, deferSuggestion, dismissSuggestion, markTaskComplete, overrideDecision, setEntityPriority } from "../../graph/actions";
 
@@ -149,6 +150,22 @@ export function EntityDetailPanel({
   const status = (detail.entity.data.status as string | undefined) ?? "";
   const rationale = detail.entity.data.rationale as string | undefined;
 
+  async function handleSuggestionAction(
+    action: (workspaceId: string, entityId: string) => Promise<unknown>,
+    resultStatus: string,
+  ) {
+    if (actionPending) return;
+    setActionPending(true);
+    try {
+      await action(workspaceId, entityId);
+      setDetail((prev) =>
+        prev ? { ...prev, entity: { ...prev.entity, data: { ...prev.entity.data, status: resultStatus } } } : prev,
+      );
+    } finally {
+      setActionPending(false);
+    }
+  }
+
   const showConfirm = kind === "decision" && CONFIRMABLE_STATUSES.has(status);
   const showOverride = kind === "decision" && CONFIRMABLE_STATUSES.has(status);
   const showComplete = kind === "task" && status !== "done";
@@ -231,6 +248,16 @@ export function EntityDetailPanel({
         </dl>
       </div>
 
+      {kind === "task" ? (
+        <AgentStatusSection
+          entityId={entityId}
+          workspaceId={workspaceId}
+          entityKind={kind}
+          entityStatus={status}
+          agentSession={detail.agentSession}
+        />
+      ) : undefined}
+
       <DescriptionSection data={detail.entity.data} kind={kind} onEntityClick={onEntityClick} />
 
       {rationale ? (
@@ -276,33 +303,15 @@ export function EntityDetailPanel({
         ) : undefined}
         {showSuggestionActions ? (
           <>
-            <button type="button" disabled={actionPending} onClick={async () => {
-              setActionPending(true);
-              try {
-                await acceptSuggestion(workspaceId, entityId);
-                setDetail((prev) => prev ? { ...prev, entity: { ...prev.entity, data: { ...prev.entity.data, status: "accepted" } } } : prev);
-              } finally { setActionPending(false); }
-            }}>Accept</button>
+            <button type="button" disabled={actionPending} onClick={() => handleSuggestionAction(acceptSuggestion, "accepted")}>Accept</button>
             <button type="button" disabled={actionPending} onClick={() => {
               const category = (detail.entity.data.category as string) ?? "";
               setConvertKind(CATEGORY_TO_ENTITY_TYPE[category] ?? "task");
               setConvertTitle(detail.entity.name);
               setShowConvertForm(true);
             }}>Convert</button>
-            <button type="button" disabled={actionPending} onClick={async () => {
-              setActionPending(true);
-              try {
-                await deferSuggestion(workspaceId, entityId);
-                setDetail((prev) => prev ? { ...prev, entity: { ...prev.entity, data: { ...prev.entity.data, status: "deferred" } } } : prev);
-              } finally { setActionPending(false); }
-            }}>Defer</button>
-            <button type="button" disabled={actionPending} onClick={async () => {
-              setActionPending(true);
-              try {
-                await dismissSuggestion(workspaceId, entityId);
-                setDetail((prev) => prev ? { ...prev, entity: { ...prev.entity, data: { ...prev.entity.data, status: "dismissed" } } } : prev);
-              } finally { setActionPending(false); }
-            }}>Dismiss</button>
+            <button type="button" disabled={actionPending} onClick={() => handleSuggestionAction(deferSuggestion, "deferred")}>Defer</button>
+            <button type="button" disabled={actionPending} onClick={() => handleSuggestionAction(dismissSuggestion, "dismissed")}>Dismiss</button>
           </>
         ) : undefined}
         {showConvertForm ? (
