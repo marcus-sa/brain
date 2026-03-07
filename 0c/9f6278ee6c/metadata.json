@@ -3,7 +3,7 @@
   "checkpoint_id": "0c9f6278ee6c",
   "strategy": "manual-commit",
   "branch": "marcus-sa/coding-agent-orch",
-  "checkpoints_count": 0,
+  "checkpoints_count": 4,
   "files_touched": [
     ".nwave/des-config.json",
     "docs/feature/coding-agent-orchestrator/distill/test-scenarios.md",
@@ -32,13 +32,20 @@
       "context": "",
       "content_hash": "/0c/9f6278ee6c/1/content_hash.txt",
       "prompt": ""
+    },
+    {
+      "metadata": "/0c/9f6278ee6c/2/metadata.json",
+      "transcript": "/0c/9f6278ee6c/2/full.jsonl",
+      "context": "/0c/9f6278ee6c/2/context.md",
+      "content_hash": "/0c/9f6278ee6c/2/content_hash.txt",
+      "prompt": "/0c/9f6278ee6c/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 0,
-    "cache_creation_tokens": 0,
-    "cache_read_tokens": 0,
-    "output_tokens": 0,
-    "api_call_count": 0
+    "input_tokens": 410,
+    "cache_creation_tokens": 706123,
+    "cache_read_tokens": 20263421,
+    "output_tokens": 107344,
+    "api_call_count": 191
   }
 }
