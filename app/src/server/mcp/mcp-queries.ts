@@ -181,7 +181,7 @@ export async function getTaskDependencyTree(input: {
     WHERE id IN (SELECT VALUE \`in\` FROM depends_on WHERE out = $task);
 
     -- Subtasks
-    SELECT id, title, status
+    SELECT id, title, status, created_at
     FROM task
     WHERE id IN (SELECT VALUE \`in\` FROM subtask_of WHERE out = $task)
     ORDER BY created_at ASC;
@@ -223,7 +223,7 @@ export async function listProjectConstraints(input: {
     : "";
 
   const query = `
-    SELECT summary AS text, "decision" AS source_type, status, id
+    SELECT summary AS text, "decision" AS source_type, status, id, created_at
     FROM decision
     WHERE workspace = $workspace
       ${projectFilter}
@@ -231,7 +231,7 @@ export async function listProjectConstraints(input: {
       ${areaFilter}
     ORDER BY created_at DESC LIMIT 30;
 
-    SELECT text, "observation" AS source_type, severity, id
+    SELECT text, "observation" AS source_type, severity, id, created_at
     FROM observation
     WHERE workspace = $workspace
       AND status IN ["open", "acknowledged"]
@@ -335,7 +335,7 @@ export async function createSubtask(input: {
 
   const [existingRows] = await input.surreal
     .query<[SubtaskRow[]]>(
-      `SELECT id, title, status
+      `SELECT id, title, status, created_at
        FROM task
        WHERE id IN (SELECT VALUE \`in\` FROM subtask_of WHERE out = $parent)
        ORDER BY created_at ASC;`,
