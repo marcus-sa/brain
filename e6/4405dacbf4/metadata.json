@@ -95,6 +95,13 @@
       "context": "",
       "content_hash": "/e6/4405dacbf4/9/content_hash.txt",
       "prompt": ""
+    },
+    {
+      "metadata": "/e6/4405dacbf4/10/metadata.json",
+      "transcript": "/e6/4405dacbf4/10/full.jsonl",
+      "context": "/e6/4405dacbf4/10/context.md",
+      "content_hash": "/e6/4405dacbf4/10/content_hash.txt",
+      "prompt": "/e6/4405dacbf4/10/prompt.txt"
     }
   ],
   "token_usage": {
