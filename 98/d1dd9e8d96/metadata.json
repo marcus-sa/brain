@@ -3,7 +3,7 @@
   "checkpoint_id": "98d1dd9e8d96",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 2,
+  "checkpoints_count": 4,
   "files_touched": [
     ".opencode/plugins/brain.ts"
   ],
@@ -14,13 +14,20 @@
       "context": "/98/d1dd9e8d96/0/context.md",
       "content_hash": "/98/d1dd9e8d96/0/content_hash.txt",
       "prompt": "/98/d1dd9e8d96/0/prompt.txt"
+    },
+    {
+      "metadata": "/98/d1dd9e8d96/1/metadata.json",
+      "transcript": "/98/d1dd9e8d96/1/full.jsonl",
+      "context": "/98/d1dd9e8d96/1/context.md",
+      "content_hash": "/98/d1dd9e8d96/1/content_hash.txt",
+      "prompt": "/98/d1dd9e8d96/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 22,
-    "cache_creation_tokens": 33067,
-    "cache_read_tokens": 471287,
-    "output_tokens": 1582,
-    "api_call_count": 10
+    "input_tokens": 45,
+    "cache_creation_tokens": 109981,
+    "cache_read_tokens": 988265,
+    "output_tokens": 4214,
+    "api_call_count": 21
   }
 }
