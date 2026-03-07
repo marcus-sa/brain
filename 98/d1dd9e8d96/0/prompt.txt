@@ -1,0 +1,13 @@
+clean up all map commands in cli
+
+---
+
+commit
+
+---
+
+[Request interrupted by user]
+
+---
+
+use --no-verify

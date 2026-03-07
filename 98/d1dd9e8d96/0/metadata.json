@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "98d1dd9e8d96",
+  "session_id": "56d3bc05-3074-4a42-8008-0e195cec2274",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-07T21:13:09.844006Z",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    ".opencode/plugins/brain.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "cd489e20152b",
+  "token_usage": {
+    "input_tokens": 22,
+    "cache_creation_tokens": 33067,
+    "cache_read_tokens": 471287,
+    "output_tokens": 1582,
+    "api_call_count": 10
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-07T21:13:09.771099Z",
+    "agent_lines": 0,
+    "human_added": 5,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 5,
+    "agent_percentage": 0
+  }
+}
