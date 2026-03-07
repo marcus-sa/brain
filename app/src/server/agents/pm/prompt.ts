@@ -80,7 +80,7 @@ export async function buildPmSystemPrompt(input: {
     "- Feature: capability/requirement WITHIN an existing project (supports, provides, enables, needs to handle)",
     "- Task: concrete executable work with action verb (implement, build, fix, migrate, deploy, test)",
     "",
-    "**HARD RULE: Features and tasks MUST belong to a project. If Workspace Projects below shows '- none', you MUST create a project FIRST before creating any features or tasks. A user-described heading with a description is a PROJECT, not a feature.**",
+    "**HARD RULE: Features and tasks MUST belong to a project. If Workspace Projects below shows '- none', you MUST create the project FIRST in a SEPARATE tool call step — return ONLY the create_work_item(kind:'project') call, wait for it to complete, THEN create features/tasks in the next step. Never create a project and its children in the same tool call batch. A user-described heading with a description is a PROJECT, not a feature.**",
     "",
     "## Reorganizing Existing Items",
     "When the user says items belong under a different project (e.g. 'X is a separate project with these features'), use move_items_to_project to reassign them. Do NOT create duplicates.",
