@@ -5,7 +5,10 @@
   "branch": "marcus-sa/coding-agent-orch",
   "checkpoints_count": 1,
   "files_touched": [
-    "docs/feature/coding-session/execution-log.yaml"
+    "app/src/client/components/graph/AgentSessionPanel.tsx",
+    "app/src/client/components/graph/AgentStatusSection.tsx",
+    "docs/feature/coding-session/execution-log.yaml",
+    "tests/unit/coding-agent-orchestrator/ui/agent-session-panel.test.ts"
   ],
   "sessions": [
     {
@@ -14,6 +17,13 @@
       "context": "/d1/afcb9676f0/0/context.md",
       "content_hash": "/d1/afcb9676f0/0/content_hash.txt",
       "prompt": "/d1/afcb9676f0/0/prompt.txt"
+    },
+    {
+      "metadata": "/d1/afcb9676f0/1/metadata.json",
+      "transcript": "/d1/afcb9676f0/1/full.jsonl",
+      "context": "/d1/afcb9676f0/1/context.md",
+      "content_hash": "/d1/afcb9676f0/1/content_hash.txt",
+      "prompt": "/d1/afcb9676f0/1/prompt.txt"
     }
   ],
   "token_usage": {
