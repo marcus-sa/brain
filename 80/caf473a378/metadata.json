@@ -39,6 +39,13 @@
       "context": "/80/caf473a378/3/context.md",
       "content_hash": "/80/caf473a378/3/content_hash.txt",
       "prompt": "/80/caf473a378/3/prompt.txt"
+    },
+    {
+      "metadata": "/80/caf473a378/4/metadata.json",
+      "transcript": "/80/caf473a378/4/full.jsonl",
+      "context": "",
+      "content_hash": "/80/caf473a378/4/content_hash.txt",
+      "prompt": ""
     }
   ],
   "token_usage": {
