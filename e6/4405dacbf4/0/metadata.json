@@ -1,0 +1,41 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "e64405dacbf4",
+  "session_id": "0228a263-b238-41fd-932d-db98a466205b",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-07T18:28:00.474478Z",
+  "branch": "marcus-sa/coding-agent-orch",
+  "checkpoints_count": 7,
+  "files_touched": [
+    "cli/commands/init-content.ts",
+    "cli/commands/init.ts",
+    "docs/requirements/claude-agent-sdk-migration/acceptance-criteria.md",
+    "docs/requirements/claude-agent-sdk-migration/dor-checklist.md",
+    "docs/requirements/claude-agent-sdk-migration/requirements.md",
+    "docs/requirements/claude-agent-sdk-migration/user-stories.md",
+    "docs/ux/claude-agent-sdk-migration/journey-agent-spawn-visual.md",
+    "docs/ux/claude-agent-sdk-migration/journey-agent-spawn.feature",
+    "docs/ux/claude-agent-sdk-migration/jtbd-four-forces.md",
+    "docs/ux/claude-agent-sdk-migration/jtbd-job-stories.md",
+    "docs/ux/claude-agent-sdk-migration/jtbd-opportunity-scores.md",
+    "docs/ux/claude-agent-sdk-migration/shared-artifacts-registry.md"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "cd92cf34f92f",
+  "token_usage": {
+    "input_tokens": 867,
+    "cache_creation_tokens": 719669,
+    "cache_read_tokens": 9739902,
+    "output_tokens": 48309,
+    "api_call_count": 115
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-07T18:27:56.84128Z",
+    "agent_lines": 612,
+    "human_added": 816,
+    "human_modified": 146,
+    "human_removed": 0,
+    "total_committed": 1574,
+    "agent_percentage": 38.88182973316391
+  }
+}

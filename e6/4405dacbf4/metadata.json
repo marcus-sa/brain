@@ -1,0 +1,37 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "e64405dacbf4",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/coding-agent-orch",
+  "checkpoints_count": 7,
+  "files_touched": [
+    "cli/commands/init-content.ts",
+    "cli/commands/init.ts",
+    "docs/requirements/claude-agent-sdk-migration/acceptance-criteria.md",
+    "docs/requirements/claude-agent-sdk-migration/dor-checklist.md",
+    "docs/requirements/claude-agent-sdk-migration/requirements.md",
+    "docs/requirements/claude-agent-sdk-migration/user-stories.md",
+    "docs/ux/claude-agent-sdk-migration/journey-agent-spawn-visual.md",
+    "docs/ux/claude-agent-sdk-migration/journey-agent-spawn.feature",
+    "docs/ux/claude-agent-sdk-migration/jtbd-four-forces.md",
+    "docs/ux/claude-agent-sdk-migration/jtbd-job-stories.md",
+    "docs/ux/claude-agent-sdk-migration/jtbd-opportunity-scores.md",
+    "docs/ux/claude-agent-sdk-migration/shared-artifacts-registry.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/e6/4405dacbf4/0/metadata.json",
+      "transcript": "/e6/4405dacbf4/0/full.jsonl",
+      "context": "/e6/4405dacbf4/0/context.md",
+      "content_hash": "/e6/4405dacbf4/0/content_hash.txt",
+      "prompt": "/e6/4405dacbf4/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 867,
+    "cache_creation_tokens": 719669,
+    "cache_read_tokens": 9739902,
+    "output_tokens": 48309,
+    "api_call_count": 115
+  }
+}
