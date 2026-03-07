@@ -3,12 +3,13 @@ import { RecordId } from "surrealdb";
 import {
   createOrchestratorSession,
   clearHandleRegistry,
-  type OpenCodeHandle,
-  type SpawnOpenCodeFn,
+  getHandle,
 } from "../../../app/src/server/orchestrator/session-lifecycle";
+import type { AgentHandle, SpawnAgentFn } from "../../../app/src/server/orchestrator/spawn-agent";
+import type { AgentSpawnConfig } from "../../../app/src/server/orchestrator/agent-options";
 
 // ---------------------------------------------------------------------------
-// Helpers — reusable stubs following FP test double patterns
+// Helpers -- reusable stubs following FP test double patterns
 // ---------------------------------------------------------------------------
 
 type SurrealStub = {
@@ -57,43 +58,38 @@ function createAgentSessionStub(returnSessionId = "agent-sess-1") {
 }
 
 // ---------------------------------------------------------------------------
-// Captured handle — spy that records interactions with the OpenCodeHandle
+// Captured handle -- spy that records interactions with the AgentHandle
 // ---------------------------------------------------------------------------
 
 type HandleCapture = {
-  spawnFn: SpawnOpenCodeFn;
-  promptCalls: string[];
+  spawnFn: SpawnAgentFn;
   abortCalls: number;
-  events: Array<{ type: string; data: string }>;
-  capturedHandle?: OpenCodeHandle;
+  receivedConfig?: AgentSpawnConfig;
+  capturedHandle?: AgentHandle;
 };
 
 function createHandleCapture(
-  events: Array<{ type: string; data: string }> = [],
+  messages: unknown[] = [],
 ): HandleCapture {
   const capture: HandleCapture = {
-    spawnFn: undefined as unknown as SpawnOpenCodeFn,
-    promptCalls: [],
+    spawnFn: undefined as unknown as SpawnAgentFn,
     abortCalls: 0,
-    events,
   };
 
-  async function* generateEvents() {
-    for (const event of events) {
-      yield event;
+  async function* generateMessages() {
+    for (const msg of messages) {
+      yield msg;
     }
   }
 
-  capture.spawnFn = async (_config, _worktreePath, _taskId) => {
-    const handle: OpenCodeHandle = {
-      sessionId: "oc-sess-1",
-      sendPrompt: async (text: string) => {
-        capture.promptCalls.push(text);
-      },
-      eventStream: generateEvents(),
+  capture.spawnFn = (config: AgentSpawnConfig) => {
+    capture.receivedConfig = config;
+    const handle: AgentHandle = {
+      messages: generateMessages(),
       abort: () => {
         capture.abortCalls++;
       },
+      result: Promise.resolve({ conversationId: "conv-1" }),
     };
     capture.capturedHandle = handle;
     return handle;
@@ -103,44 +99,20 @@ function createHandleCapture(
 }
 
 // ---------------------------------------------------------------------------
-// Acceptance: OpenCodeHandle enrichment after session creation
+// Tests: AgentHandle lifecycle after session creation (step 02-01 migration)
 // ---------------------------------------------------------------------------
 
-describe("OpenCodeHandle enrichment (step 01-01)", () => {
+describe("AgentHandle lifecycle (step 02-01)", () => {
   beforeEach(() => {
     clearHandleRegistry();
   });
 
-  test("sendPrompt is available and delivers text after session creation", async () => {
-    const capture = createHandleCapture();
-    const surreal = createSurrealStub();
-
-    const result = await createOrchestratorSession({
-      surreal: surreal.stub as any,
-      shellExec: successShellExec(),
-      brainBaseUrl: "http://localhost:3000",
-      workspaceId: "ws-1",
-      taskId: "task-1",
-      authToken: "jwt-xyz",
-      spawnOpenCode: capture.spawnFn,
-      validateAssignment: validateAssignmentOk(),
-      createAgentSession: createAgentSessionStub() as any,
-    });
-
-    expect(result.ok).toBe(true);
-
-    // The handle's sendPrompt should be callable
-    expect(capture.capturedHandle).toBeDefined();
-    await capture.capturedHandle!.sendPrompt("Please add unit tests");
-    expect(capture.promptCalls).toEqual(["Please add unit tests"]);
-  });
-
-  test("eventStream is async-iterable after session creation", async () => {
-    const testEvents = [
-      { type: "agent_token", data: "Hello" },
-      { type: "agent_status", data: "idle" },
+  test("messages stream is async-iterable after session creation", async () => {
+    const testMessages = [
+      { type: "assistant", content: [{ type: "text", text: "Hello" }] },
+      { type: "result", subtype: "success", duration_ms: 500 },
     ];
-    const capture = createHandleCapture(testEvents);
+    const capture = createHandleCapture(testMessages);
     const surreal = createSurrealStub();
 
     const result = await createOrchestratorSession({
@@ -149,23 +121,22 @@ describe("OpenCodeHandle enrichment (step 01-01)", () => {
       brainBaseUrl: "http://localhost:3000",
       workspaceId: "ws-1",
       taskId: "task-2",
-      authToken: "jwt-xyz",
-      spawnOpenCode: capture.spawnFn,
+      spawnAgent: capture.spawnFn,
       validateAssignment: validateAssignmentOk(),
       createAgentSession: createAgentSessionStub() as any,
     });
 
     expect(result.ok).toBe(true);
 
-    // The handle's eventStream should be consumable via for-await-of
-    const collected: Array<{ type: string; data: string }> = [];
-    for await (const event of capture.capturedHandle!.eventStream) {
-      collected.push(event as { type: string; data: string });
+    // The handle's messages should be consumable via for-await-of
+    const collected: unknown[] = [];
+    for await (const msg of capture.capturedHandle!.messages) {
+      collected.push(msg);
     }
-    expect(collected).toEqual(testEvents);
+    expect(collected).toEqual(testMessages);
   });
 
-  test("abort cleans up event subscription, session, and process", async () => {
+  test("abort cleans up agent process", async () => {
     const capture = createHandleCapture();
     const surreal = createSurrealStub();
 
@@ -175,8 +146,7 @@ describe("OpenCodeHandle enrichment (step 01-01)", () => {
       brainBaseUrl: "http://localhost:3000",
       workspaceId: "ws-1",
       taskId: "task-3",
-      authToken: "jwt-xyz",
-      spawnOpenCode: capture.spawnFn,
+      spawnAgent: capture.spawnFn,
       validateAssignment: validateAssignmentOk(),
       createAgentSession: createAgentSessionStub() as any,
     });
@@ -188,7 +158,7 @@ describe("OpenCodeHandle enrichment (step 01-01)", () => {
     expect(capture.abortCalls).toBe(1);
   });
 
-  test("handle is registered and retrievable for abort after session creation", async () => {
+  test("handle is registered and retrievable via getHandle", async () => {
     const capture = createHandleCapture();
     const surreal = createSurrealStub();
     const agentSessionId = "agent-sess-for-abort";
@@ -199,21 +169,20 @@ describe("OpenCodeHandle enrichment (step 01-01)", () => {
       brainBaseUrl: "http://localhost:3000",
       workspaceId: "ws-1",
       taskId: "task-4",
-      authToken: "jwt-xyz",
-      spawnOpenCode: capture.spawnFn,
+      spawnAgent: capture.spawnFn,
       validateAssignment: validateAssignmentOk(),
       createAgentSession: createAgentSessionStub(agentSessionId) as any,
     });
 
     expect(result.ok).toBe(true);
 
-    // The session should be abortable through the lifecycle function
-    // (abort via handleRegistry lookup happens inside abortOrchestratorSession)
-    // Verify the handle was stored by checking that abort is tracked
-    expect(capture.abortCalls).toBe(0);
+    // Handle should be retrievable from the registry
+    const retrieved = getHandle(agentSessionId);
+    expect(retrieved).toBeDefined();
+    expect(retrieved).toBe(capture.capturedHandle);
   });
 
-  test("opencode_session_id is persisted to agent_session record", async () => {
+  test("session record does NOT contain opencode_session_id", async () => {
     const capture = createHandleCapture();
     const surreal = createSurrealStub();
 
@@ -223,22 +192,21 @@ describe("OpenCodeHandle enrichment (step 01-01)", () => {
       brainBaseUrl: "http://localhost:3000",
       workspaceId: "ws-1",
       taskId: "task-5",
-      authToken: "jwt-xyz",
-      spawnOpenCode: capture.spawnFn,
+      spawnAgent: capture.spawnFn,
       validateAssignment: validateAssignmentOk(),
       createAgentSession: createAgentSessionStub() as any,
     });
 
-    const orchestratorUpdate = surreal.updates.find(
+    // No update should contain opencode_session_id
+    const hasOpencodeId = surreal.updates.some(
       (u) => u.merge && typeof u.merge === "object" && "opencode_session_id" in (u.merge as object),
     );
-    expect(orchestratorUpdate).toBeDefined();
-    expect((orchestratorUpdate!.merge as Record<string, unknown>).opencode_session_id).toBe("oc-sess-1");
+    expect(hasOpencodeId).toBe(false);
   });
 
   test("spawn failure rolls back worktree and agent_session", async () => {
-    const failingSpawn: SpawnOpenCodeFn = async () => {
-      throw new Error("OpenCode binary not found");
+    const failingSpawn: SpawnAgentFn = (_config: AgentSpawnConfig) => {
+      throw new Error("Agent SDK not available");
     };
     const surreal = createSurrealStub();
     const deletedRecords: unknown[] = [];
@@ -253,8 +221,7 @@ describe("OpenCodeHandle enrichment (step 01-01)", () => {
       brainBaseUrl: "http://localhost:3000",
       workspaceId: "ws-1",
       taskId: "task-6",
-      authToken: "jwt-xyz",
-      spawnOpenCode: failingSpawn,
+      spawnAgent: failingSpawn,
       validateAssignment: validateAssignmentOk(),
       createAgentSession: createAgentSessionStub() as any,
     });
@@ -262,9 +229,31 @@ describe("OpenCodeHandle enrichment (step 01-01)", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.code).toBe("WORKTREE_ERROR");
-      expect(result.error.message).toContain("OpenCode binary not found");
+      expect(result.error.message).toContain("Agent SDK not available");
     }
     // Agent session record should have been deleted on rollback
     expect(deletedRecords.length).toBe(1);
+  });
+
+  test("spawnAgent receives correct AgentSpawnConfig", async () => {
+    const capture = createHandleCapture();
+    const surreal = createSurrealStub();
+
+    await createOrchestratorSession({
+      surreal: surreal.stub as any,
+      shellExec: successShellExec(),
+      brainBaseUrl: "http://localhost:3000",
+      workspaceId: "ws-1",
+      taskId: "task-7",
+      spawnAgent: capture.spawnFn,
+      validateAssignment: validateAssignmentOk("My Task", "/repo"),
+      createAgentSession: createAgentSessionStub() as any,
+    });
+
+    expect(capture.receivedConfig).toBeDefined();
+    expect(capture.receivedConfig!.workDir).toContain("/repo");
+    expect(capture.receivedConfig!.workspaceId).toBe("ws-1");
+    expect(capture.receivedConfig!.brainBaseUrl).toBe("http://localhost:3000");
+    expect(capture.receivedConfig!.prompt).toContain("task-7");
   });
 });

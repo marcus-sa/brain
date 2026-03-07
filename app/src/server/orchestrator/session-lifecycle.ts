@@ -1,12 +1,12 @@
 import { RecordId, type Surreal } from "surrealdb";
-import type { OpencodeConfig } from "./config-builder";
-import { buildOpencodeConfig } from "./config-builder";
+import type { AgentHandle, SpawnAgentFn } from "./spawn-agent";
+import type { AgentSpawnConfig } from "./agent-options";
 import type { ShellExec } from "./worktree-manager";
 import { createWorktree, removeWorktree } from "./worktree-manager";
 import type { AssignmentResult } from "./assignment-guard";
 import type { AssignmentError, OrchestratorStatus, TerminalOrchestratorStatus } from "./types";
 import { TERMINAL_ORCHESTRATOR_STATUSES } from "./types";
-import { transformOpencodeEvent, startEventBridge, type OpencodeEvent } from "./event-bridge";
+import { startEventBridge, type SdkMessage } from "./event-bridge";
 import type { StreamEvent } from "../../shared/contracts";
 import type { StallDetectorHandle } from "./stall-detector";
 
@@ -14,24 +14,11 @@ import type { StallDetectorHandle } from "./stall-detector";
 // Types — exported for tests
 // ---------------------------------------------------------------------------
 
-export type OpenCodeHandle = {
-  sessionId: string;
-  abort: () => void;
-  sendPrompt: (text: string) => Promise<void>;
-  eventStream: AsyncIterable<unknown>;
-};
-
-export type SpawnOpenCodeFn = (
-  config: OpencodeConfig,
-  worktreePath: string,
-  taskId: string,
-) => Promise<OpenCodeHandle>;
-
 export type SessionDeps = {
   surreal: Surreal;
   shellExec: ShellExec;
   brainBaseUrl: string;
-  spawnOpenCode?: SpawnOpenCodeFn;
+  spawnAgent?: SpawnAgentFn;
 };
 
 export type SessionErrorCode =
@@ -102,17 +89,17 @@ export type PromptSessionResult = SessionResult<{
 }>;
 
 // ---------------------------------------------------------------------------
-// In-memory handle registry — maps agentSessionId to OpenCodeHandle
+// In-memory handle registry — maps agentSessionId to AgentHandle
 // ---------------------------------------------------------------------------
 
-const handleRegistry = new Map<string, OpenCodeHandle>();
+const handleRegistry = new Map<string, AgentHandle>();
 
 // Exported for testing cleanup
 export function clearHandleRegistry(): void {
   handleRegistry.clear();
 }
 
-export function getHandle(sessionId: string): OpenCodeHandle | undefined {
+export function getHandle(sessionId: string): AgentHandle | undefined {
   return handleRegistry.get(sessionId);
 }
 
@@ -137,8 +124,8 @@ const TERMINAL_STATUSES: ReadonlySet<string> = new Set<string>(
 );
 
 /**
- * Iterates the OpenCode event stream, forwarding events through the event
- * bridge. Transitions session to "active" on first event, starts stall
+ * Iterates the SDK message stream, forwarding messages through the event
+ * bridge. Transitions session to "active" on first message, starts stall
  * detection, and stops on terminal status or error.
  *
  * Returns a Promise that resolves when iteration ends (for testing).
@@ -146,7 +133,7 @@ const TERMINAL_STATUSES: ReadonlySet<string> = new Set<string>(
  */
 export function startEventIteration(
   deps: EventIterationDeps,
-  eventStream: AsyncIterable<unknown>,
+  messageStream: AsyncIterable<unknown>,
   streamId: string,
   sessionId: string,
 ): Promise<void> {
@@ -162,25 +149,25 @@ export function startEventIteration(
     stallDetector,
   );
 
-  let firstEventReceived = false;
+  let firstMessageReceived = false;
 
   async function iterate(): Promise<void> {
     try {
-      for await (const rawEvent of eventStream) {
+      for await (const rawMessage of messageStream) {
         // Check if session has reached terminal status
         const currentStatus = await deps.getSessionStatus(sessionId);
         if (TERMINAL_STATUSES.has(currentStatus)) {
           break;
         }
 
-        // Transition to active on first event
-        if (!firstEventReceived) {
-          firstEventReceived = true;
+        // Transition to active on first message
+        if (!firstMessageReceived) {
+          firstMessageReceived = true;
           await deps.updateSessionStatus(sessionId, "active");
         }
 
         // Forward through event bridge (transform + emit + stall detection)
-        bridge.handleEvent(rawEvent as OpencodeEvent);
+        bridge.handleMessage(rawMessage as SdkMessage);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
@@ -296,8 +283,7 @@ type CreateSessionInput = {
   brainBaseUrl: string;
   workspaceId: string;
   taskId: string;
-  authToken: string;
-  spawnOpenCode?: SpawnOpenCodeFn;
+  spawnAgent?: SpawnAgentFn;
   validateAssignment: (
     surreal: Surreal,
     workspaceId: string,
@@ -348,24 +334,25 @@ export async function createOrchestratorSession(
   // 3. Create agent_session record
   const { session_id: agentSessionId } = await input.createAgentSession({
     surreal: input.surreal,
-    agent: "opencode",
+    agent: "claude-agent-sdk",
     workspaceRecord: validation.workspaceRecord,
     taskId: input.taskId,
   });
 
   const streamId = generateStreamId(agentSessionId);
 
-  // 4. Build config and spawn OpenCode
-  const config = buildOpencodeConfig({
-    brainBaseUrl: input.brainBaseUrl,
+  // 4. Build config and spawn agent
+  const agentSpawnConfig: AgentSpawnConfig = {
+    prompt: `/brain-start-task ${input.taskId}`,
+    workDir: worktreePath,
     workspaceId: input.workspaceId,
-    authToken: input.authToken,
-  });
+    brainBaseUrl: input.brainBaseUrl,
+  };
 
-  const spawnFn = input.spawnOpenCode ?? defaultSpawnOpenCode;
-  let handle: OpenCodeHandle;
+  const spawnFn = input.spawnAgent ?? defaultSpawnAgent;
+  let handle: AgentHandle;
   try {
-    handle = await spawnFn(config, worktreePath, input.taskId);
+    handle = spawnFn(agentSpawnConfig);
   } catch (err) {
     // Rollback: remove worktree and delete agent_session on spawn failure
     await removeWorktree(input.shellExec, repoRoot, branchName);
@@ -373,7 +360,7 @@ export async function createOrchestratorSession(
     await input.surreal.delete(sessionRecord);
     return {
       ok: false,
-      error: worktreeError(`Failed to spawn OpenCode: ${err instanceof Error ? err.message : String(err)}`),
+      error: worktreeError(`Failed to spawn agent: ${err instanceof Error ? err.message : String(err)}`),
     };
   }
 
@@ -386,7 +373,6 @@ export async function createOrchestratorSession(
     orchestrator_status: "spawning" as OrchestratorStatus,
     worktree_branch: branchName,
     worktree_path: worktreePath,
-    opencode_session_id: handle.sessionId,
     stream_id: streamId,
   });
 
@@ -401,13 +387,11 @@ export async function createOrchestratorSession(
 }
 
 // Default spawn -- placeholder for production use
-async function defaultSpawnOpenCode(
-  _config: OpencodeConfig,
-  _worktreePath: string,
-  _taskId: string,
-): Promise<OpenCodeHandle> {
+function defaultSpawnAgent(
+  _config: AgentSpawnConfig,
+): AgentHandle {
   throw new Error(
-    "spawnOpenCode not provided -- must be injected for production use",
+    "spawnAgent not provided -- must be injected for production use",
   );
 }
 
@@ -470,7 +454,7 @@ export async function abortOrchestratorSession(
   }
   const { session, record: sessionRecord } = lookup;
 
-  // 1. Kill the OpenCode process if handle exists
+  // 1. Abort the agent process if handle exists
   const handle = handleRegistry.get(input.sessionId);
   if (handle) {
     handle.abort();
@@ -733,25 +717,14 @@ export async function sendSessionPrompt(
     return { ok: false, error: sessionStateConflict(input.sessionId, status, "prompt") };
   }
 
-  const handle = handleRegistry.get(input.sessionId);
-  if (!handle) {
-    return {
-      ok: false,
-      error: {
-        code: "SESSION_ERROR",
-        message: `Cannot prompt session ${input.sessionId}: agent handle not available (server may have restarted)`,
-        httpStatus: 409,
-      },
-    };
-  }
-
-  // Fire-and-forget: deliver prompt to the agent process
-  handle.sendPrompt(input.text).catch(() => {
-    // Prompt delivery failure is non-fatal; the session continues
-  });
-
+  // The Claude Agent SDK uses a single query() call per conversation.
+  // Follow-up prompts are not supported in this model.
   return {
-    ok: true,
-    value: { delivered: true },
+    ok: false,
+    error: {
+      code: "SESSION_ERROR",
+      message: `Follow-up prompts are not supported with the Agent SDK. Session ${input.sessionId} runs a single query() conversation.`,
+      httpStatus: 409,
+    },
   };
 }

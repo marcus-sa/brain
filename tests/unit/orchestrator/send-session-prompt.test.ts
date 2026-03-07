@@ -6,9 +6,10 @@ import {
   createOrchestratorSession,
   type PromptSessionResult,
 } from "../../../app/src/server/orchestrator/session-lifecycle";
+import type { AgentSpawnConfig } from "../../../app/src/server/orchestrator/agent-options";
 
 // ---------------------------------------------------------------------------
-// Stubs & helpers (same patterns as session-lifecycle.test.ts)
+// Stubs & helpers
 // ---------------------------------------------------------------------------
 
 type SurrealSpy = {
@@ -56,22 +57,17 @@ function createSurrealSpy(responses: {
   return spy;
 }
 
-function spawnOpenCodeStub(sessionId = "opencode-sess-1") {
+function spawnAgentStub() {
   const abortCalls: string[] = [];
-  const promptCalls: string[] = [];
   return {
-    spawn: async (_config: unknown, _worktreePath: string, _taskId: string) => ({
-      sessionId,
+    spawn: (config: AgentSpawnConfig) => ({
+      messages: (async function* () {})(),
       abort: () => {
-        abortCalls.push(sessionId);
+        abortCalls.push("aborted");
       },
-      sendPrompt: async (text: string) => {
-        promptCalls.push(text);
-      },
-      eventStream: (async function* () {})(),
+      result: Promise.resolve({ conversationId: "conv-1" }),
     }),
     abortCalls,
-    promptCalls,
   };
 }
 
@@ -113,9 +109,8 @@ function createAgentSessionStub(returnSessionId = "agent-sess-1") {
 async function seedSessionWithHandle(
   surrealSpy: SurrealSpy,
   agentSessionId: string,
-  openCodeSessionId = "oc-sess-1",
 ) {
-  const { spawn, promptCalls } = spawnOpenCodeStub(openCodeSessionId);
+  const { spawn } = spawnAgentStub();
   const agentSessionStub = createAgentSessionStub(agentSessionId);
   const assignmentStub = validateAssignmentStubOk();
 
@@ -125,13 +120,10 @@ async function seedSessionWithHandle(
     brainBaseUrl: "http://localhost:3000",
     workspaceId: "ws-1",
     taskId: "task-abc",
-    authToken: "jwt-xyz",
-    spawnOpenCode: spawn,
+    spawnAgent: spawn,
     validateAssignment: assignmentStub.fn,
     createAgentSession: agentSessionStub.fn as any,
   });
-
-  return { promptCalls };
 }
 
 // ---------------------------------------------------------------------------
@@ -143,7 +135,7 @@ describe("sendSessionPrompt", () => {
     clearHandleRegistry();
   });
 
-  test("delivers prompt to active session and returns delivered: true", async () => {
+  test("returns not-supported error for active session (SDK has no sendPrompt)", async () => {
     const surrealSpy = createSurrealSpy({
       sessionSelect: {
         id: new RecordId("agent_session", "sess-1"),
@@ -152,7 +144,7 @@ describe("sendSessionPrompt", () => {
       },
     });
 
-    const { promptCalls } = await seedSessionWithHandle(surrealSpy, "sess-1");
+    await seedSessionWithHandle(surrealSpy, "sess-1");
 
     const result = await sendSessionPrompt({
       surreal: surrealSpy.stub as any,
@@ -160,53 +152,11 @@ describe("sendSessionPrompt", () => {
       text: "Please add input validation",
     });
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.delivered).toBe(true);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("SESSION_ERROR");
+      expect(result.error.message).toContain("not supported");
     }
-    expect(promptCalls).toContain("Please add input validation");
-  });
-
-  test("delivers prompt to idle session", async () => {
-    const surrealSpy = createSurrealSpy({
-      sessionSelect: {
-        id: new RecordId("agent_session", "sess-1"),
-        orchestrator_status: "idle",
-        workspace: new RecordId("workspace", "ws-1"),
-      },
-    });
-
-    const { promptCalls } = await seedSessionWithHandle(surrealSpy, "sess-1");
-
-    const result = await sendSessionPrompt({
-      surreal: surrealSpy.stub as any,
-      sessionId: "sess-1",
-      text: "Continue with error handling",
-    });
-
-    expect(result.ok).toBe(true);
-    expect(promptCalls).toContain("Continue with error handling");
-  });
-
-  test("delivers prompt to spawning session", async () => {
-    const surrealSpy = createSurrealSpy({
-      sessionSelect: {
-        id: new RecordId("agent_session", "sess-1"),
-        orchestrator_status: "spawning",
-        workspace: new RecordId("workspace", "ws-1"),
-      },
-    });
-
-    const { promptCalls } = await seedSessionWithHandle(surrealSpy, "sess-1");
-
-    const result = await sendSessionPrompt({
-      surreal: surrealSpy.stub as any,
-      sessionId: "sess-1",
-      text: "Extra context for the task",
-    });
-
-    expect(result.ok).toBe(true);
-    expect(promptCalls).toContain("Extra context for the task");
   });
 
   test("returns 404 for nonexistent session", async () => {
@@ -266,50 +216,6 @@ describe("sendSessionPrompt", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.httpStatus).toBe(409);
-    }
-  });
-
-  test("returns 409 for error session", async () => {
-    const surrealSpy = createSurrealSpy({
-      sessionSelect: {
-        id: new RecordId("agent_session", "sess-1"),
-        orchestrator_status: "error",
-        workspace: new RecordId("workspace", "ws-1"),
-      },
-    });
-
-    const result = await sendSessionPrompt({
-      surreal: surrealSpy.stub as any,
-      sessionId: "sess-1",
-      text: "Retry",
-    });
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.httpStatus).toBe(409);
-    }
-  });
-
-  test("returns 409 when handle is missing from registry", async () => {
-    const surrealSpy = createSurrealSpy({
-      sessionSelect: {
-        id: new RecordId("agent_session", "sess-1"),
-        orchestrator_status: "active",
-        workspace: new RecordId("workspace", "ws-1"),
-      },
-    });
-    // Note: no seedSessionWithHandle -- handle registry is empty
-
-    const result = await sendSessionPrompt({
-      surreal: surrealSpy.stub as any,
-      sessionId: "sess-1",
-      text: "Hello",
-    });
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.httpStatus).toBe(409);
-      expect(result.error.message).toContain("handle");
     }
   });
 });

@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import { RecordId } from "surrealdb";
 import type {
   SessionDeps,
-  OpenCodeHandle,
   OrchestratorSessionResult,
   SessionStatusResult,
   AbortSessionResult,
@@ -10,6 +9,8 @@ import type {
   ReviewResult,
   RejectSessionResult,
 } from "../../../app/src/server/orchestrator/session-lifecycle";
+import type { AgentHandle, SpawnAgentFn } from "../../../app/src/server/orchestrator/spawn-agent";
+import type { AgentSpawnConfig } from "../../../app/src/server/orchestrator/agent-options";
 import {
   createOrchestratorSession,
   getOrchestratorSessionStatus,
@@ -90,6 +91,9 @@ function createSurrealSpy(responses: {
       spy.selects.push({ record });
       return Promise.resolve(responses.sessionSelect ?? undefined);
     },
+    delete(_record: unknown) {
+      return Promise.resolve(undefined);
+    },
   };
 
   return spy;
@@ -103,28 +107,20 @@ function successShellExec(): SessionDeps["shellExec"] {
   });
 }
 
-function spawnOpenCodeStub(
-  sessionId = "opencode-sess-1",
-): {
-  spawn: NonNullable<SessionDeps["spawnOpenCode"]>;
+function spawnAgentStub(): {
+  spawn: SpawnAgentFn;
   abortCalls: string[];
-  promptCalls: string[];
 } {
   const abortCalls: string[] = [];
-  const promptCalls: string[] = [];
   return {
-    spawn: async (_config, _worktreePath, _taskId) => ({
-      sessionId,
+    spawn: (config: AgentSpawnConfig) => ({
+      messages: (async function* () {})(),
       abort: () => {
-        abortCalls.push(sessionId);
+        abortCalls.push("aborted");
       },
-      sendPrompt: async (text: string) => {
-        promptCalls.push(text);
-      },
-      eventStream: (async function* () {})(),
+      result: Promise.resolve({ conversationId: "conv-1" }),
     }),
     abortCalls,
-    promptCalls,
   };
 }
 
@@ -200,7 +196,7 @@ describe("createOrchestratorSession", () => {
       sessionQuery: [],
       createReturn: {},
     });
-    const { spawn } = spawnOpenCodeStub("oc-sess-abc");
+    const { spawn } = spawnAgentStub();
     const agentSessionStub = createAgentSessionStub("agent-sess-42");
     const assignmentStub = validateAssignmentStubOk("Fix the bug");
 
@@ -210,8 +206,7 @@ describe("createOrchestratorSession", () => {
       brainBaseUrl: "http://localhost:3000",
       workspaceId: "ws-1",
       taskId: "task-abc",
-      authToken: "jwt-xyz",
-      spawnOpenCode: spawn,
+      spawnAgent: spawn,
       validateAssignment: assignmentStub.fn,
       createAgentSession: agentSessionStub.fn as any,
     });
@@ -235,7 +230,6 @@ describe("createOrchestratorSession", () => {
       brainBaseUrl: "http://localhost:3000",
       workspaceId: "ws-1",
       taskId: "task-missing",
-      authToken: "jwt-xyz",
       validateAssignment: assignmentStub.fn,
       createAgentSession: createAgentSessionStub().fn as any,
     });
@@ -261,7 +255,6 @@ describe("createOrchestratorSession", () => {
       brainBaseUrl: "http://localhost:3000",
       workspaceId: "ws-1",
       taskId: "task-abc",
-      authToken: "jwt-xyz",
       validateAssignment: assignmentStub.fn,
       createAgentSession: createAgentSessionStub().fn as any,
     });
@@ -277,7 +270,7 @@ describe("createOrchestratorSession", () => {
       sessionQuery: [],
       createReturn: {},
     });
-    const { spawn } = spawnOpenCodeStub("oc-sess-abc");
+    const { spawn } = spawnAgentStub();
     const agentSessionStub = createAgentSessionStub("agent-sess-42");
     const assignmentStub = validateAssignmentStubOk();
 
@@ -287,8 +280,7 @@ describe("createOrchestratorSession", () => {
       brainBaseUrl: "http://localhost:3000",
       workspaceId: "ws-1",
       taskId: "task-abc",
-      authToken: "jwt-xyz",
-      spawnOpenCode: spawn,
+      spawnAgent: spawn,
       validateAssignment: assignmentStub.fn,
       createAgentSession: agentSessionStub.fn as any,
     });
@@ -301,7 +293,8 @@ describe("createOrchestratorSession", () => {
     const mergeData = orchestratorUpdate!.merge as Record<string, unknown>;
     expect(mergeData.orchestrator_status).toBe("spawning");
     expect(mergeData.worktree_branch).toMatch(/^agent\//);
-    expect(mergeData.opencode_session_id).toBe("oc-sess-abc");
+    // opencode_session_id no longer set (SDK migration)
+    expect(mergeData.opencode_session_id).toBeUndefined();
   });
 });
 
@@ -368,7 +361,7 @@ describe("abortOrchestratorSession", () => {
         workspace: new RecordId("workspace", "ws-1"),
       },
     });
-    const { spawn, abortCalls } = spawnOpenCodeStub("oc-sess-1");
+    const { spawn, abortCalls } = spawnAgentStub();
     const endSessionStub = endAgentSessionStub();
 
     // First create a session to register the handle
@@ -382,8 +375,7 @@ describe("abortOrchestratorSession", () => {
       brainBaseUrl: "http://localhost:3000",
       workspaceId: "ws-1",
       taskId: "task-abc",
-      authToken: "jwt-xyz",
-      spawnOpenCode: spawn,
+      spawnAgent: spawn,
       validateAssignment: assignmentStub.fn,
       createAgentSession: agentSessionStub.fn as any,
     });
