@@ -7,6 +7,13 @@
   "files_touched": [
     "cli/commands/init-content.ts",
     "cli/commands/init.ts",
+    "docs/adrs/ADR-001-opencode-sdk-integration-pattern.md",
+    "docs/adrs/ADR-003-opencode-plugin-over-mcp.md",
+    "docs/adrs/ADR-008-claude-agent-sdk-over-opencode.md",
+    "docs/feature/claude-agent-sdk-migration/design/architecture-design.md",
+    "docs/feature/claude-agent-sdk-migration/design/component-boundaries.md",
+    "docs/feature/claude-agent-sdk-migration/design/data-models.md",
+    "docs/feature/claude-agent-sdk-migration/design/technology-stack.md",
     "docs/requirements/claude-agent-sdk-migration/acceptance-criteria.md",
     "docs/requirements/claude-agent-sdk-migration/dor-checklist.md",
     "docs/requirements/claude-agent-sdk-migration/requirements.md",
@@ -25,6 +32,13 @@
       "context": "/e6/4405dacbf4/0/context.md",
       "content_hash": "/e6/4405dacbf4/0/content_hash.txt",
       "prompt": "/e6/4405dacbf4/0/prompt.txt"
+    },
+    {
+      "metadata": "/e6/4405dacbf4/1/metadata.json",
+      "transcript": "/e6/4405dacbf4/1/full.jsonl",
+      "context": "/e6/4405dacbf4/1/context.md",
+      "content_hash": "/e6/4405dacbf4/1/content_hash.txt",
+      "prompt": "/e6/4405dacbf4/1/prompt.txt"
     }
   ],
   "token_usage": {
