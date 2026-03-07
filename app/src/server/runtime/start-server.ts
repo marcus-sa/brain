@@ -21,6 +21,7 @@ import { createChatRouteHandler } from "../chat/chat-route";
 import { createMcpRouteHandlers } from "../mcp/mcp-route";
 import { wireOrchestratorRoutes } from "../orchestrator/routes";
 import type { ShellExec } from "../orchestrator/worktree-manager";
+import { query } from "@anthropic-ai/claude-code";
 import { BRAIN_SCOPES } from "../auth/scopes";
 import { createClientInfoHandler } from "../auth/client-info-route";
 
@@ -72,6 +73,7 @@ export async function startServer(): Promise<void> {
     shellExec,
     brainBaseUrl: `http://127.0.0.1:${config.port}`,
     sseRegistry: deps.sse,
+    queryFn: query,
   });
 
   const server = Bun.serve({

@@ -7,7 +7,6 @@ export type AgentSpawnConfig = {
   workDir: string;
   workspaceId: string;
   brainBaseUrl: string;
-  systemPrompt?: string;
 };
 
 type McpServerConfig = {
@@ -23,7 +22,8 @@ export type AgentQueryOptions = {
     cwd: string;
     maxTurns: number;
     allowedTools: string[];
-    systemPrompt?: string;
+    systemPrompt: { type: string; preset: string };
+    settingSources: string[];
     mcpServers: Record<string, McpServerConfig>;
     abortController?: AbortController;
   };
@@ -54,9 +54,8 @@ export function buildAgentOptions(
       cwd: config.workDir,
       maxTurns: MAX_TURNS,
       allowedTools: [...ALLOWED_TOOLS],
-      ...(config.systemPrompt !== undefined
-        ? { systemPrompt: config.systemPrompt }
-        : {}),
+      systemPrompt: { type: "preset", preset: "claude_code" },
+      settingSources: ["project"],
       mcpServers: {
         brain: {
           type: "stdio",

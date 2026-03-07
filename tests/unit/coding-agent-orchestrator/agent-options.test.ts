@@ -69,21 +69,21 @@ describe("buildAgentOptions", () => {
   });
 
   // -------------------------------------------------------------------------
-  // Unit: Optional system prompt
+  // Unit: CLAUDE.md preset loading via systemPrompt and settingSources
   // -------------------------------------------------------------------------
 
-  test("includes system prompt when provided", () => {
-    const options = buildAgentOptions({
-      ...defaultConfig,
-      systemPrompt: "You are a task-focused agent.",
-    });
-
-    expect(options.options.systemPrompt).toBe("You are a task-focused agent.");
-  });
-
-  test("omits system prompt when not provided", () => {
+  test("sets systemPrompt to claude_code preset for CLAUDE.md loading", () => {
     const options = buildAgentOptions(defaultConfig);
 
-    expect(options.options.systemPrompt).toBeUndefined();
+    expect(options.options.systemPrompt).toEqual({
+      type: "preset",
+      preset: "claude_code",
+    });
+  });
+
+  test("includes settingSources with project for CLAUDE.md discovery", () => {
+    const options = buildAgentOptions(defaultConfig);
+
+    expect(options.options.settingSources).toEqual(["project"]);
   });
 });
