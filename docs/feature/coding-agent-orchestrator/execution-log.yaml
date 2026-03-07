@@ -1,0 +1,50 @@
+events:
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-03-07T08:21:49Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-03-07T08:23:40Z'
+- d: 'NOT_APPLICABLE: acceptance test covers type-level verification which is the
+    unit-level concern for pure type definitions'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 01-01
+  t: '2026-03-07T08:23:40Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-03-07T08:24:25Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-03-07T08:25:10Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-03-07T08:27:35Z'
+- d: 'NOT_APPLICABLE: acceptance tests pre-written in orchestrator-test-kit, require
+    full server+DB infrastructure not available in unit test phase'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 01-02
+  t: '2026-03-07T08:27:42Z'
+- d: PASS
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-03-07T08:28:45Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-03-07T08:29:31Z'
+project_id: coding-agent-orchestrator
+schema_version: '3.0'
