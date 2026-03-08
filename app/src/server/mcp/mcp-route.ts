@@ -48,6 +48,8 @@ import { createEmbeddingVector } from "../graph/embeddings";
 import type { ServerDependencies } from "../runtime/types";
 import { requireRawId } from "./id-format";
 import { processCommitTaskRefs } from "./commit-check";
+import { generateObject } from "ai";
+import { z } from "zod";
 
 type WorkspaceRow = {
   id: RecordId<"workspace", string>;
@@ -1155,11 +1157,124 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
   }
 
   // =========================================================================
-  // Git — Check commit
+  // Git — Pre-check (LLM analysis for pre-commit hook)
   // =========================================================================
 
-  /** POST /api/mcp/:workspaceId/commits/check — Extract task refs and set tasks to done */
-  async function handleCheckCommit(workspaceId: string, request: Request): Promise<Response> {
+  const commitCheckSchema = z.object({
+    task_completions: z.array(z.object({
+      task_title: z.string().describe("Title of the task this commit likely completes"),
+      confidence: z.number().describe("0-1 confidence score"),
+    })),
+    unlogged_decisions: z.array(z.object({
+      description: z.string().describe("What architectural/design decision was made"),
+    })),
+    constraint_violations: z.array(z.object({
+      constraint: z.string().describe("The constraint being violated"),
+      violation: z.string().describe("How the diff violates it"),
+      severity: z.enum(["warning", "error"]),
+    })),
+    summary: z.string().describe("One-line summary of the analysis"),
+  });
+
+  /** POST /api/mcp/:workspaceId/commits/pre-check — Pre-commit LLM analysis */
+  async function handlePreCheck(workspaceId: string, request: Request): Promise<Response> {
+    const auth = await requireAuth(request, workspaceId);
+    if (auth instanceof Response) return auth;
+    const scopeDenied = requireScope(auth.scopes, "graph:reason");
+    if (scopeDenied) return scopeDenied;
+
+    const body = await parseJsonBody<{
+      project_id?: string;
+      diff: string;
+      commit_message: string;
+    }>(request);
+    if (body instanceof Response) return body;
+    if (!body.diff) return jsonError("diff is required", 400);
+
+    let projectRecord: RecordId<"project", string> | undefined;
+    if (body.project_id) {
+      let projectId: string;
+      try {
+        projectId = requireRawId(body.project_id, "project_id");
+      } catch (error) {
+        return jsonError(error instanceof Error ? error.message : "invalid project_id", 400);
+      }
+      projectRecord = new RecordId("project", projectId);
+      const scopedProjectError = await requireScopedRecord(projectRecord, auth.workspaceRecord, "project");
+      if (scopedProjectError) return scopedProjectError;
+    }
+
+    // Load workspace (or project) context for analysis
+    const [decisions, constraints, activeTasks] = await Promise.all([
+      listProjectDecisions({
+        surreal,
+        workspaceRecord: auth.workspaceRecord,
+        projectRecord,
+      }),
+      listProjectConstraints({
+        surreal,
+        workspaceRecord: auth.workspaceRecord,
+        projectRecord,
+      }),
+      surreal.query<[Array<{ title: string; status: string; source_session?: string }>]>(
+        `SELECT title, status, source_session, created_at FROM task WHERE workspace = $ws AND status IN ["todo", "in_progress"] ORDER BY created_at DESC LIMIT 30;`,
+        { ws: auth.workspaceRecord },
+      ).then((r) => r[0] ?? []),
+    ]);
+
+    // Truncate diff for token budget
+    const truncatedDiff = body.diff.length > 8000 ? body.diff.slice(0, 8000) + "\n... (truncated)" : body.diff;
+
+    const { extractionModel } = deps;
+    const result = await generateObject({
+      model: extractionModel,
+      schema: commitCheckSchema,
+      temperature: 0.1,
+      system: [
+        "You are a pre-commit analyzer for a knowledge graph-integrated development workflow.",
+        "Analyze the staged git diff and commit message against the project context.",
+        "Detect:",
+        "1. Task completions — does this commit complete or substantially finish any active tasks?",
+        "2. Unlogged decisions — does this commit introduce architectural or design decisions not already in the knowledge graph?",
+        "3. Constraint violations — does this commit contradict any confirmed decisions or active constraints?",
+        "Be conservative: only flag items with genuine evidence in the diff. Empty arrays are fine if nothing is detected.",
+      ].join("\n"),
+      prompt: [
+        "## Commit message",
+        body.commit_message || "(no message)",
+        "",
+        "## Staged diff",
+        truncatedDiff,
+        "",
+        "## Active tasks",
+        activeTasks.length > 0
+          ? activeTasks.map((t) => `- [${t.status}] ${t.title}`).join("\n")
+          : "(no active tasks)",
+        "",
+        "## Recent decisions",
+        (() => {
+          const allDecisions = [...decisions.confirmed, ...decisions.provisional, ...decisions.contested];
+          return allDecisions.length > 0
+            ? allDecisions.map((d) => `- [${d.status}] ${d.summary}`).join("\n")
+            : "(no decisions)";
+        })(),
+        "",
+        "## Active constraints",
+        constraints.length > 0
+          ? constraints.map((c) => `- [${c.severity}] ${c.text}`).join("\n")
+          : "(no constraints)",
+      ].join("\n"),
+    });
+
+    return jsonResponse(result.object, 200);
+  }
+
+  // =========================================================================
+  // Git — Post-check (task-ref extraction for post-commit hook)
+  // =========================================================================
+
+  /** POST /api/mcp/:workspaceId/commits/post-check — Extract task refs and set tasks to done */
+  async function handlePostCheck(workspaceId: string, request: Request): Promise<Response> {
     const auth = await requireAuth(request, workspaceId);
     if (auth instanceof Response) return auth;
     const scopeDenied = requireScope(auth.scopes, "graph:reason");
@@ -1533,6 +1648,7 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
     handleSessionStart,
     handleSessionEnd,
     handleLogCommit,
-    handleCheckCommit,
+    handlePreCheck,
+    handlePostCheck,
   };
 }

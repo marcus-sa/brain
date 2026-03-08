@@ -178,5 +178,55 @@ events:
   s: EXECUTED
   sid: 03-02
   t: '2026-03-08T16:17:41Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 03-02
+  t: '2026-03-08T16:18:05Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 04-01
+  t: '2026-03-08T16:31:28Z'
+- d: 'NOT_APPLICABLE: minor fixes, no acceptance test needed'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 04-01
+  t: '2026-03-08T16:31:29Z'
+- d: 'NOT_APPLICABLE: existing tests cover behavior, no new tests needed'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 04-01
+  t: '2026-03-08T16:31:31Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 04-01
+  t: '2026-03-08T16:31:31Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 04-01
+  t: '2026-03-08T16:32:36Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 04-01
+  t: '2026-03-08T16:39:48Z'
+- d: 'NOT_APPLICABLE: integration test, covered by unit tests'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 04-01
+  t: '2026-03-08T16:39:52Z'
+- d: 'NOT_APPLICABLE: existing tests use pure port types, not HTTP client method names'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 04-01
+  t: '2026-03-08T16:39:59Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 04-01
+  t: '2026-03-08T16:41:42Z'
 project_id: task-status-ownership
 schema_version: '3.0'
