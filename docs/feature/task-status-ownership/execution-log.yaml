@@ -1,0 +1,60 @@
+events:
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-03-08T06:47:55Z'
+- d: 'NOT_APPLICABLE: acceptance tests pre-written in tests/smoke/task-status-ownership/session-no-status-change.test.ts
+    lines 134-198'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 01-02
+  t: '2026-03-08T06:48:00Z'
+- d: 'NOT_APPLICABLE: change is pure deletion of 6 lines, no new logic to unit test'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 01-02
+  t: '2026-03-08T06:48:04Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-03-08T15:40:36Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-03-08T15:40:45Z'
+- d: 'NOT_APPLICABLE: acceptance tests pre-written in tests/smoke/task-status-ownership/session-no-status-change.test.ts
+    lines 50-131 covering all 3 criteria (status preserved, source_session linked,
+    workspace validation)'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 01-01
+  t: '2026-03-08T15:40:52Z'
+- d: 'NOT_APPLICABLE: step 01-01 is pure deletion of status promotion logic from createAgentSession,
+    no new domain logic to unit test'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 01-01
+  t: '2026-03-08T15:41:12Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-03-08T15:41:17Z'
+- d: 'BLOCKED_BY_DEPENDENCY: pre-commit hook requires brain server running (brain
+    check-commit fails with ''Brain not configured'')'
+  p: COMMIT
+  s: SKIPPED
+  sid: 01-02
+  t: '2026-03-08T15:42:04Z'
+- d: 'BLOCKED_BY_DEPENDENCY: git pre-commit hook fails with ''Brain not configured.
+    Run: brain init'' - brain CLI requires initialization in this worktree. Changes
+    staged and ready to commit once hook issue resolved.'
+  p: COMMIT
+  s: SKIPPED
+  sid: 01-01
+  t: '2026-03-08T15:42:56Z'
+project_id: task-status-ownership
+schema_version: '3.0'
