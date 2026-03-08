@@ -1,0 +1,35 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "254d266a39df",
+  "session_id": "c7c6e6a8-61bd-4f0a-a985-3502f924961c",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-08T05:49:17.712211Z",
+  "branch": "marcus-sa/task-status-ownership",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "docs/design/task-status-ownership/test-scenarios.md",
+    "tests/smoke/task-status-ownership/backward-transitions.test.ts",
+    "tests/smoke/task-status-ownership/commit-check-endpoint.test.ts",
+    "tests/smoke/task-status-ownership/session-no-status-change.test.ts",
+    "tests/smoke/task-status-ownership/webhook-status-transitions.test.ts",
+    "tests/unit/task-status-ownership/extract-task-refs.test.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "38175507b64a",
+  "token_usage": {
+    "input_tokens": 119,
+    "cache_creation_tokens": 205851,
+    "cache_read_tokens": 4717527,
+    "output_tokens": 27147,
+    "api_call_count": 68
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-08T05:49:16.712779Z",
+    "agent_lines": 1243,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 1243,
+    "agent_percentage": 100
+  }
+}
