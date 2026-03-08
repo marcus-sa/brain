@@ -2,7 +2,7 @@
  * Pure function to determine which tasks need status updates based on push context.
  *
  * Step 03-01: Feature branch push -> set tasks to "done"
- * Step 03-02: Default branch push -> set tasks to "completed" (not yet implemented)
+ * Step 03-02: Default branch push -> set tasks to "completed"
  */
 
 export type TaskStatusContext = {
@@ -22,9 +22,11 @@ export function determineTaskStatusUpdates(input: {
   tasks: TaskStatusContext[];
   isDefaultBranch: boolean;
 }): TaskStatusUpdate[] {
-  // Step 03-02 scope: default branch -> completed (not yet implemented)
   if (input.isDefaultBranch) {
-    return [];
+    // Default branch (merge to main): set eligible tasks to completed
+    return input.tasks
+      .filter((task) => task.currentStatus !== "completed")
+      .map((task) => ({ taskId: task.taskId, targetStatus: "completed" }));
   }
 
   // Feature branch: set eligible tasks to done

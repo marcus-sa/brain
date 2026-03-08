@@ -90,9 +90,9 @@ describe("determineTaskStatusUpdates", () => {
     expect(updates).toEqual([]);
   });
 
-  // --- Default branch -> no updates in step 03-01 scope ---
+  // --- Default branch -> completed ---
 
-  it("Given a push to the default branch, When determining updates, Then no status changes are produced (step 03-02 scope)", () => {
+  it("Given a push to the default branch with in_progress tasks, When determining updates, Then tasks are set to completed", () => {
     const tasks: TaskStatusContext[] = [
       { taskId: "task-005", currentStatus: "in_progress" },
     ];
@@ -102,7 +102,57 @@ describe("determineTaskStatusUpdates", () => {
       isDefaultBranch: true,
     });
 
+    expect(updates).toEqual([
+      { taskId: "task-005", targetStatus: "completed" },
+    ]);
+  });
+
+  it("Given a push to the default branch with done tasks, When determining updates, Then tasks are set to completed", () => {
+    const tasks: TaskStatusContext[] = [
+      { taskId: "task-030", currentStatus: "done" },
+    ];
+
+    const updates = determineTaskStatusUpdates({
+      tasks,
+      isDefaultBranch: true,
+    });
+
+    expect(updates).toEqual([
+      { taskId: "task-030", targetStatus: "completed" },
+    ]);
+  });
+
+  it("Given a push to the default branch with already-completed tasks, When determining updates, Then completed tasks are skipped", () => {
+    const tasks: TaskStatusContext[] = [
+      { taskId: "task-031", currentStatus: "completed" },
+    ];
+
+    const updates = determineTaskStatusUpdates({
+      tasks,
+      isDefaultBranch: true,
+    });
+
     expect(updates).toEqual([]);
+  });
+
+  it("Given a push to the default branch with mixed statuses, When determining updates, Then only non-completed tasks are set to completed", () => {
+    const tasks: TaskStatusContext[] = [
+      { taskId: "task-040", currentStatus: "in_progress" },
+      { taskId: "task-041", currentStatus: "done" },
+      { taskId: "task-042", currentStatus: "completed" },
+      { taskId: "task-043", currentStatus: "open" },
+    ];
+
+    const updates = determineTaskStatusUpdates({
+      tasks,
+      isDefaultBranch: true,
+    });
+
+    expect(updates).toEqual([
+      { taskId: "task-040", targetStatus: "completed" },
+      { taskId: "task-041", targetStatus: "completed" },
+      { taskId: "task-043", targetStatus: "completed" },
+    ]);
   });
 
   // --- Empty tasks ---
