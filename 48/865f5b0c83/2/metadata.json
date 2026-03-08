@@ -1,0 +1,36 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "48865f5b0c83",
+  "session_id": "56dd4ad3-d6c5-4b5d-ba1e-4b6827bb8206",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-08T16:44:06.130183Z",
+  "branch": "marcus-sa/task-status-ownership",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "docs/feature/task-status-ownership/execution-log.yaml",
+    "docs/feature/task-status-ownership/roadmap.yaml",
+    ".nwave/des-config.json",
+    ".nwave/des/deliver-session.json",
+    "docs/design/task-status-ownership/roadmap.yaml"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "81ff548156d9",
+  "checkpoint_transcript_start": 2,
+  "transcript_lines_at_start": 2,
+  "token_usage": {
+    "input_tokens": 0,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 0,
+    "output_tokens": 0,
+    "api_call_count": 0
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-08T16:44:06.12857Z",
+    "agent_lines": 28,
+    "human_added": 11,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 39,
+    "agent_percentage": 71.7948717948718
+  }
+}
