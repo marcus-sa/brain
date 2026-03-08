@@ -1,0 +1,35 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "2ed960e88449",
+  "session_id": "56dd4ad3-d6c5-4b5d-ba1e-4b6827bb8206",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-08T16:03:48.030648Z",
+  "branch": "marcus-sa/task-status-ownership",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "app/src/server/mcp/commit-check.ts",
+    "app/src/server/mcp/mcp-route.ts",
+    "docs/feature/task-status-ownership/execution-log.yaml",
+    "tests/unit/task-status-ownership/commit-check-logic.test.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "81ff548156d9",
+  "checkpoint_transcript_start": 2,
+  "transcript_lines_at_start": 2,
+  "token_usage": {
+    "input_tokens": 0,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 0,
+    "output_tokens": 0,
+    "api_call_count": 0
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-08T16:03:48.01636Z",
+    "agent_lines": 0,
+    "human_added": 162,
+    "human_modified": 93,
+    "human_removed": 0,
+    "total_committed": 162,
+    "agent_percentage": 0
+  }
+}
