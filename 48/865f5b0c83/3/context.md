@@ -10,3 +10,18 @@ Your work should take place in the /Users/marcus/conductor/workspaces/brain/farm
 Each workspace has a .context directory (gitignored) where you can save files to collaborate with other agents.
 The target branch for this workspace is main. Use this for actions like creating new PRs, bisect...
 
+### Prompt 2
+
+Continue from where you left off.
+
+### Prompt 3
+
+<system_instruction>
+The user has attached these files. Read them before proceeding.
+- /Users/marcus/conductor/workspaces/brain/farmerville/.context/attachments/PR instructions-v1.md
+</system_instruction>
+
+
+
+Create a PR
+

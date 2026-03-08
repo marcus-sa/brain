@@ -18,3 +18,18 @@ The user has attached these files. Read them before proceeding.
 
 
 Create a PR
+
+---
+
+Continue from where you left off.
+
+---
+
+<system_instruction>
+The user has attached these files. Read them before proceeding.
+- /Users/marcus/conductor/workspaces/brain/farmerville/.context/attachments/PR instructions-v1.md
+</system_instruction>
+
+
+
+Create a PR
