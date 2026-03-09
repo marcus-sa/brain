@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "bd6d428d4744",
+  "session_id": "a6e62420-14d8-436f-a621-7030c104e00c",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-09T16:01:34.194042Z",
+  "branch": "marcus-sa/fix-smoke-tests-typechecks",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "AGENTS.md"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "25beffe6cc50",
+  "checkpoint_transcript_start": 47,
+  "transcript_lines_at_start": 47,
+  "token_usage": {
+    "input_tokens": 18,
+    "cache_creation_tokens": 15999,
+    "cache_read_tokens": 327006,
+    "output_tokens": 5112,
+    "api_call_count": 6
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-09T16:01:34.05856Z",
+    "agent_lines": 0,
+    "human_added": 7,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 7,
+    "agent_percentage": 0
+  }
+}
