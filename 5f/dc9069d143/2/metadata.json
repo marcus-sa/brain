@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "5fdc9069d143",
+  "session_id": "a6e62420-14d8-436f-a621-7030c104e00c",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-09T15:57:39.601146Z",
+  "branch": "marcus-sa/fix-smoke-tests-typechecks",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "app/src/server/chat/chat-processor.ts",
+    "app/src/server/chat/tools/create-work-item.ts",
+    "app/src/server/extraction/persist-extraction.ts",
+    "app/src/server/suggestion/queries.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "166454cf0fcc",
+  "token_usage": {
+    "input_tokens": 51,
+    "cache_creation_tokens": 36847,
+    "cache_read_tokens": 300684,
+    "output_tokens": 1326,
+    "api_call_count": 8
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-09T15:57:39.563439Z",
+    "agent_lines": 0,
+    "human_added": 0,
+    "human_modified": 10,
+    "human_removed": 0,
+    "total_committed": 0,
+    "agent_percentage": 0
+  }
+}
