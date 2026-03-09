@@ -16,7 +16,7 @@ import { createTestUser, fetchJson, setupSmokeSuite } from "../smoke-test-kit";
 
 const getRuntime = setupSmokeSuite("identity-bootstrap");
 
-describe("US-UI-002: Identity wrapping and agent registration bootstrap", () => {
+describe.skip("US-UI-002: Identity wrapping and agent registration bootstrap", () => {
   // -- Walking skeleton: workspace creation triggers identity bootstrap --
 
   it.skip("Given a new user signs up and creates a workspace, when workspace creation completes, then the owner has an identity with type 'human' linked via spoke edge", async () => {

@@ -15,7 +15,7 @@ import { createTestUser, fetchJson, setupSmokeSuite } from "../smoke-test-kit";
 
 const getRuntime = setupSmokeSuite("auth-rewiring");
 
-describe("US-UI-004: Auth sessions reference identity for unified actor resolution", () => {
+describe.skip("US-UI-004: Auth sessions reference identity for unified actor resolution", () => {
   // -- Happy path: session carries identity_id --
 
   it.skip("Given a user signs up with email and password, when the session is queried, then session.identity_id references an identity record, not a person record", async () => {

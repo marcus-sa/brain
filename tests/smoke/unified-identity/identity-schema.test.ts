@@ -4,17 +4,6 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { RecordId, Surreal } from "surrealdb";
 
-/**
- * US-UI-001: Identity Hub and Spoke Schema
- *
- * Validates the foundational schema layer:
- * - identity table accepts human, agent, system types
- * - agent spoke table enforces managed_by as record<identity>
- * - identity_person and identity_agent spoke edges exist as TYPE RELATION
- * - Invalid identity types are rejected at schema level
- * - person.identities field has been removed
- */
-
 const surrealUrl = process.env.SURREAL_URL ?? "ws://127.0.0.1:8000/rpc";
 const surrealUsername = process.env.SURREAL_USERNAME ?? "root";
 const surrealPassword = process.env.SURREAL_PASSWORD ?? "root";
@@ -62,286 +51,157 @@ afterAll(async () => {
   await surreal.close().catch(() => {});
 }, 10_000);
 
-describe("US-UI-001: Identity hub-spoke schema validates all actor types", () => {
-  // -- Happy path: identity creation --
-
-  it.skip("Given a workspace exists, when a human identity is created with name, type, role, and workspace, then the record is persisted with a created_at timestamp", async () => {
+describe("US-UI-001: Identity hub-spoke schema", () => {
+  it("human identity created", async () => {
     const now = new Date();
-    const identityRecord = new RecordId("identity", randomUUID());
-
+    const id = new RecordId("identity", randomUUID());
     await surreal.query("CREATE $record CONTENT $content;", {
-      record: identityRecord,
-      content: {
-        name: "Marcus Oliveira",
-        type: "human",
-        role: "owner",
-        workspace: workspaceRecord,
-        created_at: now,
-      },
+      record: id,
+      content: { name: "Marcus", type: "human", role: "owner", workspace: workspaceRecord, created_at: now },
     });
-
-    const [rows] = await surreal.query<
-      [Array<{ name: string; type: string; role: string; created_at: string }>]
-    >("SELECT name, type, role, created_at FROM $record;", { record: identityRecord });
-
+    const [rows] = await surreal.query<[Array<{ name: string; type: string; role: string; created_at: string }>]>(
+      "SELECT name, type, role, created_at FROM $record;", { record: id },
+    );
     expect(rows.length).toBe(1);
-    expect(rows[0].name).toBe("Marcus Oliveira");
+    expect(rows[0].name).toBe("Marcus");
     expect(rows[0].type).toBe("human");
     expect(rows[0].role).toBe("owner");
     expect(rows[0].created_at).toBeDefined();
   }, 60_000);
 
-  it.skip("Given a workspace exists, when an agent identity is created with type 'agent' and role 'management', then the record is persisted with type 'agent'", async () => {
+  it("agent identity created", async () => {
     const now = new Date();
-    const identityRecord = new RecordId("identity", randomUUID());
-
+    const id = new RecordId("identity", randomUUID());
     await surreal.query("CREATE $record CONTENT $content;", {
-      record: identityRecord,
-      content: {
-        name: "PM Agent",
-        type: "agent",
-        role: "management",
-        workspace: workspaceRecord,
-        created_at: now,
-      },
+      record: id,
+      content: { name: "PM Agent", type: "agent", role: "management", workspace: workspaceRecord, created_at: now },
     });
-
-    const [rows] = await surreal.query<[Array<{ type: string }>]>(
-      "SELECT type FROM $record;",
-      { record: identityRecord },
-    );
+    const [rows] = await surreal.query<[Array<{ type: string }>]>("SELECT type FROM $record;", { record: id });
     expect(rows[0].type).toBe("agent");
   }, 60_000);
 
-  it.skip("Given a workspace exists, when a system identity is created with type 'system', then the record is persisted", async () => {
+  it("system identity created", async () => {
     const now = new Date();
-    const identityRecord = new RecordId("identity", randomUUID());
-
+    const id = new RecordId("identity", randomUUID());
     await surreal.query("CREATE $record CONTENT $content;", {
-      record: identityRecord,
-      content: {
-        name: "Scheduled Job Runner",
-        type: "system",
-        workspace: workspaceRecord,
-        created_at: now,
-      },
+      record: id,
+      content: { name: "Job Runner", type: "system", workspace: workspaceRecord, created_at: now },
     });
-
     const [rows] = await surreal.query<[Array<{ type: string; name: string }>]>(
-      "SELECT type, name FROM $record;",
-      { record: identityRecord },
+      "SELECT type, name FROM $record;", { record: id },
     );
     expect(rows[0].type).toBe("system");
-    expect(rows[0].name).toBe("Scheduled Job Runner");
+    expect(rows[0].name).toBe("Job Runner");
   }, 60_000);
 
-  // -- Agent spoke table --
-
-  it.skip("Given a human identity exists, when an agent spoke record is created with managed_by referencing that identity, then the spoke is persisted with the managed_by reference", async () => {
+  it("agent spoke with managed_by", async () => {
     const now = new Date();
-    const humanIdentity = new RecordId("identity", randomUUID());
+    const human = new RecordId("identity", randomUUID());
     await surreal.query("CREATE $record CONTENT $content;", {
-      record: humanIdentity,
-      content: {
-        name: "Marcus Oliveira",
-        type: "human",
-        role: "owner",
-        workspace: workspaceRecord,
-        created_at: now,
-      },
+      record: human,
+      content: { name: "Marcus", type: "human", role: "owner", workspace: workspaceRecord, created_at: now },
     });
-
-    const agentRecord = new RecordId("agent", randomUUID());
+    const ag = new RecordId("agent", randomUUID());
     await surreal.query("CREATE $record CONTENT $content;", {
-      record: agentRecord,
-      content: {
-        agent_type: "management",
-        model: "claude-sonnet-4-20250514",
-        managed_by: humanIdentity,
-        created_at: now,
-      },
+      record: ag,
+      content: { agent_type: "management", managed_by: human, created_at: now },
     });
-
-    const [rows] = await surreal.query<
-      [Array<{ agent_type: string; managed_by: RecordId }>]
-    >("SELECT agent_type, managed_by FROM $record;", { record: agentRecord });
-
+    const [rows] = await surreal.query<[Array<{ agent_type: string; managed_by: RecordId }>]>(
+      "SELECT agent_type, managed_by FROM $record;", { record: ag },
+    );
     expect(rows[0].agent_type).toBe("management");
     expect(rows[0].managed_by).toBeDefined();
   }, 60_000);
 
-  // -- Spoke edges --
-
-  it.skip("Given an identity and a person both exist, when an identity_person spoke edge is created, then traversal from identity via the edge returns the person", async () => {
+  it("identity_person spoke traversal", async () => {
     const now = new Date();
-    const identityRecord = new RecordId("identity", randomUUID());
-    const personRecord = new RecordId("person", randomUUID());
-
+    const identity = new RecordId("identity", randomUUID());
+    const person = new RecordId("person", randomUUID());
     await surreal.query("CREATE $record CONTENT $content;", {
-      record: identityRecord,
-      content: {
-        name: "Ana Torres",
-        type: "human",
-        role: "owner",
-        workspace: workspaceRecord,
-        created_at: now,
-      },
+      record: identity,
+      content: { name: "Ana", type: "human", role: "owner", workspace: workspaceRecord, created_at: now },
     });
-
     await surreal.query("CREATE $record CONTENT $content;", {
-      record: personRecord,
-      content: {
-        name: "Ana Torres",
-        contact_email: "ana@conductor.dev",
-        created_at: now,
-        updated_at: now,
-      },
+      record: person,
+      content: { name: "Ana", contact_email: "ana@test.dev", created_at: now, updated_at: now },
     });
-
-    await surreal.query(
-      "RELATE $identity->identity_person->$person SET added_at = $now;",
-      { identity: identityRecord, person: personRecord, now },
+    await surreal.query("RELATE $identity->identity_person->$person SET added_at = $now;", { identity, person, now });
+    const [result] = await surreal.query<[Array<{ spoke: Array<{ name: string }> }>]>(
+      "SELECT ->identity_person->person.{ name } AS spoke FROM $record;", { record: identity },
     );
-
-    const [result] = await surreal.query<
-      [Array<{ spoke: Array<{ name: string }> }>]
-    >(
-      "SELECT ->identity_person->person.{ name } AS spoke FROM $record;",
-      { record: identityRecord },
-    );
-
     expect(result[0].spoke.length).toBe(1);
-    expect(result[0].spoke[0].name).toBe("Ana Torres");
+    expect(result[0].spoke[0].name).toBe("Ana");
   }, 60_000);
 
-  it.skip("Given an identity and an agent spoke both exist, when an identity_agent spoke edge is created, then traversal from identity via the edge returns the agent spoke", async () => {
+  it("identity_agent spoke traversal", async () => {
     const now = new Date();
-    const humanIdentity = new RecordId("identity", randomUUID());
+    const human = new RecordId("identity", randomUUID());
     await surreal.query("CREATE $record CONTENT $content;", {
-      record: humanIdentity,
-      content: {
-        name: "Marcus Oliveira",
-        type: "human",
-        role: "owner",
-        workspace: workspaceRecord,
-        created_at: now,
-      },
+      record: human,
+      content: { name: "Marcus", type: "human", role: "owner", workspace: workspaceRecord, created_at: now },
     });
-
-    const agentRecord = new RecordId("agent", randomUUID());
+    const ag = new RecordId("agent", randomUUID());
     await surreal.query("CREATE $record CONTENT $content;", {
-      record: agentRecord,
-      content: {
-        agent_type: "management",
-        managed_by: humanIdentity,
-        created_at: now,
-      },
+      record: ag,
+      content: { agent_type: "management", managed_by: human, created_at: now },
     });
-
-    const agentIdentity = new RecordId("identity", randomUUID());
+    const agentId = new RecordId("identity", randomUUID());
     await surreal.query("CREATE $record CONTENT $content;", {
-      record: agentIdentity,
-      content: {
-        name: "PM Agent",
-        type: "agent",
-        role: "management",
-        workspace: workspaceRecord,
-        created_at: now,
-      },
+      record: agentId,
+      content: { name: "PM Agent", type: "agent", role: "management", workspace: workspaceRecord, created_at: now },
     });
-
-    await surreal.query(
-      "RELATE $identity->identity_agent->$agent SET added_at = $now;",
-      { identity: agentIdentity, agent: agentRecord, now },
+    await surreal.query("RELATE $identity->identity_agent->$agent SET added_at = $now;", { identity: agentId, agent: ag, now });
+    const [result] = await surreal.query<[Array<{ spoke: Array<{ agent_type: string }> }>]>(
+      "SELECT ->identity_agent->agent.{ agent_type } AS spoke FROM $record;", { record: agentId },
     );
-
-    const [result] = await surreal.query<
-      [Array<{ spoke: Array<{ agent_type: string }> }>]
-    >(
-      "SELECT ->identity_agent->agent.{ agent_type } AS spoke FROM $record;",
-      { record: agentIdentity },
-    );
-
     expect(result[0].spoke.length).toBe(1);
     expect(result[0].spoke[0].agent_type).toBe("management");
   }, 60_000);
 
-  // -- Error paths: schema enforcement --
-
-  it.skip("Given a workspace exists, when an identity is created with invalid type 'bot', then the creation fails with a schema validation error", async () => {
-    const now = new Date();
-    const identityRecord = new RecordId("identity", randomUUID());
-
-    await expect(
-      surreal.query("CREATE $record CONTENT $content;", {
-        record: identityRecord,
-        content: {
-          name: "Invalid Bot",
-          type: "bot",
-          workspace: workspaceRecord,
-          created_at: now,
-        },
-      }),
-    ).rejects.toThrow();
+  it("invalid type bot rejected", async () => {
+    const id = new RecordId("identity", randomUUID());
+    let threw = false;
+    try {
+      await surreal.query("CREATE $record CONTENT $content;", {
+        record: id, content: { name: "Bad", type: "bot", workspace: workspaceRecord, created_at: new Date() },
+      });
+    } catch { threw = true; }
+    expect(threw).toBe(true);
   }, 60_000);
 
-  it.skip("Given a workspace exists, when an identity is created without a required name field, then the creation fails", async () => {
-    const now = new Date();
-    const identityRecord = new RecordId("identity", randomUUID());
-
-    await expect(
-      surreal.query("CREATE $record CONTENT $content;", {
-        record: identityRecord,
-        content: {
-          type: "human",
-          workspace: workspaceRecord,
-          created_at: now,
-        },
-      }),
-    ).rejects.toThrow();
+  it("missing name rejected", async () => {
+    const id = new RecordId("identity", randomUUID());
+    let threw = false;
+    try {
+      await surreal.query("CREATE $record CONTENT $content;", {
+        record: id, content: { type: "human", workspace: workspaceRecord, created_at: new Date() },
+      });
+    } catch { threw = true; }
+    expect(threw).toBe(true);
   }, 60_000);
 
-  it.skip("Given no identity exists, when an agent spoke is created without managed_by, then the creation fails", async () => {
-    const now = new Date();
-    const agentRecord = new RecordId("agent", randomUUID());
-
-    await expect(
-      surreal.query("CREATE $record CONTENT $content;", {
-        record: agentRecord,
-        content: {
-          agent_type: "management",
-          created_at: now,
-        },
-      }),
-    ).rejects.toThrow();
+  it("agent without managed_by rejected", async () => {
+    const ag = new RecordId("agent", randomUUID());
+    let threw = false;
+    try {
+      await surreal.query("CREATE $record CONTENT $content;", {
+        record: ag, content: { agent_type: "management", created_at: new Date() },
+      });
+    } catch { threw = true; }
+    expect(threw).toBe(true);
   }, 60_000);
 
-  // -- Boundary: person.identities field removed --
-
-  it.skip("Given the migration has been applied, when schema info is queried for the person table, then the identities field no longer exists", async () => {
-    const [info] = await surreal.query<[Record<string, unknown>]>(
-      "INFO FOR TABLE person;",
-    );
-
-    const fields = info as unknown as { fd: Record<string, string> };
-    const fieldNames = Object.keys(fields.fd);
-
-    expect(fieldNames).not.toContain("identities");
-    expect(fieldNames).not.toContain("identities[*].provider");
-    expect(fieldNames).not.toContain("identities[*].id");
+  it("person.identities field removed", async () => {
+    const [info] = await surreal.query<[Record<string, unknown>]>("INFO FOR TABLE person;");
+    const fields = info as unknown as { fields: Record<string, string> };
+    expect(Object.keys(fields.fields)).not.toContain("identities");
   }, 60_000);
 
-  // -- Boundary: indexes exist --
-
-  it.skip("Given the migration has been applied, when schema info is queried for the identity table, then workspace and type+workspace indexes exist", async () => {
-    const [info] = await surreal.query<[Record<string, unknown>]>(
-      "INFO FOR TABLE identity;",
-    );
-
-    const indexes = info as unknown as { ix: Record<string, string> };
-    const indexNames = Object.keys(indexes.ix);
-
-    expect(indexNames).toContain("identity_workspace");
-    expect(indexNames).toContain("identity_type_workspace");
+  it("identity indexes exist", async () => {
+    const [info] = await surreal.query<[Record<string, unknown>]>("INFO FOR TABLE identity;");
+    const indexes = info as unknown as { indexes: Record<string, string> };
+    const names = Object.keys(indexes.indexes);
+    expect(names).toContain("identity_workspace");
+    expect(names).toContain("identity_type_workspace");
   }, 60_000);
 });

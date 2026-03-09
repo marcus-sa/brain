@@ -279,15 +279,33 @@ DEFINE FIELD contact_email ON person TYPE string;
 DEFINE FIELD contact_phone ON person TYPE option<string>;
 DEFINE FIELD email_verified ON person TYPE bool DEFAULT false;
 DEFINE FIELD image ON person TYPE option<string>;
-DEFINE FIELD identities ON person TYPE option<array<object>>;
-DEFINE FIELD identities[*].provider ON person TYPE string;
-DEFINE FIELD identities[*].id ON person TYPE string;
 DEFINE FIELD embedding ON person TYPE option<array<float>>;
 DEFINE FIELD created_at ON person TYPE datetime;
 DEFINE FIELD updated_at ON person TYPE datetime;
 DEFINE INDEX person_name ON person FIELDS name;
 DEFINE INDEX person_email ON person FIELDS contact_email UNIQUE;
 DEFINE INDEX idx_person_embedding ON person FIELDS embedding HNSW DIMENSION 1536 DIST COSINE;
+
+DEFINE TABLE identity SCHEMAFULL;
+DEFINE FIELD name ON identity TYPE string;
+DEFINE FIELD type ON identity TYPE string ASSERT $value IN ['human', 'agent', 'system'];
+DEFINE FIELD role ON identity TYPE option<string>;
+DEFINE FIELD workspace ON identity TYPE record<workspace>;
+DEFINE FIELD created_at ON identity TYPE datetime;
+DEFINE INDEX identity_workspace ON identity FIELDS workspace;
+DEFINE INDEX identity_type_workspace ON identity FIELDS type, workspace;
+
+DEFINE TABLE agent SCHEMAFULL;
+DEFINE FIELD agent_type ON agent TYPE string ASSERT $value IN ['code_agent', 'architect', 'management', 'design_partner', 'observer', 'chat_agent', 'mcp'];
+DEFINE FIELD model ON agent TYPE option<string>;
+DEFINE FIELD managed_by ON agent TYPE record<identity>;
+DEFINE FIELD created_at ON agent TYPE datetime;
+
+DEFINE TABLE identity_person TYPE RELATION IN identity OUT person SCHEMAFULL;
+DEFINE FIELD added_at ON identity_person TYPE datetime;
+
+DEFINE TABLE identity_agent TYPE RELATION IN identity OUT agent SCHEMAFULL;
+DEFINE FIELD added_at ON identity_agent TYPE datetime;
 
 DEFINE TABLE meeting SCHEMAFULL;
 DEFINE FIELD title ON meeting TYPE string;

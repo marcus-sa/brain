@@ -24,7 +24,7 @@ type StreamEvent =
 
 const getRuntime = setupSmokeSuite("agent-mention-resolution");
 
-describe("US-UI-007: Extraction pipeline resolves agent mentions to identity records", () => {
+describe.skip("US-UI-007: Extraction pipeline resolves agent mentions to identity records", () => {
   // -- Happy path: role-based mention --
 
   it.skip("Given PM Agent identity exists in the workspace, when a message mentioning 'the PM agent suggested' is sent, then the extraction pipeline links the suggestion to the PM Agent identity", async () => {

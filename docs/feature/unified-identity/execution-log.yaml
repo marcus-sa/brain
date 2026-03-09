@@ -1,0 +1,24 @@
+events:
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-03-09T06:38:43Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-03-09T06:42:55Z'
+- d: 'NOT_APPLICABLE: schema-only step with no domain logic; smoke tests against real
+    SurrealDB are the correct test type'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 01-01
+  t: '2026-03-09T06:43:01Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-03-09T07:40:54Z'
+project_id: unified-identity
+schema_version: '3.0'
