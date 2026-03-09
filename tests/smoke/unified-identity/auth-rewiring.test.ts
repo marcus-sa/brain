@@ -51,12 +51,19 @@ describe("US-UI-004: Auth resolves identity from person via spoke traversal", ()
     const wsRecord = new RecordId("workspace", workspace.workspaceId);
 
     // Find identity created by bootstrap for this workspace
-    const [identities] = await surreal.query<
-      [Array<{ id: RecordId; type: string; name: string }>]
-    >(
-      "SELECT id, type, name FROM identity WHERE workspace = $ws AND type = 'human' LIMIT 1;",
-      { ws: wsRecord },
-    );
+    // Retry briefly in case the server's DB write hasn't propagated to our connection yet
+    let identities: Array<{ id: RecordId; type: string; name: string }> = [];
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const [rows] = await surreal.query<
+        [Array<{ id: RecordId; type: string; name: string }>]
+      >(
+        "SELECT id, type, name FROM identity WHERE workspace = $ws AND type = 'human' LIMIT 1;",
+        { ws: wsRecord },
+      );
+      identities = rows;
+      if (identities.length > 0) break;
+      await new Promise((r) => setTimeout(r, 200));
+    }
 
     expect(identities.length).toBeGreaterThan(0);
     expect(identities[0].type).toBe("human");
