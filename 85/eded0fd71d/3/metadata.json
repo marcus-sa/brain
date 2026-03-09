@@ -1,0 +1,37 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "85eded0fd71d",
+  "session_id": "b498251f-2908-46ff-84af-a9cfe4a54ecf",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-09T19:54:46.605783Z",
+  "branch": "marcus-sa/intent-node-issue",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "tests/acceptance/intent-node/intent-test-kit.ts",
+    ".github/workflows/ci.yml",
+    "AGENTS.md",
+    "app/src/server/intent/intent-queries.ts",
+    "app/src/server/intent/intent-routes.ts",
+    "app/src/server/runtime/start-server.ts",
+    "docker-compose.yml",
+    "schema/migrations/0021_intent_node.surql"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "0c3e0a59b19b",
+  "token_usage": {
+    "input_tokens": 0,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 0,
+    "output_tokens": 0,
+    "api_call_count": 0
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-09T19:54:46.602292Z",
+    "agent_lines": 0,
+    "human_added": 66,
+    "human_modified": 18,
+    "human_removed": 0,
+    "total_committed": 66,
+    "agent_percentage": 0
+  }
+}
