@@ -26,6 +26,9 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun test tests/unit/
+        env:
+          NODE_ENV: test
+          LOG_LEVEL: debug
 
   smoke-tests:
     runs-on: ubicloud-standard-8
@@ -50,6 +53,8 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run test:smoke
         env:
+          NODE_ENV: test
+          LOG_LEVEL: debug
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
           BETTER_AUTH_URL: http://localhost:3000
