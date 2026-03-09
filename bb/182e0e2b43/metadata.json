@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "bb182e0e2b43",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/intent-node-issue",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "docs/feature/intent-node/intent-node-reference.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/bb/182e0e2b43/0/metadata.json",
+      "transcript": "/bb/182e0e2b43/0/full.jsonl",
+      "context": "/bb/182e0e2b43/0/context.md",
+      "content_hash": "/bb/182e0e2b43/0/content_hash.txt",
+      "prompt": "/bb/182e0e2b43/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 52,
+    "cache_creation_tokens": 179831,
+    "cache_read_tokens": 1181208,
+    "output_tokens": 9318,
+    "api_call_count": 21
+  }
+}
