@@ -152,9 +152,9 @@ describe("Review Flow: Accepting agent work", () => {
     // Then the work is accepted
     expect(result.accepted).toBe(true);
 
-    // And the task is marked as done
+    // Task status remains "ready" — accept completes the session, not the task
     const taskStatus = await getTaskStatus(surreal, task.taskId);
-    expect(taskStatus).toBe("done");
+    expect(taskStatus).toBe("ready");
 
     // And the agent session is marked as completed
     const status = await getSessionStatus(

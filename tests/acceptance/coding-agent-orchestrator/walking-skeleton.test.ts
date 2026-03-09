@@ -90,9 +90,9 @@ describe("Walking Skeleton: User assigns task, monitors agent, accepts work", ()
     // Then the work is accepted
     expect(acceptResult.accepted).toBe(true);
 
-    // And the task is marked as done
+    // Task status remains "ready" — accept completes the session, not the task
     const finalTaskStatus = await getTaskStatus(surreal, task.taskId);
-    expect(finalTaskStatus).toBe("done");
+    expect(finalTaskStatus).toBe("ready");
 
     // And the agent session is completed
     const finalSessions = await getAgentSessionsForTask(surreal, task.taskId);

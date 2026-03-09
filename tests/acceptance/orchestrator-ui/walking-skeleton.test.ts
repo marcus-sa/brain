@@ -125,9 +125,9 @@ describe("UI Walking Skeleton: Agent Delegation Across Three Surfaces", () => {
     );
     expect(acceptResult.accepted).toBe(true);
 
-    // Then the task status is "done"
+    // Task status remains "ready" — accept completes the session, not the task
     const finalStatus = await getTaskStatus(runtime.surreal, task.taskId);
-    expect(finalStatus).toBe("done");
+    expect(finalStatus).toBe("ready");
   }, 60_000);
 
   // US-2.3
