@@ -102,3 +102,11 @@ The user has attached these files. Read them before proceeding.
 
 
 Fix the failing CI actions. I've attached the failure logs.
+
+---
+
+Continue from where you left off.
+
+---
+
+SURREAL_URL=ws://127.0.0.1:8000/rpc

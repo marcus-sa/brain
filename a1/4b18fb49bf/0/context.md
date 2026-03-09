@@ -102,3 +102,11 @@ The user has attached these files. Read them before proceeding.
 
 Fix the failing CI actions. I've attached the failure logs.
 
+### Prompt 16
+
+Continue from where you left off.
+
+### Prompt 17
+
+SURREAL_URL=ws://127.0.0.1:8000/rpc
+
