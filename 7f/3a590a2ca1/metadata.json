@@ -1,0 +1,29 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "7f3a590a2ca1",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/intent-node-issue",
+  "checkpoints_count": 5,
+  "files_touched": [
+    ".github/workflows/ci.yml",
+    "docker-compose.yml",
+    "tests/acceptance/intent-node/intent-test-kit.ts",
+    "tests/acceptance/intent-node/walking-skeleton.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/7f/3a590a2ca1/0/metadata.json",
+      "transcript": "/7f/3a590a2ca1/0/full.jsonl",
+      "context": "/7f/3a590a2ca1/0/context.md",
+      "content_hash": "/7f/3a590a2ca1/0/content_hash.txt",
+      "prompt": "/7f/3a590a2ca1/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 231,
+    "cache_creation_tokens": 432700,
+    "cache_read_tokens": 11276741,
+    "output_tokens": 53682,
+    "api_call_count": 132
+  }
+}

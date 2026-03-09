@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "7f3a590a2ca1",
+  "session_id": "5d3eb319-80f2-4283-bfa3-ffdd9f2feae6",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-09T18:53:20.182797Z",
+  "branch": "marcus-sa/intent-node-issue",
+  "checkpoints_count": 5,
+  "files_touched": [
+    ".github/workflows/ci.yml",
+    "docker-compose.yml",
+    "tests/acceptance/intent-node/intent-test-kit.ts",
+    "tests/acceptance/intent-node/walking-skeleton.test.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "119947ccdb5f",
+  "token_usage": {
+    "input_tokens": 231,
+    "cache_creation_tokens": 432700,
+    "cache_read_tokens": 11276741,
+    "output_tokens": 53682,
+    "api_call_count": 132
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-09T18:53:18.776184Z",
+    "agent_lines": 96,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 96,
+    "agent_percentage": 100
+  }
+}
