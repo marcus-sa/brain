@@ -36,19 +36,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
-      - name: Start SurrealDB
-        run: |
-          docker run -d --name surrealdb \
-            -p 8000:8000 \
-            surrealdb/surrealdb:v3.0.0 \
-            start --user root --pass root --allow-guests memory
-      - name: Wait for SurrealDB
-        run: |
-          for i in $(seq 1 20); do
-            docker exec surrealdb /surreal isready 2>/dev/null && exit 0
-            sleep 1
-          done
-          echo "SurrealDB failed to start" && docker logs surrealdb && exit 1
+      - uses: surrealdb/setup-surreal@v2
+        with:
+          surrealdb_version: v3.0.0
+          surrealdb_port: 8000
+          surrealdb_username: root
+          surrealdb_password: root
+          surrealdb_auth: false
+          surrealdb_additional_args: --allow-guests
       - run: bun run test:smoke
         env:
           NODE_ENV: test
