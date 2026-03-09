@@ -1,0 +1,31 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "7125121376d2",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/identity-hub-spoke",
+  "checkpoints_count": 0,
+  "files_touched": [
+    ".nwave/des/deliver-session.json",
+    "docs/feature/unified-identity/execution-log.yaml",
+    "docs/feature/unified-identity/roadmap.yaml",
+    "schema/migrations/0017_identity_hub_spoke.surql",
+    "schema/surreal-schema.surql",
+    "tests/smoke/unified-identity/identity-schema.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/71/25121376d2/0/metadata.json",
+      "transcript": "/71/25121376d2/0/full.jsonl",
+      "context": "/71/25121376d2/0/context.md",
+      "content_hash": "/71/25121376d2/0/content_hash.txt",
+      "prompt": "/71/25121376d2/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 193,
+    "cache_creation_tokens": 146461,
+    "cache_read_tokens": 11781455,
+    "output_tokens": 51653,
+    "api_call_count": 111
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "7125121376d2",
+  "session_id": "4d4ff12e-ad32-4d6b-ae11-5050541579cc",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-09T07:41:07.937361Z",
+  "branch": "marcus-sa/identity-hub-spoke",
+  "checkpoints_count": 0,
+  "files_touched": [
+    ".nwave/des/deliver-session.json",
+    "docs/feature/unified-identity/execution-log.yaml",
+    "docs/feature/unified-identity/roadmap.yaml",
+    "schema/migrations/0017_identity_hub_spoke.surql",
+    "schema/surreal-schema.surql",
+    "tests/smoke/unified-identity/identity-schema.test.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "962fd8479094",
+  "token_usage": {
+    "input_tokens": 193,
+    "cache_creation_tokens": 146461,
+    "cache_read_tokens": 11781455,
+    "output_tokens": 51653,
+    "api_call_count": 111
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-09T07:41:07.681192Z",
+    "agent_lines": 104,
+    "human_added": 0,
+    "human_modified": 97,
+    "human_removed": 132,
+    "total_committed": 201,
+    "agent_percentage": 51.741293532338304
+  }
+}
