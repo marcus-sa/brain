@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck:
+    runs-on: ubicloud-standard-2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+
+  unit-tests:
+    runs-on: ubicloud-standard-2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun test tests/unit/
+
+  smoke-tests:
+    runs-on: ubicloud-standard-8
+    services:
+      surrealdb:
+        image: surrealdb/surrealdb:v3.0.0
+        ports:
+          - 8000:8000
+        options: >-
+          --health-cmd "/surreal isready"
+          --health-interval 2s
+          --health-timeout 10s
+          --health-retries 10
+        env:
+          SURREAL_USER: root
+          SURREAL_PASS: root
+          SURREAL_ALLOW_GUESTS: "true"
+          SURREAL_PATH: memory
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run test:smoke
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          BETTER_AUTH_URL: http://localhost:3000
+          GITHUB_CLIENT_ID: ${{ secrets.GITHUB_CLIENT_ID }}
+          GITHUB_CLIENT_SECRET: ${{ secrets.GITHUB_CLIENT_SECRET }}
+          CHAT_AGENT_MODEL: ${{ vars.CHAT_AGENT_MODEL }}
+          EXTRACTION_MODEL: ${{ vars.EXTRACTION_MODEL }}
+          ANALYTICS_MODEL: ${{ vars.ANALYTICS_MODEL }}
+          PM_AGENT_MODEL: ${{ vars.PM_AGENT_MODEL }}
+          OPENROUTER_EMBEDDING_MODEL: ${{ vars.OPENROUTER_EMBEDDING_MODEL }}
+          EMBEDDING_DIMENSION: ${{ vars.EMBEDDING_DIMENSION }}
+          EXTRACTION_STORE_THRESHOLD: ${{ vars.EXTRACTION_STORE_THRESHOLD }}
+          OPENAI_BASE_URL: https://openrouter.ai/api/v1
+          EXTRACTION_DISPLAY_THRESHOLD: ${{ vars.EXTRACTION_DISPLAY_THRESHOLD }}
+          SURREAL_URL: http://localhost:8000
+          SURREAL_USERNAME: root
+          SURREAL_PASSWORD: root
+          SURREAL_NAMESPACE: test
+          SURREAL_DATABASE: test
+          PORT: "3000"
