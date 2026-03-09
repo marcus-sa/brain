@@ -32,25 +32,23 @@ jobs:
 
   smoke-tests:
     runs-on: ubicloud-standard-8
-    services:
-      surrealdb:
-        image: surrealdb/surrealdb:v3.0.0
-        ports:
-          - 8000:8000
-        options: >-
-          --health-cmd "/surreal isready"
-          --health-interval 2s
-          --health-timeout 10s
-          --health-retries 10
-        env:
-          SURREAL_USER: root
-          SURREAL_PASS: root
-          SURREAL_ALLOW_GUESTS: "true"
-          SURREAL_PATH: memory
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
+      - name: Start SurrealDB
+        run: |
+          docker run -d --name surrealdb \
+            -p 8000:8000 \
+            surrealdb/surrealdb:v3.0.0 \
+            start --user root --pass root --allow-guests memory
+      - name: Wait for SurrealDB
+        run: |
+          for i in $(seq 1 20); do
+            docker exec surrealdb /surreal isready 2>/dev/null && exit 0
+            sleep 1
+          done
+          echo "SurrealDB failed to start" && docker logs surrealdb && exit 1
       - run: bun run test:smoke
         env:
           NODE_ENV: test
