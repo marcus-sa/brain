@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "d1c18878991a",
+  "session_id": "4d4ff12e-ad32-4d6b-ae11-5050541579cc",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-09T09:55:13.516748Z",
+  "branch": "marcus-sa/identity-hub-spoke",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "docs/feature/unified-identity/execution-log.yaml"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "14af454eb746",
+  "token_usage": {
+    "input_tokens": 446,
+    "cache_creation_tokens": 460982,
+    "cache_read_tokens": 24469810,
+    "output_tokens": 96142,
+    "api_call_count": 248
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-09T09:55:12.445606Z",
+    "agent_lines": 17,
+    "human_added": 32,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 49,
+    "agent_percentage": 34.69387755102041
+  }
+}
