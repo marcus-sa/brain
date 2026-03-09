@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "00565225665d",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/fix-smoke-tests-typechecks",
+  "checkpoints_count": 0,
+  "files_touched": [
+    ".github/workflows/ci.yml"
+  ],
+  "sessions": [
+    {
+      "metadata": "/00/565225665d/0/metadata.json",
+      "transcript": "/00/565225665d/0/full.jsonl",
+      "context": "/00/565225665d/0/context.md",
+      "content_hash": "/00/565225665d/0/content_hash.txt",
+      "prompt": "/00/565225665d/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 67,
+    "cache_creation_tokens": 40251,
+    "cache_read_tokens": 2564113,
+    "output_tokens": 5551,
+    "api_call_count": 25
+  }
+}
