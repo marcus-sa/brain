@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "df3cd1ebdd49",
+  "session_id": "f4d8f62c-bc66-4490-a5f6-88d2f3500073",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-09T19:27:05.470592Z",
+  "branch": "marcus-sa/intent-node-issue",
+  "checkpoints_count": 0,
+  "files_touched": [
+    ".github/workflows/ci.yml"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "63dd4884d7c8",
+  "token_usage": {
+    "input_tokens": 191,
+    "cache_creation_tokens": 312388,
+    "cache_read_tokens": 2323163,
+    "output_tokens": 15451,
+    "api_call_count": 39
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-09T19:27:05.286244Z",
+    "agent_lines": 1,
+    "human_added": 2,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 3,
+    "agent_percentage": 33.33333333333333
+  }
+}
