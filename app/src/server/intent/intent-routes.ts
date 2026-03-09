@@ -1,6 +1,8 @@
 import { jsonError, jsonResponse } from "../http/response";
 import { logError, logInfo } from "../http/observability";
 import { updateIntentStatus, listPendingIntents } from "./intent-queries";
+import { evaluateIntent, createLlmEvaluator } from "./authorizer";
+import { routeByRisk } from "./risk-router";
 import type { ServerDependencies } from "../runtime/types";
 import type { IntentRecord } from "./types";
 
@@ -16,6 +18,8 @@ type IntentRouteHandlers = {
 
 export function createIntentRouteHandlers(deps: ServerDependencies): IntentRouteHandlers {
   const { surreal } = deps;
+
+  const llmEvaluator = createLlmEvaluator(deps.extractionModel);
 
   const handleEvaluate = async (request: Request): Promise<Response> => {
     // Called by SurrealQL EVENT via http::post - receives full intent record as body
@@ -40,8 +44,89 @@ export function createIntentRouteHandlers(deps: ServerDependencies): IntentRoute
       goal: body.goal,
     });
 
-    // Stub: full evaluation logic wired in step 01-05
-    return jsonResponse({ received: true, intentId }, 200);
+    // Idempotency guard: only process intents in pending_auth status
+    if (body.status !== "pending_auth") {
+      logInfo("intent.evaluate.skipped", "Intent not in pending_auth status", {
+        intentId,
+        currentStatus: body.status,
+      });
+      return jsonError(`Intent is in '${body.status}' status, expected 'pending_auth'`, 409);
+    }
+
+    try {
+      // Pipeline: policy gate -> LLM evaluator -> risk router -> status update
+      const evaluation = await evaluateIntent({
+        intent: {
+          goal: body.goal,
+          reasoning: body.reasoning,
+          action_spec: body.action_spec,
+          budget_limit: body.budget_limit,
+        },
+        policy: {},
+        llmEvaluator,
+      });
+
+      const routing = routeByRisk(evaluation);
+      const evaluationRecord = {
+        ...evaluation,
+        evaluated_at: new Date(),
+      };
+
+      switch (routing.route) {
+        case "auto_approve": {
+          const result = await updateIntentStatus(surreal, intentId, "authorized", {
+            evaluation: evaluationRecord,
+          });
+          if (!result.ok) {
+            logError("intent.evaluate.update_failed", result.error, { intentId });
+            return jsonError(result.error, 409);
+          }
+          logInfo("intent.authorized", "Intent auto-approved", { intentId });
+          return jsonResponse({ intentId, status: "authorized", evaluation }, 200);
+        }
+
+        case "veto_window": {
+          const result = await updateIntentStatus(surreal, intentId, "pending_veto", {
+            evaluation: evaluationRecord,
+            veto_expires_at: routing.expires_at,
+          });
+          if (!result.ok) {
+            logError("intent.evaluate.update_failed", result.error, { intentId });
+            return jsonError(result.error, 409);
+          }
+          logInfo("intent.pending_veto", "Intent requires veto window", {
+            intentId,
+            veto_expires_at: routing.expires_at.toISOString(),
+          });
+          return jsonResponse({
+            intentId,
+            status: "pending_veto",
+            evaluation,
+            veto_expires_at: routing.expires_at.toISOString(),
+          }, 200);
+        }
+
+        case "reject": {
+          const result = await updateIntentStatus(surreal, intentId, "vetoed", {
+            evaluation: evaluationRecord,
+          });
+          if (!result.ok) {
+            logError("intent.evaluate.update_failed", result.error, { intentId });
+            return jsonError(result.error, 409);
+          }
+          logInfo("intent.vetoed", "Intent rejected by evaluation", {
+            intentId,
+            reason: routing.reason,
+          });
+          return jsonResponse({ intentId, status: "vetoed", evaluation }, 200);
+        }
+      }
+    } catch (error) {
+      logError("intent.evaluate.error", error instanceof Error ? error.message : String(error), {
+        intentId,
+      });
+      return jsonError("Internal evaluation error", 500);
+    }
   };
 
   const handleVeto = async (
