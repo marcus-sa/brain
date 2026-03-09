@@ -36,7 +36,7 @@ describe("Milestone 1: Intent Schema and Creation (US-1)", () => {
   // ---------------------------------------------------------------------------
   // US-1: Schema enforces required fields
   // ---------------------------------------------------------------------------
-  it.skip("rejects intent creation when required fields are missing", async () => {
+  it("rejects intent creation when required fields are missing", async () => {
     const { surreal } = getRuntime();
 
     // Given the intent schema requires goal, reasoning, status, and action_spec
@@ -69,11 +69,11 @@ describe("Milestone 1: Intent Schema and Creation (US-1)", () => {
   // ---------------------------------------------------------------------------
   // US-1: Status enum is enforced at DB level
   // ---------------------------------------------------------------------------
-  it.skip("rejects intent with invalid status value", async () => {
+  it("rejects intent with invalid status value", async () => {
     const { surreal } = getRuntime();
 
     // Given the intent status must be one of the defined lifecycle values
-    const agentIdentityId = await createTestIdentity(surreal, "test-agent", "agent");
+    const agentIdentityId = await createTestIdentity(surreal, "test-agent", "agent", "test");
 
     // When an intent is created with an invalid status
     const intentRecord = new RecordId("intent", `badstatus-${Date.now()}`);
@@ -104,7 +104,7 @@ describe("Milestone 1: Intent Schema and Creation (US-1)", () => {
   // ---------------------------------------------------------------------------
   // US-1: Intent links to originating task
   // ---------------------------------------------------------------------------
-  it.skip("intent traces back to the task that triggered it", async () => {
+  it("intent traces back to the task that triggered it", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a task exists and an agent creates an intent for that task
@@ -113,7 +113,7 @@ describe("Milestone 1: Intent Schema and Creation (US-1)", () => {
     const task = await createReadyTask(surreal, workspace.workspaceId, {
       title: "Implement feature toggle",
     });
-    const agentIdentityId = await createTestIdentity(surreal, "test-agent", "agent");
+    const agentIdentityId = await createTestIdentity(surreal, "test-agent", "agent", workspace.workspaceId);
 
     const { intentId } = await createDraftIntent(
       surreal,
@@ -145,13 +145,13 @@ describe("Milestone 1: Authorizer Evaluation (US-5)", () => {
   // ---------------------------------------------------------------------------
   // US-5: Policy gate rejects budget violation immediately
   // ---------------------------------------------------------------------------
-  it.skip("policy gate rejects intent that exceeds budget cap", async () => {
+  it("policy gate rejects intent that exceeds budget cap", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace with a budget policy of $100 maximum
     const user = await createTestUser(baseUrl, "m1-budget");
     const workspace = await createTestWorkspace(baseUrl, user);
-    const agentIdentityId = await createTestIdentity(surreal, "test-agent", "agent");
+    const agentIdentityId = await createTestIdentity(surreal, "test-agent", "agent", workspace.workspaceId);
 
     // And an agent creates an intent requesting $500
     const { intentId } = await createDraftIntent(
@@ -192,13 +192,13 @@ describe("Milestone 1: Authorizer Evaluation (US-5)", () => {
   // ---------------------------------------------------------------------------
   // US-5 + US-6: Authorizer approves well-scoped low-risk intent
   // ---------------------------------------------------------------------------
-  it.skip("authorizer approves a well-scoped intent with low risk score", async () => {
+  it("authorizer approves a well-scoped intent with low risk score", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace with a straightforward coding task
     const user = await createTestUser(baseUrl, "m1-approve");
     const workspace = await createTestWorkspace(baseUrl, user);
-    const agentIdentityId = await createTestIdentity(surreal, "test-agent", "agent");
+    const agentIdentityId = await createTestIdentity(surreal, "test-agent", "agent", workspace.workspaceId);
 
     // And an agent creates an intent for a safe, bounded file edit
     const { intentId } = await createDraftIntent(
@@ -236,13 +236,13 @@ describe("Milestone 1: Authorizer Evaluation (US-5)", () => {
   // ---------------------------------------------------------------------------
   // US-5: Authorizer rejects privilege escalation
   // ---------------------------------------------------------------------------
-  it.skip("authorizer rejects intent that attempts privilege escalation", async () => {
+  it("authorizer rejects intent that attempts privilege escalation", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace where the agent has file editing permissions only
     const user = await createTestUser(baseUrl, "m1-escalation");
     const workspace = await createTestWorkspace(baseUrl, user);
-    const agentIdentityId = await createTestIdentity(surreal, "test-agent", "agent");
+    const agentIdentityId = await createTestIdentity(surreal, "test-agent", "agent", workspace.workspaceId);
 
     // And an agent creates an intent to access admin-level operations
     const { intentId } = await createDraftIntent(
@@ -281,13 +281,13 @@ describe("Milestone 1: Authorizer Evaluation (US-5)", () => {
   // ---------------------------------------------------------------------------
   // US-5: Authorizer detects reasoning manipulation
   // ---------------------------------------------------------------------------
-  it.skip("authorizer rejects intent with manipulative reasoning", async () => {
+  it("authorizer rejects intent with manipulative reasoning", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given an agent that attempts to manipulate the authorization through misleading reasoning
     const user = await createTestUser(baseUrl, "m1-manipulation");
     const workspace = await createTestWorkspace(baseUrl, user);
-    const agentIdentityId = await createTestIdentity(surreal, "test-agent", "agent");
+    const agentIdentityId = await createTestIdentity(surreal, "test-agent", "agent", workspace.workspaceId);
 
     const { intentId } = await createDraftIntent(
       surreal,
@@ -323,13 +323,13 @@ describe("Milestone 1: Risk-Based Routing (US-6)", () => {
   // ---------------------------------------------------------------------------
   // US-6: Low-risk auto-approve skips veto window
   // ---------------------------------------------------------------------------
-  it.skip("low-risk intent is auto-approved without entering veto window", async () => {
+  it("low-risk intent is auto-approved without entering veto window", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given an intent evaluated with a risk score of 15 (below threshold of 30)
     const user = await createTestUser(baseUrl, "m1-low-risk");
     const workspace = await createTestWorkspace(baseUrl, user);
-    const agentIdentityId = await createTestIdentity(surreal, "test-agent", "agent");
+    const agentIdentityId = await createTestIdentity(surreal, "test-agent", "agent", workspace.workspaceId);
 
     const { intentId } = await createDraftIntent(
       surreal,
@@ -367,13 +367,13 @@ describe("Milestone 1: Risk-Based Routing (US-6)", () => {
   // ---------------------------------------------------------------------------
   // US-3 + US-5: Medium-risk enters veto window
   // ---------------------------------------------------------------------------
-  it.skip("medium-risk intent enters veto window for human review", async () => {
+  it("medium-risk intent enters veto window for human review", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given an intent that modifies shared configuration
     const user = await createTestUser(baseUrl, "m1-medium-risk");
     const workspace = await createTestWorkspace(baseUrl, user);
-    const agentIdentityId = await createTestIdentity(surreal, "test-agent", "agent");
+    const agentIdentityId = await createTestIdentity(surreal, "test-agent", "agent", workspace.workspaceId);
 
     const { intentId } = await createDraftIntent(
       surreal,
@@ -415,13 +415,13 @@ describe("Milestone 1: Risk-Based Routing (US-6)", () => {
   // ---------------------------------------------------------------------------
   // US-5: Rejection skips veto window entirely
   // ---------------------------------------------------------------------------
-  it.skip("rejected intent goes directly to vetoed without veto window", async () => {
+  it("rejected intent goes directly to vetoed without veto window", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given an intent that the authorizer determines should be blocked
     const user = await createTestUser(baseUrl, "m1-reject");
     const workspace = await createTestWorkspace(baseUrl, user);
-    const agentIdentityId = await createTestIdentity(surreal, "test-agent", "agent");
+    const agentIdentityId = await createTestIdentity(surreal, "test-agent", "agent", workspace.workspaceId);
 
     const { intentId } = await createDraftIntent(
       surreal,
