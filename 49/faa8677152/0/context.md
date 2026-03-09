@@ -36,3 +36,7 @@ Continue from where you left off.
 
 why did u remove it!? COMMIT IT as well
 
+### Prompt 6
+
+Continue from where you left off.
+
