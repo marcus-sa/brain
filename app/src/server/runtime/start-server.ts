@@ -20,6 +20,7 @@ import { createGitHubWebhookHandler } from "../webhook/github-webhook-route";
 import { createFeedRouteHandler } from "../feed/feed-route";
 import { createChatRouteHandler } from "../chat/chat-route";
 import { createMcpRouteHandlers } from "../mcp/mcp-route";
+import { createIntentRouteHandlers } from "../intent/intent-routes";
 import { wireOrchestratorRoutes } from "../orchestrator/routes";
 import type { ShellExec } from "../orchestrator/worktree-manager";
 import { query } from "@anthropic-ai/claude-agent-sdk";
@@ -52,6 +53,7 @@ export function createBrainServer(deps: ServerDependencies): ReturnType<typeof B
   const feedHandler = createFeedRouteHandler(deps);
   const chatRouteHandler = createChatRouteHandler(deps);
   const mcpHandlers = createMcpRouteHandlers(deps);
+  const intentHandlers = createIntentRouteHandlers(deps);
 
   // Orchestrator wiring
   const orchestratorHandlers = wireOrchestratorRoutes({
@@ -332,6 +334,29 @@ export function createBrainServer(deps: ServerDependencies): ReturnType<typeof B
       "/api/mcp/:workspaceId/commits/post-check": {
         POST: withRequestLogging("POST /api/mcp/:workspaceId/commits/post-check", "POST", (request) =>
           mcpHandlers.handlePostCheck(request.params.workspaceId, request),
+        ),
+      },
+      // Intent — evaluate (called by SurrealQL EVENT via http::post)
+      "/api/intents/:intentId/evaluate": {
+        POST: withRequestLogging("POST /api/intents/:intentId/evaluate", "POST", (request) =>
+          intentHandlers.handleEvaluate(request),
+        ),
+      },
+      // Intent — veto
+      "/api/workspaces/:workspaceId/intents/:intentId/veto": {
+        POST: withRequestLogging(
+          "POST /api/workspaces/:workspaceId/intents/:intentId/veto",
+          "POST",
+          (request) =>
+            intentHandlers.handleVeto(request.params.workspaceId, request.params.intentId, request),
+        ),
+      },
+      // Intent — list pending for governance feed
+      "/api/workspaces/:workspaceId/intents/pending": {
+        GET: withRequestLogging(
+          "GET /api/workspaces/:workspaceId/intents/pending",
+          "GET",
+          (request) => intentHandlers.handleListPending(request.params.workspaceId),
         ),
       },
       // OAuth 2.1 discovery — proxy root-level .well-known to better-auth handler

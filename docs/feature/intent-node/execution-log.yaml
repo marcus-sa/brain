@@ -1,0 +1,73 @@
+events:
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-03-09T17:14:05Z'
+- d: 'NOT_APPLICABLE: schema migration step'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 01-01
+  t: '2026-03-09T17:14:10Z'
+- d: 'NOT_APPLICABLE: schema migration step'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 01-01
+  t: '2026-03-09T17:14:11Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-03-09T17:15:15Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-03-09T17:15:38Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-03-09T17:16:38Z'
+- d: 'NOT_APPLICABLE: pure core module, no acceptance test needed per task spec'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 01-02
+  t: '2026-03-09T17:16:43Z'
+- d: PASS
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-03-09T17:17:06Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-03-09T17:17:41Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-03-09T17:18:03Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 01-03
+  t: '2026-03-09T17:19:41Z'
+- d: 'NOT_APPLICABLE: integration tested via walking skeleton in 01-04'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 01-03
+  t: '2026-03-09T17:19:48Z'
+- d: 'NOT_APPLICABLE: query functions tested via acceptance tests'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 01-03
+  t: '2026-03-09T17:19:48Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 01-03
+  t: '2026-03-09T17:21:13Z'
+project_id: intent-node
+schema_version: '3.0'
