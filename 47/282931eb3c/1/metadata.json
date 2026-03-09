@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "47282931eb3c",
+  "session_id": "a22152af-d4a0-48c5-b88f-45e0480f715a",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-09T15:42:11.629859Z",
+  "branch": "marcus-sa/fix-smoke-tests-typechecks",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "app/src/server/mcp/auth.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "f6a70825d7bf",
+  "token_usage": {
+    "input_tokens": 30,
+    "cache_creation_tokens": 55152,
+    "cache_read_tokens": 507644,
+    "output_tokens": 4042,
+    "api_call_count": 12
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-09T15:42:11.552992Z",
+    "agent_lines": 5,
+    "human_added": 13,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 18,
+    "agent_percentage": 27.77777777777778
+  }
+}
