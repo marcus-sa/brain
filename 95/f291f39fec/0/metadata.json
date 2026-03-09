@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "95f291f39fec",
+  "session_id": "4d4ff12e-ad32-4d6b-ae11-5050541579cc",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-09T09:56:04.92168Z",
+  "branch": "marcus-sa/identity-hub-spoke",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "schema/migrations/0018_edge_migration_identity.surql"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "ad9ac41a8dca",
+  "token_usage": {
+    "input_tokens": 451,
+    "cache_creation_tokens": 468785,
+    "cache_read_tokens": 24864982,
+    "output_tokens": 96914,
+    "api_call_count": 251
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-09T09:56:03.769459Z",
+    "agent_lines": 87,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 87,
+    "agent_percentage": 100
+  }
+}
