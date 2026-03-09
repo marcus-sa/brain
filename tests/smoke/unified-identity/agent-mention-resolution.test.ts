@@ -1,208 +1,179 @@
 import { describe, expect, it } from "bun:test";
-import { randomUUID } from "node:crypto";
-import { createTestUser, collectSseEvents, fetchJson, setupSmokeSuite } from "../smoke-test-kit";
+import { RecordId } from "surrealdb";
+import { setupSmokeSuite } from "../smoke-test-kit";
+import {
+  resolveWorkspaceIdentity,
+  isAmbiguousAgentMention,
+} from "../../../app/src/server/extraction/identity-resolution";
 
 /**
  * US-UI-007: Agent Mention Resolution in Extraction Pipeline
  *
- * Validates that the extraction pipeline recognizes agent references:
+ * Validates that resolveWorkspaceIdentity recognizes agent references:
  * - Role-based mentions ("the PM agent") resolve to the correct identity
  * - Name-based mentions ("Code Agent") resolve to the correct identity
  * - Ambiguous mentions ("an agent") do not create false-positive attributions
  * - Non-existent agent references do not create phantom identity records
  * - Resolution is scoped to the current workspace
- *
- * These tests exercise the extraction pipeline end-to-end via the chat
- * message endpoint, which is the driving port for extraction.
  */
-
-type StreamEvent =
-  | { type: "extraction"; messageId: string; entities: Array<{ id: string; kind: string; text: string }> }
-  | { type: "done"; messageId: string }
-  | { type: "error"; messageId: string; error: string }
-  | { type: string; messageId: string };
 
 const getRuntime = setupSmokeSuite("agent-mention-resolution");
 
-describe.skip("US-UI-007: Extraction pipeline resolves agent mentions to identity records", () => {
+/**
+ * Seeds a workspace with agent identities for testing.
+ * Returns the workspace record and identity IDs.
+ */
+async function seedAgentIdentities(surreal: ReturnType<typeof getRuntime>["surreal"]) {
+  const workspaceId = `ws-agent-test-${Date.now()}`;
+  const wsRecord = new RecordId("workspace", workspaceId);
+
+  // Create workspace
+  await surreal.query(
+    "CREATE $ws CONTENT { name: 'Agent Resolution Test', status: 'active', onboarding_complete: true, onboarding_turn_count: 0, onboarding_summary_pending: false, onboarding_started_at: time::now(), created_at: time::now() };",
+    { ws: wsRecord },
+  );
+
+  // Create PM Agent identity (role: management)
+  const pmIdentityId = `pm-agent-${Date.now()}`;
+  const pmIdentityRecord = new RecordId("identity", pmIdentityId);
+  await surreal.query(
+    "CREATE $id CONTENT { name: 'PM Agent', type: 'agent', role: 'management', workspace: $ws, created_at: time::now() };",
+    { id: pmIdentityRecord, ws: wsRecord },
+  );
+
+  // Create Code Agent identity (role: coder)
+  const codeIdentityId = `code-agent-${Date.now()}`;
+  const codeIdentityRecord = new RecordId("identity", codeIdentityId);
+  await surreal.query(
+    "CREATE $id CONTENT { name: 'Code Agent', type: 'agent', role: 'coder', workspace: $ws, created_at: time::now() };",
+    { id: codeIdentityRecord, ws: wsRecord },
+  );
+
+  // Create Observer Agent identity (role: observer)
+  const observerIdentityId = `observer-agent-${Date.now()}`;
+  const observerIdentityRecord = new RecordId("identity", observerIdentityId);
+  await surreal.query(
+    "CREATE $id CONTENT { name: 'Observer Agent', type: 'agent', role: 'observer', workspace: $ws, created_at: time::now() };",
+    { id: observerIdentityRecord, ws: wsRecord },
+  );
+
+  // Create a second workspace with its own PM agent (for cross-workspace scoping)
+  const otherWsId = `ws-other-${Date.now()}`;
+  const otherWsRecord = new RecordId("workspace", otherWsId);
+  await surreal.query(
+    "CREATE $ws CONTENT { name: 'Other Workspace', status: 'active', onboarding_complete: true, onboarding_turn_count: 0, onboarding_summary_pending: false, onboarding_started_at: time::now(), created_at: time::now() };",
+    { ws: otherWsRecord },
+  );
+
+  const otherPmId = `other-pm-${Date.now()}`;
+  const otherPmRecord = new RecordId("identity", otherPmId);
+  await surreal.query(
+    "CREATE $id CONTENT { name: 'PM Agent', type: 'agent', role: 'management', workspace: $ws, created_at: time::now() };",
+    { id: otherPmRecord, ws: otherWsRecord },
+  );
+
+  return {
+    wsRecord,
+    otherWsRecord,
+    pmIdentityRecord,
+    codeIdentityRecord,
+    observerIdentityRecord,
+    otherPmRecord,
+  };
+}
+
+describe("US-UI-007: Agent mention resolution in identity-resolution", () => {
   // -- Happy path: role-based mention --
 
-  it.skip("Given PM Agent identity exists in the workspace, when a message mentioning 'the PM agent suggested' is sent, then the extraction pipeline links the suggestion to the PM Agent identity", async () => {
-    const { baseUrl, surreal } = getRuntime();
+  it("Given PM Agent identity exists, when 'the PM agent' is resolved, then it returns the PM Agent identity", async () => {
+    const { surreal } = getRuntime();
+    const { wsRecord, pmIdentityRecord } = await seedAgentIdentities(surreal);
 
-    const user = await createTestUser(baseUrl, "mention-role");
-    const workspace = await fetchJson<{ workspaceId: string; conversationId: string }>(
-      `${baseUrl}/api/workspaces`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...user.headers },
-        body: JSON.stringify({ name: `Mention Role Test ${Date.now()}` }),
-      },
-    );
+    const result = await resolveWorkspaceIdentity({
+      surreal,
+      workspaceRecord: wsRecord,
+      identityName: "the PM agent",
+    });
 
-    // Send message with agent role mention
-    const chatResponse = await fetchJson<{ messageId: string; streamUrl: string }>(
-      `${baseUrl}/api/chat/messages`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...user.headers },
-        body: JSON.stringify({
-          clientMessageId: `mention-role-${Date.now()}`,
-          workspaceId: workspace.workspaceId,
-          conversationId: workspace.conversationId,
-          text: "The PM agent suggested we should prioritize the auth feature for next sprint.",
-        }),
-      },
-    );
-
-    // Wait for extraction to complete
-    const events = await collectSseEvents<StreamEvent>(
-      `${baseUrl}${chatResponse.streamUrl}`,
-      120_000,
-    );
-
-    const extractionEvent = events.find((e) => e.type === "extraction");
-    expect(extractionEvent).toBeDefined();
-
-    // Verify extraction produced entities (the suggestion/task about auth)
-    if (extractionEvent && extractionEvent.type === "extraction") {
-      expect(extractionEvent.entities.length).toBeGreaterThan(0);
-    }
-
-    // The implementation should have linked extracted entities to the PM Agent identity
-    // via extraction_relation or entity owner field
-  }, 180_000);
+    expect(result).toBeDefined();
+    expect(result!.id).toBe(pmIdentityRecord.id);
+  }, 30_000);
 
   // -- Happy path: name-based mention --
 
-  it.skip("Given Code Agent identity exists in the workspace, when a message mentions 'Code Agent finished the task', then the extraction pipeline attributes the action to Code Agent identity", async () => {
-    const { baseUrl } = getRuntime();
+  it("Given Code Agent identity exists, when 'Code Agent' is resolved, then it returns the Code Agent identity", async () => {
+    const { surreal } = getRuntime();
+    const { wsRecord, codeIdentityRecord } = await seedAgentIdentities(surreal);
 
-    const user = await createTestUser(baseUrl, "mention-name");
-    const workspace = await fetchJson<{ workspaceId: string; conversationId: string }>(
-      `${baseUrl}/api/workspaces`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...user.headers },
-        body: JSON.stringify({ name: `Mention Name Test ${Date.now()}` }),
-      },
-    );
+    const result = await resolveWorkspaceIdentity({
+      surreal,
+      workspaceRecord: wsRecord,
+      identityName: "Code Agent",
+    });
 
-    const chatResponse = await fetchJson<{ messageId: string; streamUrl: string }>(
-      `${baseUrl}/api/chat/messages`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...user.headers },
-        body: JSON.stringify({
-          clientMessageId: `mention-name-${Date.now()}`,
-          workspaceId: workspace.workspaceId,
-          conversationId: workspace.conversationId,
-          text: "Code Agent finished the OAuth implementation task yesterday.",
-        }),
-      },
-    );
+    expect(result).toBeDefined();
+    expect(result!.id).toBe(codeIdentityRecord.id);
+  }, 30_000);
 
-    const events = await collectSseEvents<StreamEvent>(
-      `${baseUrl}${chatResponse.streamUrl}`,
-      120_000,
-    );
+  // -- Happy path: case-insensitive role mention --
 
-    const doneEvent = events.find((e) => e.type === "done");
-    expect(doneEvent).toBeDefined();
-  }, 180_000);
+  it("Given PM Agent identity exists, when 'management agent' is resolved, then it returns the PM Agent identity via role match", async () => {
+    const { surreal } = getRuntime();
+    const { wsRecord, pmIdentityRecord } = await seedAgentIdentities(surreal);
+
+    const result = await resolveWorkspaceIdentity({
+      surreal,
+      workspaceRecord: wsRecord,
+      identityName: "management agent",
+    });
+
+    expect(result).toBeDefined();
+    expect(result!.id).toBe(pmIdentityRecord.id);
+  }, 30_000);
 
   // -- Error path: ambiguous mention --
 
-  it.skip("Given multiple agent identities exist, when a message says 'an agent suggested we add rate limiting', then no specific agent attribution is created for the ambiguous mention", async () => {
-    const { baseUrl, surreal } = getRuntime();
+  it("Given multiple agent identities exist, when 'an agent' is resolved, then it returns undefined (no false positive)", async () => {
+    const { surreal } = getRuntime();
+    const { wsRecord } = await seedAgentIdentities(surreal);
 
-    const user = await createTestUser(baseUrl, "mention-ambiguous");
-    const workspace = await fetchJson<{ workspaceId: string; conversationId: string }>(
-      `${baseUrl}/api/workspaces`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...user.headers },
-        body: JSON.stringify({ name: `Ambiguous Mention Test ${Date.now()}` }),
-      },
-    );
+    const result = await resolveWorkspaceIdentity({
+      surreal,
+      workspaceRecord: wsRecord,
+      identityName: "an agent",
+    });
 
-    const chatResponse = await fetchJson<{ messageId: string; streamUrl: string }>(
-      `${baseUrl}/api/chat/messages`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...user.headers },
-        body: JSON.stringify({
-          clientMessageId: `mention-ambiguous-${Date.now()}`,
-          workspaceId: workspace.workspaceId,
-          conversationId: workspace.conversationId,
-          text: "An agent suggested we should add rate limiting to the API.",
-        }),
-      },
-    );
+    expect(result).toBeUndefined();
+  }, 30_000);
 
-    const events = await collectSseEvents<StreamEvent>(
-      `${baseUrl}${chatResponse.streamUrl}`,
-      120_000,
-    );
+  it("Given multiple agent identities exist, when 'the agent' is resolved, then it returns undefined (too vague)", async () => {
+    const { surreal } = getRuntime();
+    const { wsRecord } = await seedAgentIdentities(surreal);
 
-    // Extraction should complete without error
-    const doneEvent = events.find((e) => e.type === "done");
-    expect(doneEvent).toBeDefined();
+    const result = await resolveWorkspaceIdentity({
+      surreal,
+      workspaceRecord: wsRecord,
+      identityName: "the agent",
+    });
 
-    // No false-positive identity attribution for "an agent"
-    // Check that no extraction_relation links to an agent identity
-    const wsRecord = new (await import("surrealdb")).RecordId("workspace", workspace.workspaceId);
-    const [agentLinks] = await surreal.query<
-      [Array<{ id: unknown }>]
-    >(
-      `SELECT id FROM extraction_relation
-       WHERE out.table.name = 'identity'
-         AND out.type = 'agent'
-       LIMIT 5;`,
-    );
-    // Ambiguous mentions should not produce agent identity links
-    // (This is a negative assertion - exact check depends on implementation)
-  }, 180_000);
+    expect(result).toBeUndefined();
+  }, 30_000);
 
   // -- Error path: non-existent agent --
 
-  it.skip("Given no 'Design Agent' identity exists in the workspace, when a message mentions 'the Design Agent recommended new colors', then no phantom identity record is created", async () => {
-    const { baseUrl, surreal } = getRuntime();
+  it("Given no 'Design Agent' identity exists, when 'Design Agent' is resolved, then it returns undefined and creates no phantom record", async () => {
+    const { surreal } = getRuntime();
+    const { wsRecord } = await seedAgentIdentities(surreal);
 
-    const user = await createTestUser(baseUrl, "mention-nonexistent");
-    const workspace = await fetchJson<{ workspaceId: string; conversationId: string }>(
-      `${baseUrl}/api/workspaces`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...user.headers },
-        body: JSON.stringify({ name: `Nonexistent Agent Test ${Date.now()}` }),
-      },
-    );
+    const result = await resolveWorkspaceIdentity({
+      surreal,
+      workspaceRecord: wsRecord,
+      identityName: "Design Agent",
+    });
 
-    const chatResponse = await fetchJson<{ messageId: string; streamUrl: string }>(
-      `${baseUrl}/api/chat/messages`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...user.headers },
-        body: JSON.stringify({
-          clientMessageId: `mention-nonexistent-${Date.now()}`,
-          workspaceId: workspace.workspaceId,
-          conversationId: workspace.conversationId,
-          text: "The Design Agent recommended we use new brand colors for the dashboard.",
-        }),
-      },
-    );
+    expect(result).toBeUndefined();
 
-    const events = await collectSseEvents<StreamEvent>(
-      `${baseUrl}${chatResponse.streamUrl}`,
-      120_000,
-    );
-
-    const doneEvent = events.find((e) => e.type === "done");
-    expect(doneEvent).toBeDefined();
-
-    // Verify no "Design Agent" identity was created
-    const wsRecord = new (await import("surrealdb")).RecordId("workspace", workspace.workspaceId);
+    // Verify no phantom record was created
     const [designAgents] = await surreal.query<
       [Array<{ name: string }>]
     >(
@@ -210,44 +181,44 @@ describe.skip("US-UI-007: Extraction pipeline resolves agent mentions to identit
       { ws: wsRecord },
     );
     expect(designAgents.length).toBe(0);
-  }, 180_000);
+  }, 30_000);
 
-  // -- Boundary: mixed human and agent mentions --
+  // -- Boundary: workspace scoping --
 
-  it.skip("Given both human and agent identities exist, when a message mentions both 'I agreed with the PM agent', then both the human and agent mentions are resolved independently", async () => {
-    const { baseUrl } = getRuntime();
+  it("Given PM Agent exists in workspace A but not workspace B, when resolved in a third workspace, then it returns undefined", async () => {
+    const { surreal } = getRuntime();
+    const { otherWsRecord } = await seedAgentIdentities(surreal);
 
-    const user = await createTestUser(baseUrl, "mention-mixed");
-    const workspace = await fetchJson<{ workspaceId: string; conversationId: string }>(
-      `${baseUrl}/api/workspaces`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...user.headers },
-        body: JSON.stringify({ name: `Mixed Mention Test ${Date.now()}` }),
-      },
+    // Create yet another workspace with no agent identities
+    const emptyWsId = `ws-empty-${Date.now()}`;
+    const emptyWsRecord = new RecordId("workspace", emptyWsId);
+    await surreal.query(
+      "CREATE $ws CONTENT { name: 'Empty Workspace', status: 'active', onboarding_complete: true, onboarding_turn_count: 0, onboarding_summary_pending: false, onboarding_started_at: time::now(), created_at: time::now() };",
+      { ws: emptyWsRecord },
     );
 
-    const chatResponse = await fetchJson<{ messageId: string; streamUrl: string }>(
-      `${baseUrl}/api/chat/messages`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...user.headers },
-        body: JSON.stringify({
-          clientMessageId: `mention-mixed-${Date.now()}`,
-          workspaceId: workspace.workspaceId,
-          conversationId: workspace.conversationId,
-          text: "I agreed with the PM agent's suggestion to add OAuth support before the deadline.",
-        }),
-      },
-    );
+    const result = await resolveWorkspaceIdentity({
+      surreal,
+      workspaceRecord: emptyWsRecord,
+      identityName: "PM Agent",
+    });
 
-    const events = await collectSseEvents<StreamEvent>(
-      `${baseUrl}${chatResponse.streamUrl}`,
-      120_000,
-    );
+    expect(result).toBeUndefined();
+  }, 30_000);
 
-    // Pipeline should complete successfully with mixed mentions
-    const doneEvent = events.find((e) => e.type === "done");
-    expect(doneEvent).toBeDefined();
-  }, 180_000);
+  // -- Pure function: ambiguity detection --
+
+  it("isAmbiguousAgentMention correctly classifies ambiguous vs specific mentions", () => {
+    // Ambiguous - should return true
+    expect(isAmbiguousAgentMention("an agent")).toBe(true);
+    expect(isAmbiguousAgentMention("the agent")).toBe(true);
+    expect(isAmbiguousAgentMention("some agent")).toBe(true);
+    expect(isAmbiguousAgentMention("An Agent")).toBe(true);
+
+    // Specific - should return false
+    expect(isAmbiguousAgentMention("the PM agent")).toBe(false);
+    expect(isAmbiguousAgentMention("Code Agent")).toBe(false);
+    expect(isAmbiguousAgentMention("management agent")).toBe(false);
+    expect(isAmbiguousAgentMention("Observer Agent")).toBe(false);
+  });
 });
