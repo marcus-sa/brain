@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "d39e90e4cf52",
+  "session_id": "5d3eb319-80f2-4283-bfa3-ffdd9f2feae6",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-09T17:50:03.751802Z",
+  "branch": "marcus-sa/intent-node-issue",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "docs/feature/intent-node/execution-log.yaml"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "0169c5926680",
+  "token_usage": {
+    "input_tokens": 55,
+    "cache_creation_tokens": 101990,
+    "cache_read_tokens": 2368436,
+    "output_tokens": 24874,
+    "api_call_count": 29
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-09T17:50:03.50876Z",
+    "agent_lines": 5,
+    "human_added": 244,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 249,
+    "agent_percentage": 2.0080321285140563
+  }
+}
