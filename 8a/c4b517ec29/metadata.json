@@ -3,7 +3,7 @@
   "checkpoint_id": "8ac4b517ec29",
   "strategy": "manual-commit",
   "branch": "marcus-sa/identity-hub-spoke",
-  "checkpoints_count": 0,
+  "checkpoints_count": 2,
   "files_touched": [
     ".nwave/des-config.json",
     "docs/feature/unified-identity/execution-log.yaml"
@@ -15,13 +15,20 @@
       "context": "/8a/c4b517ec29/0/context.md",
       "content_hash": "/8a/c4b517ec29/0/content_hash.txt",
       "prompt": "/8a/c4b517ec29/0/prompt.txt"
+    },
+    {
+      "metadata": "/8a/c4b517ec29/1/metadata.json",
+      "transcript": "/8a/c4b517ec29/1/full.jsonl",
+      "context": "/8a/c4b517ec29/1/context.md",
+      "content_hash": "/8a/c4b517ec29/1/content_hash.txt",
+      "prompt": "/8a/c4b517ec29/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 44,
-    "cache_creation_tokens": 49497,
-    "cache_read_tokens": 190090,
-    "output_tokens": 939,
-    "api_call_count": 5
+    "input_tokens": 496,
+    "cache_creation_tokens": 518552,
+    "cache_read_tokens": 25193530,
+    "output_tokens": 97875,
+    "api_call_count": 257
   }
 }
