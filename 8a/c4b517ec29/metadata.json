@@ -3,9 +3,10 @@
   "checkpoint_id": "8ac4b517ec29",
   "strategy": "manual-commit",
   "branch": "marcus-sa/identity-hub-spoke",
-  "checkpoints_count": 2,
+  "checkpoints_count": 1,
   "files_touched": [
     ".nwave/des-config.json",
+    ".nwave/des/deliver-session.json",
     "docs/feature/unified-identity/execution-log.yaml"
   ],
   "sessions": [
