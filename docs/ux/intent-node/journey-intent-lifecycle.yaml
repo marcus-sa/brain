@@ -1,0 +1,201 @@
+journey:
+  name: intent-lifecycle
+  epic: intent-node
+  jobs:
+    - ref: J1
+      title: Scoped Authorization
+    - ref: J2
+      title: Passive Oversight
+    - ref: J3
+      title: Intent Drift Detection
+    - ref: J4
+      title: Auditable Action History
+
+  actors:
+    - id: worker_agent
+      type: agent
+      description: AI agent requesting authorization for a consequential action
+    - id: authorizer_agent
+      type: agent
+      description: Authorizer evaluating intents against policy
+    - id: human_operator
+      type: human
+      description: Business owner with veto power over high-risk intents
+    - id: system
+      type: system
+      description: Event handler and orchestrator
+
+  steps:
+    - id: create_intent
+      actor: worker_agent
+      action: CREATE intent with goal, action_spec, reasoning, budget_limit
+      input:
+        - ${task_context}
+        - ${action_spec}
+      output:
+        - ${intent_id}
+        - ${intent_record}
+      status_transition: "-> draft"
+      emotion: hopeful
+      jobs: [J1]
+
+    - id: submit_for_auth
+      actor: worker_agent
+      action: UPDATE intent status to pending_auth
+      input:
+        - ${intent_id}
+      output:
+        - ${pending_intent}
+      status_transition: "draft -> pending_auth"
+      emotion: uncertain
+      jobs: [J1]
+
+    - id: event_trigger
+      actor: system
+      action: SurrealQL EVENT fires on status = pending_auth, HTTP POST to evaluation endpoint
+      input:
+        - ${pending_intent}
+      output:
+        - ${evaluation_request}
+      trigger: surql_event
+      technical_note: |
+        DEFINE EVENT intent_submitted ON intent
+          WHEN $after.status = "pending_auth" AND ($before.status = "draft" OR $before = NONE)
+          THEN http::post(
+            "http://localhost:3000/api/intents/" + <string> $after.id + "/evaluate",
+            { intent: $after },
+            { "Content-Type": "application/json" }
+          );
+      jobs: [J3]
+
+    - id: judge_evaluation
+      actor: authorizer_agent
+      action: Evaluate intent against least-privilege, budget constraints, reasoning quality
+      input:
+        - ${intent_record}
+        - ${authority_scope_rules}
+      output:
+        - ${authorizer_decision}  # { decision: APPROVE|REJECT, risk_score: 0-100, reason: string }
+      emotion: analytical
+      jobs: [J3]
+
+    - id: risk_routing
+      actor: system
+      action: Route based on risk_score and judge decision
+      input:
+        - ${authorizer_decision}
+      output:
+        - ${authorization_path}  # auto_approve | veto_window | rejected
+      rules:
+        - condition: "decision = REJECT"
+          result: rejected
+          status_transition: "pending_auth -> vetoed"
+        - condition: "decision = APPROVE AND risk_score <= 30"
+          result: auto_approve
+          status_transition: "pending_auth -> authorized"
+        - condition: "decision = APPROVE AND risk_score > 30"
+          result: veto_window
+          status_transition: "pending_auth -> pending_auth (awaiting veto)"
+      jobs: [J2, J3]
+
+    - id: human_notification
+      actor: system
+      action: Emit intent to Human Feed with risk score and judge reasoning
+      input:
+        - ${intent_record}
+        - ${authorizer_decision}
+      output:
+        - ${feed_item}
+      condition: "authorization_path = veto_window"
+      emotion: alert
+      jobs: [J2]
+
+    - id: veto_window
+      actor: human_operator
+      action: Review intent in feed; veto or let pass within time window
+      input:
+        - ${feed_item}
+        - ${veto_window_duration}  # default 5 minutes
+      output:
+        - ${veto_decision}  # veto | pass (implicit on timeout)
+      emotion: time_pressure_on_high_risk
+      timeout: ${veto_window_duration}
+      timeout_behavior: auto_approve
+      jobs: [J2]
+
+    - id: authorization_resolved
+      actor: system
+      action: Set final authorization status
+      input:
+        - ${veto_decision}
+        - ${authorizer_decision}
+      output:
+        - ${authorized_intent}
+      status_transition: "pending_auth -> authorized | vetoed"
+      jobs: [J1, J2]
+
+    - id: spawn_execution
+      actor: system
+      action: Pull action_spec from authorized intent, spawn agent session with scoped params
+      input:
+        - ${authorized_intent}
+      output:
+        - ${agent_session_id}
+      condition: "intent.status = authorized"
+      status_transition: "authorized -> executing"
+      jobs: [J1]
+
+    - id: execution_complete
+      actor: worker_agent
+      action: Complete execution, report result
+      input:
+        - ${agent_session_id}
+      output:
+        - ${execution_result}
+      status_transition: "executing -> completed | failed"
+      emotion: satisfaction
+      jobs: [J1, J4]
+
+  shared_artifacts:
+    - name: task_context
+      source: orchestrator assignment
+      description: Task record that triggered the intent
+    - name: action_spec
+      source: worker agent
+      description: "Structured object: { provider, action, params, constraints }"
+    - name: intent_id
+      source: SurrealDB CREATE
+      description: RecordId of the created intent
+    - name: intent_record
+      source: SurrealDB
+      description: Full intent record with all fields
+    - name: authorizer_decision
+      source: authorizer agent LLM call
+      description: "{ decision: APPROVE|REJECT, risk_score: 0-100, reason: string }"
+    - name: veto_window_duration
+      source: workspace configuration
+      description: Duration before auto-approve (default 5 minutes)
+    - name: feed_item
+      source: SSE event bridge
+      description: Intent summary emitted to human feed
+
+  error_paths:
+    - id: judge_timeout
+      trigger: Authorizer agent fails to respond within 30s
+      recovery: Auto-reject with reason "evaluation_timeout", notify human
+      status_transition: "pending_auth -> failed"
+
+    - id: judge_error
+      trigger: Authorizer agent LLM call fails
+      recovery: Fall back to policy-only check (budget + action allowlist). If passes, route to veto_window. If fails, reject.
+      status_transition: depends on fallback result
+
+    - id: veto_after_execution
+      trigger: Human vetoes but execution already started (race condition)
+      recovery: Abort agent session if still running. Log as incident.
+      status_transition: "executing -> aborted"
+
+    - id: budget_exceeded
+      trigger: action_spec.params imply cost > budget_limit
+      recovery: Immediate reject at policy level, before judge evaluation
+      status_transition: "draft -> vetoed"
