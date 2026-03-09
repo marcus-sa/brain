@@ -185,7 +185,7 @@ export async function readEntityName(
 ): Promise<string | undefined> {
   const table = record.table.name;
 
-  if (table === "workspace" || table === "project" || table === "person" || table === "feature") {
+  if (table === "workspace" || table === "project" || table === "person" || table === "identity" || table === "feature") {
     const row = await surreal.select<{ name: string }>(record as RecordId<typeof table, string>);
     return row?.name;
   }
@@ -261,6 +261,17 @@ export async function isEntityInWorkspace(
         { workspace: workspaceRecord, person: entityRecord },
       )
       .collect<[Array<{ id: RecordId<"member_of", string> }>]>();
+
+    return rows.length > 0;
+  }
+
+  if (table === "identity") {
+    const [rows] = await surreal
+      .query<[Array<{ id: RecordId<"identity", string> }>]>(
+        "SELECT id FROM identity WHERE id = $identity AND workspace = $workspace;",
+        { workspace: workspaceRecord, identity: entityRecord },
+      )
+      .collect<[Array<{ id: RecordId<"identity", string> }>]>();
 
     return rows.length > 0;
   }
@@ -1456,13 +1467,13 @@ export async function getDecisionPrimarySourceMessage(input: {
 export async function getWorkspaceOwnerRecord(input: {
   surreal: Surreal;
   workspaceRecord: RecordId<"workspace", string>;
-}): Promise<RecordId<"person", string> | undefined> {
+}): Promise<RecordId<"identity", string> | undefined> {
   const [rows] = await input.surreal
-    .query<[Array<RecordId<"person", string>>]>(
+    .query<[Array<RecordId<"identity", string>>]>(
       "SELECT VALUE `in` FROM member_of WHERE out = $workspace AND role = 'owner' LIMIT 1;",
       { workspace: input.workspaceRecord },
     )
-    .collect<[Array<RecordId<"person", string>>]>();
+    .collect<[Array<RecordId<"identity", string>>]>();
 
   return rows[0];
 }

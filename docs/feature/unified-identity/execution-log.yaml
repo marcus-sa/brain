@@ -66,5 +66,22 @@ events:
   s: SKIPPED
   sid: 01-03
   t: '2026-03-09T07:48:19Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-03-09T07:57:06Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-03-09T07:57:56Z'
+- d: 'NOT_APPLICABLE: auth rewiring is adapter/IO boundary work - schema migration
+    + FK mapping. Smoke tests cover the integration boundary. No pure domain logic
+    to property-test.'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 02-01
+  t: '2026-03-09T07:58:05Z'
 project_id: unified-identity
 schema_version: '3.0'

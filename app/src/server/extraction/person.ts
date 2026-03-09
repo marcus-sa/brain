@@ -16,17 +16,17 @@ export async function findWorkspacePersonByName(input: {
   surreal: Surreal;
   workspaceRecord: RecordId<"workspace", string>;
   personName: string;
-}): Promise<RecordId<"person", string> | undefined> {
+}): Promise<RecordId<"identity", string> | undefined> {
   const normalizedName = input.personName.trim();
   if (normalizedName.length === 0) {
     return undefined;
   }
 
   const [rows] = await input.surreal
-    .query<[Array<{ id: RecordId<"person", string> }>]>(
+    .query<[Array<{ id: RecordId<"identity", string> }>]>(
       [
         "SELECT id",
-        "FROM person",
+        "FROM identity",
         "WHERE id IN (SELECT VALUE `in` FROM member_of WHERE out = $workspace)",
         "AND string::lowercase(name) = string::lowercase($name)",
         "LIMIT 1;",
@@ -36,7 +36,7 @@ export async function findWorkspacePersonByName(input: {
         name: normalizedName,
       },
     )
-    .collect<[Array<{ id: RecordId<"person", string> }>]>() ;
+    .collect<[Array<{ id: RecordId<"identity", string> }>]>() ;
 
   return rows[0]?.id;
 }
@@ -48,7 +48,7 @@ export async function resolveWorkspacePerson(input: {
   surreal: Surreal;
   workspaceRecord: RecordId<"workspace", string>;
   personName: string;
-}): Promise<RecordId<"person", string> | undefined> {
+}): Promise<RecordId<"identity", string> | undefined> {
   const byName = await findWorkspacePersonByName(input);
   if (byName) return byName;
 
