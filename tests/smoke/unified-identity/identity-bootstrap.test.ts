@@ -16,10 +16,10 @@ import { createTestUser, fetchJson, setupSmokeSuite } from "../smoke-test-kit";
 
 const getRuntime = setupSmokeSuite("identity-bootstrap");
 
-describe.skip("US-UI-002: Identity wrapping and agent registration bootstrap", () => {
+describe("US-UI-002: Identity wrapping and agent registration bootstrap", () => {
   // -- Walking skeleton: workspace creation triggers identity bootstrap --
 
-  it.skip("Given a new user signs up and creates a workspace, when workspace creation completes, then the owner has an identity with type 'human' linked via spoke edge", async () => {
+  it("Given a new user signs up and creates a workspace, when workspace creation completes, then the owner has an identity with type 'human' linked via spoke edge", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     const user = await createTestUser(baseUrl, "bootstrap-owner");
@@ -59,7 +59,7 @@ describe.skip("US-UI-002: Identity wrapping and agent registration bootstrap", (
 
   // -- Agent registration --
 
-  it.skip("Given a workspace is created with an owner, when the bootstrap runs, then template agent identities are registered for management, code_agent, and observer types", async () => {
+  it("Given a workspace is created with an owner, when the bootstrap runs, then template agent identities are registered for management, code_agent, and observer types", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     const user = await createTestUser(baseUrl, "bootstrap-agents");
@@ -98,7 +98,7 @@ describe.skip("US-UI-002: Identity wrapping and agent registration bootstrap", (
     }
   }, 60_000);
 
-  it.skip("Given template agent identities are registered, when querying managed_by for each agent, then each agent's managed_by chain resolves to the workspace owner's human identity", async () => {
+  it("Given template agent identities are registered, when querying managed_by for each agent, then each agent's managed_by chain resolves to the workspace owner's human identity", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     const user = await createTestUser(baseUrl, "bootstrap-chain");
@@ -133,7 +133,7 @@ describe.skip("US-UI-002: Identity wrapping and agent registration bootstrap", (
 
   // -- Idempotency --
 
-  it.skip("Given a workspace already has identity records from bootstrap, when the bootstrap runs again, then no duplicate identities are created", async () => {
+  it("Given a workspace already has identity records from bootstrap, when the bootstrap runs again, then no duplicate identities are created", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     const user = await createTestUser(baseUrl, "bootstrap-idempotent");
@@ -170,7 +170,7 @@ describe.skip("US-UI-002: Identity wrapping and agent registration bootstrap", (
 
   // -- Error paths --
 
-  it.skip("Given no person record exists for an email, when the bootstrap attempts to wrap identities, then the workspace creation still succeeds without crashing", async () => {
+  it("Given no person record exists for an email, when the bootstrap attempts to wrap identities, then the workspace creation still succeeds without crashing", async () => {
     // This validates graceful handling when person lookup yields no results
     const { baseUrl } = getRuntime();
 
@@ -190,7 +190,7 @@ describe.skip("US-UI-002: Identity wrapping and agent registration bootstrap", (
     expect(workspace.workspaceId.length).toBeGreaterThan(0);
   }, 60_000);
 
-  it.skip("Given a workspace with an owner identity, when the person record's fields are queried after bootstrap, then all existing person fields remain unchanged", async () => {
+  it("Given a workspace with an owner identity, when the person record's fields are queried after bootstrap, then all existing person fields remain unchanged", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     const user = await createTestUser(baseUrl, "bootstrap-preserve");
