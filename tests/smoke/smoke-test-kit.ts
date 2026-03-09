@@ -1,5 +1,6 @@
 import { afterAll, beforeAll } from "bun:test";
 import { readFileSync } from "node:fs";
+import { createServer } from "node:net";
 import { join } from "node:path";
 import { Surreal } from "surrealdb";
 
@@ -14,7 +15,6 @@ export type SmokeTestRuntime = {
 const surrealUrl = process.env.SURREAL_URL ?? "ws://127.0.0.1:8000/rpc";
 const surrealUsername = process.env.SURREAL_USERNAME ?? "root";
 const surrealPassword = process.env.SURREAL_PASSWORD ?? "root";
-const smokePortBase = Number(process.env.SMOKE_PORT_BASE ?? "3100");
 
 export function setupSmokeSuite(suiteName: string): () => SmokeTestRuntime {
   const runId = `${Date.now()}_${Math.floor(Math.random() * 100000)}`;
@@ -32,7 +32,7 @@ export function setupSmokeSuite(suiteName: string): () => SmokeTestRuntime {
   beforeAll(async () => {
     const port = process.env.SMOKE_PORT
       ? Number(process.env.SMOKE_PORT)
-      : smokePortBase + Math.floor(Math.random() * 20000);
+      : await findAvailablePort();
     if (!Number.isFinite(port) || port <= 0) {
       throw new Error(`Invalid smoke test port value: ${port}`);
     }
@@ -226,6 +226,17 @@ async function waitForHealth(url: string, process: ReturnType<typeof Bun.spawn>,
   }
 
   throw new Error(`Timed out waiting for smoke server health at ${url}/healthz`);
+}
+
+function findAvailablePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.listen(0, "127.0.0.1", () => {
+      const port = (server.address() as import("node:net").AddressInfo).port;
+      server.close(() => resolve(port));
+    });
+    server.on("error", reject);
+  });
 }
 
 async function withTimeout<T>(callback: () => Promise<T>, timeoutMs: number, label: string): Promise<T> {
