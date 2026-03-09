@@ -1,0 +1,40 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "9cea757f89c6",
+  "session_id": "b444f7da-27c7-4770-a6a0-9f65abb706d8",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-09T06:30:21.64542Z",
+  "branch": "marcus-sa/identity-hub-spoke",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "docs/feature/unified-identity/distill/acceptance-review.md",
+    "docs/feature/unified-identity/distill/test-scenarios.md",
+    "docs/feature/unified-identity/distill/walking-skeleton.md",
+    "tests/smoke/unified-identity/agent-mention-resolution.test.ts",
+    "tests/smoke/unified-identity/audit-trail.test.ts",
+    "tests/smoke/unified-identity/auth-rewiring.test.ts",
+    "tests/smoke/unified-identity/authority-overrides.test.ts",
+    "tests/smoke/unified-identity/edge-migration.test.ts",
+    "tests/smoke/unified-identity/identity-bootstrap.test.ts",
+    "tests/smoke/unified-identity/identity-schema.test.ts",
+    "tests/smoke/unified-identity/walking-skeleton.test.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "92ec94d9b6ca",
+  "token_usage": {
+    "input_tokens": 40,
+    "cache_creation_tokens": 70059,
+    "cache_read_tokens": 1481802,
+    "output_tokens": 6535,
+    "api_call_count": 23
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-09T06:30:21.339995Z",
+    "agent_lines": 2511,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 2511,
+    "agent_percentage": 100
+  }
+}
