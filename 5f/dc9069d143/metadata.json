@@ -1,0 +1,29 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "5fdc9069d143",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/fix-smoke-tests-typechecks",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "app/src/server/chat/chat-processor.ts",
+    "app/src/server/chat/tools/create-work-item.ts",
+    "app/src/server/extraction/persist-extraction.ts",
+    "app/src/server/suggestion/queries.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/5f/dc9069d143/0/metadata.json",
+      "transcript": "/5f/dc9069d143/0/full.jsonl",
+      "context": "/5f/dc9069d143/0/context.md",
+      "content_hash": "/5f/dc9069d143/0/content_hash.txt",
+      "prompt": "/5f/dc9069d143/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 30,
+    "cache_creation_tokens": 43493,
+    "cache_read_tokens": 383975,
+    "output_tokens": 3499,
+    "api_call_count": 10
+  }
+}
