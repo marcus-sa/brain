@@ -10,3 +10,7 @@ Your work should take place in the /Users/marcus/conductor/workspaces/brain/mani
 Each workspace has a .context directory (gitignored) where you can save files to collaborate with other agents.
 The target branch for this workspace is main. Use this for actions like creating new PRs, bisecting, ...
 
+### Prompt 2
+
+Continue from where you left off.
+
