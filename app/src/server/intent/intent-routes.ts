@@ -9,7 +9,7 @@ import type { IntentRecord } from "./types";
 // --- Route Handler Types ---
 
 type IntentRouteHandlers = {
-  handleEvaluate: (request: Request) => Promise<Response>;
+  handleEvaluate: (intentId: string, request: Request) => Promise<Response>;
   handleVeto: (workspaceId: string, intentId: string, request: Request) => Promise<Response>;
   handleListPending: (workspaceId: string) => Promise<Response>;
 };
@@ -21,21 +21,25 @@ export function createIntentRouteHandlers(deps: ServerDependencies): IntentRoute
 
   const llmEvaluator = createLlmEvaluator(deps.extractionModel);
 
-  const handleEvaluate = async (request: Request): Promise<Response> => {
+  const handleEvaluate = async (intentId: string, request: Request): Promise<Response> => {
     // Called by SurrealQL EVENT via http::post - receives full intent record as body
-    let body: IntentRecord;
+    let body: IntentRecord | undefined;
     try {
       body = await request.json() as IntentRecord;
     } catch {
-      return jsonError("Invalid JSON body", 400);
+      body = undefined;
     }
 
-    const intentId = typeof body.id === "object" && body.id !== undefined
+    const bodyIntentId = body && typeof body.id === "object" && body.id !== undefined
       ? (body.id.id as string)
       : undefined;
 
-    if (!intentId) {
-      return jsonError("Missing intent id in body", 400);
+    if (bodyIntentId && bodyIntentId !== intentId) {
+      return jsonError("Intent ID mismatch between path and payload", 400);
+    }
+
+    if (!body) {
+      return jsonError("Invalid JSON body", 400);
     }
 
     if (!body.requester) {
@@ -87,7 +91,12 @@ export function createIntentRouteHandlers(deps: ServerDependencies): IntentRoute
             evaluation: evaluationRecord,
           });
           if (!result.ok) {
-            logError("intent.evaluate.update_failed", result.error, { intentId });
+            logError(
+              "intent.evaluate.update_failed",
+              "Failed to update intent status to authorized",
+              new Error(result.error),
+              { intentId },
+            );
             return jsonError(result.error, 409);
           }
           logInfo("intent.authorized", "Intent auto-approved", { intentId });
@@ -100,7 +109,12 @@ export function createIntentRouteHandlers(deps: ServerDependencies): IntentRoute
             veto_expires_at: routing.expires_at,
           });
           if (!result.ok) {
-            logError("intent.evaluate.update_failed", result.error, { intentId });
+            logError(
+              "intent.evaluate.update_failed",
+              "Failed to update intent status to pending_veto",
+              new Error(result.error),
+              { intentId },
+            );
             return jsonError(result.error, 409);
           }
           logInfo("intent.pending_veto", "Intent requires veto window", {
@@ -120,7 +134,12 @@ export function createIntentRouteHandlers(deps: ServerDependencies): IntentRoute
             evaluation: evaluationRecord,
           });
           if (!result.ok) {
-            logError("intent.evaluate.update_failed", result.error, { intentId });
+            logError(
+              "intent.evaluate.update_failed",
+              "Failed to update intent status to vetoed",
+              new Error(result.error),
+              { intentId },
+            );
             return jsonError(result.error, 409);
           }
           logInfo("intent.vetoed", "Intent rejected by evaluation", {
@@ -131,7 +150,7 @@ export function createIntentRouteHandlers(deps: ServerDependencies): IntentRoute
         }
       }
     } catch (error) {
-      logError("intent.evaluate.error", error instanceof Error ? error.message : String(error), {
+      logError("intent.evaluate.error", "Intent evaluation pipeline failed", error, {
         intentId,
       });
       return jsonError("Internal evaluation error", 500);
@@ -159,7 +178,10 @@ export function createIntentRouteHandlers(deps: ServerDependencies): IntentRoute
     });
 
     if (!result.ok) {
-      logError("intent.veto.failed", result.error, { intentId, workspaceId });
+      logError("intent.veto.failed", "Failed to veto intent", new Error(result.error), {
+        intentId,
+        workspaceId,
+      });
       return jsonError(result.error, 409);
     }
 

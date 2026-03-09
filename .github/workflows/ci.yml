@@ -43,7 +43,7 @@ jobs:
           surrealdb_username: root
           surrealdb_password: root
           surrealdb_auth: true
-          surrealdb_additional_args: --allow-guests --allow-net
+          surrealdb_additional_args: --allow-guests --allow-net 127.0.0.1,localhost,host.docker.internal
       - run: bun run test:acceptance
         env:
           NODE_ENV: test

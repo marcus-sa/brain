@@ -75,6 +75,15 @@
 - Nested async work inside tracked parents (e.g. `seedDescriptionEntry`, `fireDescriptionUpdates`, `persistEmbeddings`) should use `await ... .catch(() => undefined)` instead of `void`. Since the parent is already background work, awaiting doesn't affect user-facing latency.
 - When adding new background DB operations in route handlers, always use `deps.inflight.track()` or `await` within an already-tracked parent.
 
+## SurrealDB EVENT Webhook Timing
+
+- SurrealDB `DEFINE EVENT` HTTP webhooks can fire before the triggering write is visible to other requests.
+- Prefer `DEFINE EVENT ... ASYNC` for webhook-style side effects so callback execution runs after the triggering write commits.
+- Use `RETRY <n>` on webhook events to reduce transient callback/network flakiness.
+- For intent authorization (`draft -> pending_auth`), avoid synchronous webhook flows that immediately re-read/update the same intent unless the event is `ASYNC`.
+- If a webhook path must do DB follow-up without `ASYNC`, wait briefly for the triggering transition to commit before applying routing/state transitions.
+- If async follow-up work is needed in route handlers, track it with `deps.inflight.track(...)`.
+
 ## Failure Handling
 
 - Do NOT add fallback logic that masks invalid state, malformed payloads, or contract violations.

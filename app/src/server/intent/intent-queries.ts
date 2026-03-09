@@ -115,11 +115,9 @@ export async function updateIntentStatus(
   }
 
   const [rows] = await surreal.query<[IntentRecord[]]>(
-    "UPDATE $record SET status = $status, updated_at = $updated_at MERGE $fields RETURN AFTER;",
+    "UPDATE $record MERGE $fields RETURN AFTER;",
     {
       record,
-      status: newStatus,
-      updated_at: now,
       fields: setFields,
     },
   );

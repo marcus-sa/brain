@@ -11,9 +11,12 @@ services:
       - root
       - --allow-guests
       - --allow-net
+      - 127.0.0.1,localhost,host.docker.internal
       - rocksdb:/data/brain.db
     ports:
       - "8000:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - surrealdb-data:/data
     restart: unless-stopped

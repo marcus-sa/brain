@@ -70,6 +70,8 @@ DEFINE FIELD OVERWRITE vetoed_at ON vetoed_by TYPE datetime;
 
 -- Event: fire on transition TO pending_auth
 DEFINE EVENT OVERWRITE intent_pending_auth ON intent
+  ASYNC
+  RETRY 3
   WHEN $before.status != "pending_auth" AND $after.status = "pending_auth"
   THEN {
     http::post(

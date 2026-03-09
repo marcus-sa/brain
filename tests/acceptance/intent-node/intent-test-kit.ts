@@ -439,15 +439,47 @@ export async function createTestIdentity(
  * pending_auth. The EVENT calls http::post to the real test server's
  * evaluate endpoint, enabling true E2E testing of the async evaluation flow.
  *
+ * Callback host can be overridden via INTENT_EVAL_CALLBACK_HOST.
  * Call this in beforeAll after the test server has booted.
  */
 export async function wireIntentEvaluationEvent(
   surreal: Surreal,
   port: number,
 ): Promise<void> {
-  const baseUrl = `http://127.0.0.1:${port}`;
+  const configuredHost = process.env.INTENT_EVAL_CALLBACK_HOST?.trim();
+  const candidateHosts = configuredHost && configuredHost.length > 0
+    ? [configuredHost]
+    : ["127.0.0.1", "host.docker.internal"];
+
+  let baseUrl: string | undefined;
+  let lastError = "";
+
+  for (const host of candidateHosts) {
+    const candidateBaseUrl = `http://${host}:${port}`;
+
+    try {
+      await surreal.query(`RETURN http::head($url);`, {
+        url: `${candidateBaseUrl}/healthz`,
+      });
+      baseUrl = candidateBaseUrl;
+      break;
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  if (!baseUrl) {
+    throw new Error(
+      `Unable to reach acceptance server from SurrealDB for intent callback. ` +
+      `Tried hosts: ${candidateHosts.join(", ")} on port ${port}. ` +
+      `Last error: ${lastError}`,
+    );
+  }
+
   await surreal.query(`
     DEFINE EVENT OVERWRITE intent_pending_auth ON intent
+      ASYNC
+      RETRY 3
       WHEN $before.status != "pending_auth" AND $after.status = "pending_auth"
       THEN {
         http::post("${baseUrl}/api/intents/" + <string> meta::id($after.id) + "/evaluate", $after)

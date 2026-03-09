@@ -357,7 +357,7 @@ export function createBrainServer(deps: ServerDependencies): ReturnType<typeof B
       // Intent — evaluate (called by SurrealQL EVENT via http::post)
       "/api/intents/:intentId/evaluate": {
         POST: withRequestLogging("POST /api/intents/:intentId/evaluate", "POST", (request) =>
-          intentHandlers.handleEvaluate(request),
+          intentHandlers.handleEvaluate(request.params.intentId, request),
         ),
       },
       // Intent — veto
