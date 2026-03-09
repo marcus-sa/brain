@@ -1,0 +1,29 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "5f1c97f2d1b4",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/fix-smoke-tests-typechecks",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".github/workflows/ci.yml",
+    "app/src/server/auth/adapter.ts",
+    "package.json",
+    "tests/smoke/unified-identity/agent-mention-resolution.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/5f/1c97f2d1b4/0/metadata.json",
+      "transcript": "/5f/1c97f2d1b4/0/full.jsonl",
+      "context": "/5f/1c97f2d1b4/0/context.md",
+      "content_hash": "/5f/1c97f2d1b4/0/content_hash.txt",
+      "prompt": "/5f/1c97f2d1b4/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 27,
+    "cache_creation_tokens": 160871,
+    "cache_read_tokens": 449689,
+    "output_tokens": 8191,
+    "api_call_count": 14
+  }
+}
