@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { RecordId, Surreal } from "surrealdb";
 import { checkAuthority } from "../../app/src/server/iam/authority";
 import { resolveByEmail } from "../../app/src/server/iam/identity";
-import { resolveWorkspacePerson } from "../../app/src/server/extraction/person";
+import { resolveWorkspaceIdentity } from "../../app/src/server/extraction/identity-resolution";
 
 const surrealUrl = process.env.SURREAL_URL ?? "ws://127.0.0.1:8000/rpc";
 const surrealUsername = process.env.SURREAL_USERNAME ?? "root";
@@ -250,9 +250,8 @@ describe("identity resolution", () => {
     expect(result).toBeUndefined();
   });
 
-  it("resolveWorkspacePerson chains name then email fallback", async () => {
+  it("resolveWorkspaceIdentity resolves by name and rejects unknown", async () => {
     const workspaceRecord = new RecordId("workspace", "test-ws-composite");
-    const personRecord = new RecordId("person", "test-person-composite");
 
     await surreal.create(workspaceRecord).content({
       name: "test-composite",
@@ -265,14 +264,6 @@ describe("identity resolution", () => {
       onboarding_started_at: new Date(),
     });
 
-    await surreal.create(personRecord).content({
-      name: "Alice",
-      contact_email: "alice@example.com",
-      email_verified: false,
-      created_at: new Date(),
-      updated_at: new Date(),
-    });
-
     const identityRecord = new RecordId("identity", "test-identity-composite");
     await surreal.create(identityRecord).content({
       name: "Alice",
@@ -282,12 +273,6 @@ describe("identity resolution", () => {
     });
 
     await surreal
-      .relate(identityRecord, new RecordId("identity_person", "test-composite-spoke"), personRecord, {
-        added_at: new Date(),
-      })
-      .output("after");
-
-    await surreal
       .relate(identityRecord, new RecordId("member_of", "test-composite-member"), workspaceRecord, {
         role: "member",
         added_at: new Date(),
@@ -295,28 +280,19 @@ describe("identity resolution", () => {
       .output("after");
 
     // Name match (resolves via identity table)
-    const byName = await resolveWorkspacePerson({
+    const byName = await resolveWorkspaceIdentity({
       surreal,
       workspaceRecord,
-      personName: "Alice",
+      identityName: "Alice",
     });
     expect(byName).toBeDefined();
     expect(byName!.id).toBe("test-identity-composite");
 
-    // Email fallback (person email -> spoke -> identity)
-    const byEmail = await resolveWorkspacePerson({
-      surreal,
-      workspaceRecord,
-      personName: "alice@example.com",
-    });
-    expect(byEmail).toBeDefined();
-    expect(byEmail!.id).toBe("test-identity-composite");
-
     // No match
-    const noMatch = await resolveWorkspacePerson({
+    const noMatch = await resolveWorkspaceIdentity({
       surreal,
       workspaceRecord,
-      personName: "nobody",
+      identityName: "nobody",
     });
     expect(noMatch).toBeUndefined();
   });

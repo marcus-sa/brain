@@ -97,9 +97,6 @@ export type IdentityAttributionPatch =
   | { kind: "question"; field: "assigned_to"; value: string }
   | { kind: "question"; field: "assigned_to_name"; value: string };
 
-/** @deprecated Use IdentityAttributionPatch instead */
-export type PersonAttributionPatch = IdentityAttributionPatch;
-
 export async function findWorkspaceIdentityByName(input: {
   surreal: Surreal;
   workspaceRecord: RecordId<"workspace", string>;
@@ -128,18 +125,6 @@ export async function findWorkspaceIdentityByName(input: {
 
   return rows[0]?.id;
 }
-
-/** @deprecated Use findWorkspaceIdentityByName instead */
-export const findWorkspacePersonByName = (input: {
-  surreal: Surreal;
-  workspaceRecord: RecordId<"workspace", string>;
-  personName: string;
-}): Promise<RecordId<"identity", string> | undefined> =>
-  findWorkspaceIdentityByName({
-    surreal: input.surreal,
-    workspaceRecord: input.workspaceRecord,
-    identityName: input.personName,
-  });
 
 /**
  * Composite resolver: ambiguity guard -> exact name match -> role-based agent match.
@@ -172,18 +157,6 @@ export async function resolveWorkspaceIdentity(input: {
 
   return undefined;
 }
-
-/** @deprecated Use resolveWorkspaceIdentity instead */
-export const resolveWorkspacePerson = (input: {
-  surreal: Surreal;
-  workspaceRecord: RecordId<"workspace", string>;
-  personName: string;
-}): Promise<RecordId<"identity", string> | undefined> =>
-  resolveWorkspaceIdentity({
-    surreal: input.surreal,
-    workspaceRecord: input.workspaceRecord,
-    identityName: input.personName,
-  });
 
 export function resolveIdentityAttributionPatch(input: {
   targetKind: PersistableExtractableEntityKind;
@@ -220,15 +193,3 @@ export function resolveIdentityAttributionPatch(input: {
 
   return { kind: "question", field: "assigned_to_name", value: input.assigneeName };
 }
-
-/** @deprecated Use resolveIdentityAttributionPatch instead */
-export const resolvePersonAttributionPatch = (input: {
-  targetKind: PersistableExtractableEntityKind;
-  assigneeName: string;
-  personRecordId?: string;
-}): IdentityAttributionPatch =>
-  resolveIdentityAttributionPatch({
-    targetKind: input.targetKind,
-    assigneeName: input.assigneeName,
-    identityRecordId: input.personRecordId,
-  });

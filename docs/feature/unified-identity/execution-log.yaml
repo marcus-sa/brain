@@ -165,5 +165,42 @@ events:
   s: EXECUTED
   sid: 03-02
   t: '2026-03-09T09:43:10Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 03-02
+  t: '2026-03-09T09:43:50Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 03-02
+  t: '2026-03-09T09:44:10Z'
+- d: 'NOT_APPLICABLE: acceptance tests directly exercise resolveWorkspaceIdentity
+    and isAmbiguousAgentMention at port boundary with 8 tests covering all acceptance
+    criteria'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 03-02
+  t: '2026-03-09T09:44:19Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 03-02
+  t: '2026-03-09T09:53:25Z'
+- d: 'NOT_APPLICABLE: cleanup task, no new behavior to test'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 03-02
+  t: '2026-03-09T09:53:30Z'
+- d: 'NOT_APPLICABLE: cleanup task, no new behavior to test'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 03-02
+  t: '2026-03-09T09:53:30Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 03-02
+  t: '2026-03-09T09:54:56Z'
 project_id: unified-identity
 schema_version: '3.0'
