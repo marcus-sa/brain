@@ -174,7 +174,7 @@ async function handlePostChatMessage(deps: ServerDependencies, request: Request)
     messageId,
   });
 
-  void processChatMessage({
+  deps.inflight.track(processChatMessage({
     deps,
     conversationId,
     messageId,
@@ -184,7 +184,7 @@ async function handlePostChatMessage(deps: ServerDependencies, request: Request)
     attachment: parsed.data.attachment,
     ...(onboardingAction ? { onboardingAction } : {}),
     identityRecord,
-  });
+  }));
 
   const response: ChatMessageResponse = {
     messageId,

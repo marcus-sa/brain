@@ -5,6 +5,7 @@ import { logInfo } from "../http/observability";
 import { createSseRegistry } from "../streaming/sse-registry";
 import { createRuntimeDependencies } from "./dependencies";
 import { loadServerConfig } from "./config";
+import { createInflightTracker } from "./types";
 import type { ServerDependencies } from "./types";
 import { ensureDefaultWorkspaceProjectScope } from "../workspace/workspace-scope";
 import { createWorkspaceRouteHandlers } from "../workspace/workspace-routes";
@@ -375,6 +376,7 @@ export async function startServer(): Promise<void> {
     analyticsAgentModel: runtime.analyticsAgentModel,
     embeddingModel: runtime.embeddingModel,
     sse: createSseRegistry(),
+    inflight: createInflightTracker(),
   };
 
   const server = createBrainServer(deps);

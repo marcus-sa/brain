@@ -6,8 +6,9 @@ import { Surreal } from "surrealdb";
 import { createBrainServer } from "../../app/src/server/runtime/start-server";
 import { createRuntimeDependencies } from "../../app/src/server/runtime/dependencies";
 import { createSseRegistry } from "../../app/src/server/streaming/sse-registry";
+import { createInflightTracker } from "../../app/src/server/runtime/types";
 import type { ServerConfig } from "../../app/src/server/runtime/config";
-import type { ServerDependencies } from "../../app/src/server/runtime/types";
+import type { ServerDependencies, InflightTracker } from "../../app/src/server/runtime/types";
 
 export type SmokeTestRuntime = {
   baseUrl: string;
@@ -34,6 +35,7 @@ export function setupSmokeSuite(suiteName: string): () => SmokeTestRuntime {
   let server: ReturnType<typeof Bun.serve> | undefined;
   let runtimeSurreal: Surreal | undefined;
   let analyticsSurreal: Surreal | undefined;
+  let inflight: InflightTracker | undefined;
   let setupSucceeded = false;
 
   beforeAll(async () => {
@@ -88,6 +90,7 @@ export function setupSmokeSuite(suiteName: string): () => SmokeTestRuntime {
     const deps = await createRuntimeDependencies(config);
     runtimeSurreal = deps.surreal;
     analyticsSurreal = deps.analyticsSurreal;
+    inflight = createInflightTracker();
 
     const serverDeps: ServerDependencies = {
       config,
@@ -100,6 +103,7 @@ export function setupSmokeSuite(suiteName: string): () => SmokeTestRuntime {
       analyticsAgentModel: deps.analyticsAgentModel,
       embeddingModel: deps.embeddingModel,
       sse: createSseRegistry(),
+      inflight,
     };
 
     server = createBrainServer(serverDeps);
@@ -110,6 +114,11 @@ export function setupSmokeSuite(suiteName: string): () => SmokeTestRuntime {
   }, 60_000);
 
   afterAll(async () => {
+    // Drain fire-and-forget work (e.g. webhook extraction) before closing DB
+    if (inflight) {
+      await inflight.drain(15_000);
+    }
+
     if (server) {
       server.stop(true);
     }
