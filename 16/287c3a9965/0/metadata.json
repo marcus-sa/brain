@@ -1,0 +1,35 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "16287c3a9965",
+  "session_id": "37b352a9-aec6-41bc-aa8e-ae1dd20d3e65",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-09T16:02:10.468565Z",
+  "branch": "marcus-sa/fix-smoke-tests-typechecks",
+  "checkpoints_count": 4,
+  "files_touched": [
+    "tests/AGENTS.md",
+    "tests/smoke/create-work-item-edge.test.ts",
+    "tests/smoke/move-items-to-project.test.ts",
+    "tests/smoke/smoke-test-kit.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "040f44aaaa3d",
+  "checkpoint_transcript_start": 55,
+  "transcript_lines_at_start": 55,
+  "token_usage": {
+    "input_tokens": 59,
+    "cache_creation_tokens": 32282,
+    "cache_read_tokens": 2309895,
+    "output_tokens": 8478,
+    "api_call_count": 33
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-09T16:02:10.24493Z",
+    "agent_lines": 31,
+    "human_added": 7,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 38,
+    "agent_percentage": 81.57894736842105
+  }
+}
