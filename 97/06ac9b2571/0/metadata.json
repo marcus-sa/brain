@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "9706ac9b2571",
+  "session_id": "e8af5739-f4da-4598-986f-44b85c8526ed",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-09T05:29:36.638785Z",
+  "branch": "marcus-sa/identity-hub-spoke",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "docs/feature/unified-identity/design/architecture-design.md",
+    "docs/feature/unified-identity/design/component-boundaries.md",
+    "docs/feature/unified-identity/design/data-models.md"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "2fdf62bccc97",
+  "token_usage": {
+    "input_tokens": 91,
+    "cache_creation_tokens": 213032,
+    "cache_read_tokens": 3510168,
+    "output_tokens": 15151,
+    "api_call_count": 57
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-09T05:29:36.072283Z",
+    "agent_lines": 0,
+    "human_added": 39,
+    "human_modified": 17,
+    "human_removed": 0,
+    "total_committed": 39,
+    "agent_percentage": 0
+  }
+}
