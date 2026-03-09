@@ -3,7 +3,7 @@
   "checkpoint_id": "f938dbc87e63",
   "strategy": "manual-commit",
   "branch": "marcus-sa/intent-node-issue",
-  "checkpoints_count": 2,
+  "checkpoints_count": 4,
   "files_touched": [
     ".nwave/des/deliver-session.json"
   ],
@@ -21,13 +21,20 @@
       "context": "/f9/38dbc87e63/1/context.md",
       "content_hash": "/f9/38dbc87e63/1/content_hash.txt",
       "prompt": "/f9/38dbc87e63/1/prompt.txt"
+    },
+    {
+      "metadata": "/f9/38dbc87e63/2/metadata.json",
+      "transcript": "/f9/38dbc87e63/2/full.jsonl",
+      "context": "/f9/38dbc87e63/2/context.md",
+      "content_hash": "/f9/38dbc87e63/2/content_hash.txt",
+      "prompt": "/f9/38dbc87e63/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 496,
-    "cache_creation_tokens": 480360,
-    "cache_read_tokens": 11489147,
-    "output_tokens": 54527,
-    "api_call_count": 136
+    "input_tokens": 1293,
+    "cache_creation_tokens": 1108563,
+    "cache_read_tokens": 22732315,
+    "output_tokens": 115816,
+    "api_call_count": 248
   }
 }
