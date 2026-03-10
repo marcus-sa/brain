@@ -60,7 +60,7 @@ describe("Branch Inheritance: Traces on inherited messages survive branching", (
         childConvRecord,
         new RecordId("branched_from", branchedFromId),
         conv.conversationRecord,
-        { branch_point_message: assistantMsg },
+        { branch_point_message: assistantMsg, branched_at: new Date(t1.getTime() + 1000) },
       )
       .output("after");
 
