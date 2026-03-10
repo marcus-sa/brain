@@ -1,13 +1,3 @@
-/**
- * Policy Node Acceptance Test Kit
- *
- * Extends the intent-test-kit with policy-specific helpers.
- * All helpers use business language -- no technical jargon in function names.
- *
- * Driving ports:
- *   Direct DB for policy schema, graph edges, and policy gate evaluation
- *   POST /api/intents/:id/evaluate (SurrealQL EVENT target -- via intent-test-kit)
- */
 import { RecordId, type Surreal } from "surrealdb";
 
 // Re-export everything from intent-test-kit (which re-exports orchestrator-test-kit)
@@ -111,10 +101,6 @@ export type CreatePolicyOptions = {
 // Domain Helpers -- Business Language Layer
 // ---------------------------------------------------------------------------
 
-/**
- * Creates a policy record directly in the database.
- * Used as a Given-step precondition for scenarios.
- */
 export async function createPolicy(
   surreal: Surreal,
   workspaceId: string,
@@ -149,10 +135,6 @@ export async function createPolicy(
   return { policyId, policyRecord };
 }
 
-/**
- * Activates a draft policy and creates graph edges.
- * Atomic: status change + governing + protects edges in one transaction.
- */
 export async function activatePolicy(
   surreal: Surreal,
   policyId: string,
@@ -176,9 +158,6 @@ export async function activatePolicy(
   });
 }
 
-/**
- * Deprecates a policy and removes all graph edges.
- */
 export async function deprecatePolicy(
   surreal: Surreal,
   policyId: string,
@@ -194,9 +173,6 @@ export async function deprecatePolicy(
   `, { policy: policyRecord });
 }
 
-/**
- * Queries the full policy record from the database.
- */
 export async function getPolicyRecord(
   surreal: Surreal,
   policyId: string,
@@ -210,10 +186,6 @@ export async function getPolicyRecord(
   return result;
 }
 
-/**
- * Loads active policies for an identity+workspace via graph traversal.
- * Mirrors the production loadActivePolicies query pattern.
- */
 export async function loadActivePoliciesForIdentity(
   surreal: Surreal,
   identityId: string,
@@ -250,10 +222,6 @@ export async function loadActivePoliciesForIdentity(
   return all;
 }
 
-/**
- * Simulates the policy gate evaluation result on an intent.
- * Used to set up post-policy-gate state for downstream tests.
- */
 export async function simulatePolicyGateResult(
   surreal: Surreal,
   intentId: string,
@@ -296,9 +264,6 @@ export async function simulatePolicyGateResult(
   });
 }
 
-/**
- * Queries audit events for a specific policy.
- */
 export async function getAuditEventsForPolicy(
   surreal: Surreal,
   policyId: string,
@@ -312,9 +277,6 @@ export async function getAuditEventsForPolicy(
   return rows[0] ?? [];
 }
 
-/**
- * Creates an audit event for a policy lifecycle action.
- */
 export async function createPolicyAuditEvent(
   surreal: Surreal,
   eventType: string,
@@ -344,9 +306,6 @@ export async function createPolicyAuditEvent(
   });
 }
 
-/**
- * Creates a new version of a policy, superseding the old one.
- */
 export async function createPolicyVersion(
   surreal: Surreal,
   oldPolicyId: string,

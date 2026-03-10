@@ -4,9 +4,9 @@ const DEFAULT_AUTO_APPROVE_THRESHOLD = 30;
 const DEFAULT_VETO_WINDOW_MINUTES = 30;
 
 type RiskRouterOptions = {
-  threshold?: number;
+  autoApproveThreshold?: number;
   vetoWindowMinutes?: number;
-  human_veto_required?: boolean;
+  humanVetoRequired?: boolean;
 };
 
 export function routeByRisk(
@@ -17,11 +17,11 @@ export function routeByRisk(
     return { route: "reject", reason: evaluation.reason };
   }
 
-  const threshold = options?.threshold ?? DEFAULT_AUTO_APPROVE_THRESHOLD;
+  const threshold = options?.autoApproveThreshold ?? DEFAULT_AUTO_APPROVE_THRESHOLD;
   const vetoMinutes = options?.vetoWindowMinutes ?? DEFAULT_VETO_WINDOW_MINUTES;
 
   // Policy human_veto_required forces veto_window regardless of risk score
-  if (options?.human_veto_required) {
+  if (options?.humanVetoRequired) {
     const expiresAt = new Date(Date.now() + vetoMinutes * 60 * 1000);
     return { route: "veto_window", expires_at: expiresAt };
   }

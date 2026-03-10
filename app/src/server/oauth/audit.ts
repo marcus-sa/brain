@@ -1,21 +1,9 @@
-/**
- * Audit Event Logging
- *
- * Audit event logging to SurrealDB for security-relevant
- * OAuth operations (token issuance, rejections, DPoP verification,
- * consent actions, intent lifecycle).
- *
- * Pure domain types + SurrealDB adapter.
- *
- * Step: 02-04, 04-04
- */
 import { RecordId, type Surreal } from "surrealdb";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-/** All event types matching the schema ASSERT values. */
 export type AuditEventType =
   | "intent_submitted"
   | "intent_evaluated"
@@ -35,20 +23,17 @@ export type AuditEventType =
 
 export type AuditSeverity = "info" | "warning" | "security";
 
-/** Security events that always get elevated severity. */
 export const SECURITY_EVENT_TYPES: AuditEventType[] = [
   "dpop_rejected",
   "token_rejected",
   "security_alert",
 ];
 
-/** Warning events that indicate operator intervention or constraint. */
 const WARNING_EVENT_TYPES: AuditEventType[] = [
   "consent_vetoed",
   "consent_constrained",
 ];
 
-/** Classify event severity by event type. */
 export function classifySeverity(eventType: AuditEventType): AuditSeverity {
   if (SECURITY_EVENT_TYPES.includes(eventType)) return "security";
   if (WARNING_EVENT_TYPES.includes(eventType)) return "warning";
@@ -65,7 +50,6 @@ export type AuditEvent = {
   payload: Record<string, unknown>;
 };
 
-/** Input for createAuditEvent -- event_type and severity are derived. */
 export type AuditEventInput = {
   actor: RecordId<"identity", string>;
   workspace: RecordId<"workspace", string>;
@@ -74,7 +58,6 @@ export type AuditEventInput = {
   payload: Record<string, unknown>;
 };
 
-/** Build an AuditEvent with auto-classified severity. */
 export function createAuditEvent(
   eventType: AuditEventType,
   input: AuditEventInput,

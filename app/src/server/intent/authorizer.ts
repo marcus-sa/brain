@@ -39,13 +39,9 @@ export type EvaluateIntentInput = {
 
 const DEFAULT_EVAL_TIMEOUT_MS = 30_000;
 
-// --- Evaluate Intent Pipeline ---
-// Policy gate -> LLM evaluation -> fallback on failure
-
 export async function evaluateIntent(
   input: EvaluateIntentInput,
 ): Promise<EvaluationOutput> {
-  // Step 1: Build intent evaluation context for the policy gate
   const intentContext: IntentEvaluationContext = {
     goal: input.intent.goal,
     reasoning: input.intent.reasoning,
@@ -56,7 +52,6 @@ export async function evaluateIntent(
     requester_role: input.requesterRole,
   };
 
-  // Step 2: Policy gate (short-circuit on reject)
   const gateResult = await evaluatePolicyGate(
     input.surreal,
     input.identityId,
@@ -78,7 +73,6 @@ export async function evaluateIntent(
   const humanVetoRequired = gateResult.human_veto_required;
   const policyTrace = gateResult.policy_trace;
 
-  // Step 3: LLM evaluation with timeout
   const timeoutMs = input.timeoutMs ?? DEFAULT_EVAL_TIMEOUT_MS;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -92,9 +86,6 @@ export async function evaluateIntent(
       human_veto_required: humanVetoRequired,
     };
   } catch (error) {
-    // Step 4: Fallback to high-risk APPROVE on any LLM failure.
-    // risk_score=50 ensures the intent routes through veto_window
-    // (human review) rather than auto_approve.
     const reason = isAbortError(error)
       ? "LLM evaluation timeout — falling back to policy-only with veto window"
       : "LLM evaluation failed — falling back to policy-only with veto window";

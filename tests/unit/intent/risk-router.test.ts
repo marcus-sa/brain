@@ -31,7 +31,7 @@ describe("routeByRisk", () => {
     });
 
     test("returns auto_approve when APPROVE and risk_score equals custom threshold", () => {
-      const result = routeByRisk(approveResult(50), { threshold: 50 });
+      const result = routeByRisk(approveResult(50), { autoApproveThreshold: 50 });
       expect(result).toEqual({ route: "auto_approve" });
     });
   });
@@ -52,7 +52,7 @@ describe("routeByRisk", () => {
     });
 
     test("returns veto_window when APPROVE and risk_score is 51 with custom threshold 50", () => {
-      const result = routeByRisk(approveResult(51), { threshold: 50 });
+      const result = routeByRisk(approveResult(51), { autoApproveThreshold: 50 });
       expect(result.route).toBe("veto_window");
     });
   });
@@ -85,12 +85,12 @@ describe("routeByRisk with human_veto_required", () => {
   });
 
   test("forces veto_window when human_veto_required is true and APPROVE with low risk", () => {
-    const result = routeByRisk(approveResult(0), { human_veto_required: true });
+    const result = routeByRisk(approveResult(0), { humanVetoRequired: true });
     expect(result.route).toBe("veto_window");
   });
 
   test("forces veto_window when human_veto_required is true and APPROVE at threshold", () => {
-    const result = routeByRisk(approveResult(30), { human_veto_required: true });
+    const result = routeByRisk(approveResult(30), { humanVetoRequired: true });
     expect(result.route).toBe("veto_window");
   });
 
@@ -100,7 +100,7 @@ describe("routeByRisk with human_veto_required", () => {
       risk_score: 10,
       reason: "Denied",
     };
-    const result = routeByRisk(rejectResult, { human_veto_required: true });
+    const result = routeByRisk(rejectResult, { humanVetoRequired: true });
     expect(result).toEqual({ route: "reject", reason: "Denied" });
   });
 });

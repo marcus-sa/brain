@@ -16,11 +16,6 @@ type CreatePolicyParams = {
 
 // --- Query Functions ---
 
-/**
- * Loads active policies for an identity+workspace via graph traversal.
- * Policies can be reached via identity->governing->policy AND workspace<-protects<-policy.
- * Deduplicates by policy ID and filters to active status only.
- */
 export async function loadActivePolicies(
   surreal: Surreal,
   identityId: RecordId<"identity">,
@@ -56,9 +51,6 @@ export async function loadActivePolicies(
   return result;
 }
 
-/**
- * Creates a policy record in draft status with version 1.
- */
 export async function createPolicy(
   surreal: Surreal,
   params: CreatePolicyParams,
@@ -89,10 +81,6 @@ export async function createPolicy(
   return { policyId, policyRecord };
 }
 
-/**
- * Activates a draft policy and creates graph edges.
- * Atomic: status change + governing + protects edges in one transaction.
- */
 export async function activatePolicy(
   surreal: Surreal,
   policyId: string,
@@ -117,10 +105,6 @@ export async function activatePolicy(
   );
 }
 
-/**
- * Deprecates a policy and removes all graph edges.
- * Atomic: status change + edge removal in one transaction.
- */
 export async function deprecatePolicy(
   surreal: Surreal,
   policyId: string,
@@ -139,9 +123,6 @@ export async function deprecatePolicy(
   );
 }
 
-/**
- * Creates an audit event for a policy lifecycle action.
- */
 export async function createPolicyAuditEvent(
   surreal: Surreal,
   eventType: string,
