@@ -1,0 +1,36 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "ff08db3b9728",
+  "session_id": "9a3e3528-2bae-44a9-ba1d-45ac4c351d00",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-10T11:12:44.782427Z",
+  "branch": "marcus-sa/oauth-rar-dpop-server",
+  "checkpoints_count": 0,
+  "files_touched": [
+    ".nwave/des/deliver-session.json",
+    ".nwave/des/des-task-active",
+    ".nwave/des/des-task-active-oauth-rar-dpop--",
+    ".nwave/des/des-task-active-oauth-rar-dpop--03-04",
+    ".nwave/des/des-task-active-oauth-rar-dpop--04-03"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "d4dd40adf0b8",
+  "checkpoint_transcript_start": 2403,
+  "transcript_lines_at_start": 2403,
+  "token_usage": {
+    "input_tokens": 8,
+    "cache_creation_tokens": 2945,
+    "cache_read_tokens": 596287,
+    "output_tokens": 827,
+    "api_call_count": 6
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-10T11:12:43.541848Z",
+    "agent_lines": 0,
+    "human_added": 15,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 15,
+    "agent_percentage": 0
+  }
+}

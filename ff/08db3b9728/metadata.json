@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "ff08db3b9728",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/oauth-rar-dpop-server",
+  "checkpoints_count": 0,
+  "files_touched": [
+    ".nwave/des/deliver-session.json",
+    ".nwave/des/des-task-active",
+    ".nwave/des/des-task-active-oauth-rar-dpop--",
+    ".nwave/des/des-task-active-oauth-rar-dpop--03-04",
+    ".nwave/des/des-task-active-oauth-rar-dpop--04-03"
+  ],
+  "sessions": [
+    {
+      "metadata": "/ff/08db3b9728/0/metadata.json",
+      "transcript": "/ff/08db3b9728/0/full.jsonl",
+      "context": "/ff/08db3b9728/0/context.md",
+      "content_hash": "/ff/08db3b9728/0/content_hash.txt",
+      "prompt": "/ff/08db3b9728/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 8,
+    "cache_creation_tokens": 2945,
+    "cache_read_tokens": 596287,
+    "output_tokens": 827,
+    "api_call_count": 6
+  }
+}
