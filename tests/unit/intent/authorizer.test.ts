@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test, mock } from "bun:test";
+import { RecordId } from "surrealdb";
 import {
   evaluateIntent,
   type EvaluateIntentInput,
@@ -8,10 +9,13 @@ import type { EvaluationResult } from "../../../app/src/server/intent/types";
 
 // --- Helpers ---
 
-const defaultPolicy = {
-  budget_cap: { amount: 1000, currency: "USD" },
-  allowed_actions: ["slack.send_message"],
-};
+// Mock Surreal that returns empty policies (policy gate always passes)
+const mockSurreal = {
+  query: async () => [[{ policies: [] }]],
+} as unknown as EvaluateIntentInput["surreal"];
+
+const mockIdentityId = new RecordId("identity", "test-identity");
+const mockWorkspaceId = new RecordId("workspace", "test-workspace");
 
 const defaultIntent: EvaluateIntentInput["intent"] = {
   goal: "Send a slack notification",
@@ -50,29 +54,37 @@ const slowLlmEvaluator = (delayMs: number): LlmEvaluator =>
     return approvedLlmResult;
   };
 
+const makeInput = (overrides: Partial<EvaluateIntentInput> = {}): EvaluateIntentInput => ({
+  intent: defaultIntent,
+  surreal: mockSurreal,
+  identityId: mockIdentityId,
+  workspaceId: mockWorkspaceId,
+  requesterType: "agent",
+  llmEvaluator: makeLlmEvaluator(approvedLlmResult),
+  ...overrides,
+});
+
 // --- Tests ---
 
 describe("evaluateIntent", () => {
   describe("happy path: policy passes, LLM returns result", () => {
     test("returns LLM evaluation result with policy_only=false", async () => {
-      const result = await evaluateIntent({
-        intent: defaultIntent,
-        policy: defaultPolicy,
+      const result = await evaluateIntent(makeInput({
         llmEvaluator: makeLlmEvaluator(approvedLlmResult),
-      });
+      }));
 
       expect(result.decision).toBe("APPROVE");
       expect(result.risk_score).toBe(15);
       expect(result.reason).toBe("Low-risk notification action");
       expect(result.policy_only).toBe(false);
+      expect(result.policy_trace).toEqual([]);
+      expect(result.human_veto_required).toBe(false);
     });
 
     test("returns LLM REJECT decision with policy_only=false", async () => {
-      const result = await evaluateIntent({
-        intent: defaultIntent,
-        policy: defaultPolicy,
+      const result = await evaluateIntent(makeInput({
         llmEvaluator: makeLlmEvaluator(rejectedLlmResult),
-      });
+      }));
 
       expect(result.decision).toBe("REJECT");
       expect(result.risk_score).toBe(80);
@@ -82,58 +94,57 @@ describe("evaluateIntent", () => {
   });
 
   describe("policy reject short-circuits before LLM", () => {
-    test("rejects on budget cap exceeded without calling LLM", async () => {
+    test("rejects when policy gate denies without calling LLM", async () => {
+      // Mock Surreal that returns a deny policy from graph traversal
+      // loadActivePolicies calls query twice (identity + workspace), accessing result[0]?.policies
+      const denyPolicy = {
+        id: new RecordId("policy", "deny-test"),
+        title: "Block Deploy",
+        version: 1,
+        status: "active",
+        selector: {},
+        rules: [{
+          id: "block_deploy",
+          condition: { field: "action_spec.action", operator: "eq", value: "deploy" },
+          effect: "deny",
+          priority: 100,
+        }],
+        human_veto_required: false,
+        created_by: mockIdentityId,
+        workspace: mockWorkspaceId,
+        created_at: new Date(),
+      };
+      const denyPolicySurreal = {
+        query: async () => [[{ policies: [denyPolicy] }]],
+      } as unknown as EvaluateIntentInput["surreal"];
+
       let llmCalled = false;
       const spyEvaluator: LlmEvaluator = async () => {
         llmCalled = true;
         return approvedLlmResult;
       };
 
-      const result = await evaluateIntent({
+      const result = await evaluateIntent(makeInput({
         intent: {
           ...defaultIntent,
-          budget_limit: { amount: 5000, currency: "USD" },
+          action_spec: { provider: "infra", action: "deploy" },
         },
-        policy: defaultPolicy,
+        surreal: denyPolicySurreal,
         llmEvaluator: spyEvaluator,
-      });
+      }));
 
       expect(result.decision).toBe("REJECT");
       expect(result.policy_only).toBe(true);
-      expect(result.reason).toContain("budget");
-      expect(llmCalled).toBe(false);
-    });
-
-    test("rejects on action not in allowlist without calling LLM", async () => {
-      let llmCalled = false;
-      const spyEvaluator: LlmEvaluator = async () => {
-        llmCalled = true;
-        return approvedLlmResult;
-      };
-
-      const result = await evaluateIntent({
-        intent: {
-          ...defaultIntent,
-          action_spec: { provider: "aws", action: "delete_instance" },
-        },
-        policy: defaultPolicy,
-        llmEvaluator: spyEvaluator,
-      });
-
-      expect(result.decision).toBe("REJECT");
-      expect(result.policy_only).toBe(true);
-      expect(result.reason).toContain("aws.delete_instance");
+      expect(result.policy_trace.length).toBeGreaterThan(0);
       expect(llmCalled).toBe(false);
     });
   });
 
   describe("LLM failure falls back to high-risk approval for human review", () => {
     test("returns APPROVE with risk_score=50 and policy_only=true when LLM throws", async () => {
-      const result = await evaluateIntent({
-        intent: defaultIntent,
-        policy: defaultPolicy,
+      const result = await evaluateIntent(makeInput({
         llmEvaluator: failingLlmEvaluator,
-      });
+      }));
 
       expect(result.decision).toBe("APPROVE");
       expect(result.policy_only).toBe(true);
@@ -144,12 +155,10 @@ describe("evaluateIntent", () => {
 
   describe("evaluation timeout produces high-risk fallback for human review", () => {
     test("returns APPROVE with risk_score=50 and policy_only=true on timeout", async () => {
-      const result = await evaluateIntent({
-        intent: defaultIntent,
-        policy: defaultPolicy,
+      const result = await evaluateIntent(makeInput({
         llmEvaluator: slowLlmEvaluator(5000),
         timeoutMs: 50,
-      });
+      }));
 
       expect(result.decision).toBe("APPROVE");
       expect(result.policy_only).toBe(true);

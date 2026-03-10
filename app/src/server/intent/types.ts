@@ -1,5 +1,8 @@
 import type { RecordId } from "surrealdb";
 import type { BrainAction } from "../oauth/types";
+import type { PolicyTraceEntry } from "../policy/types";
+
+export type { PolicyTraceEntry } from "../policy/types";
 
 // --- Intent Status (state machine states) ---
 
@@ -56,6 +59,8 @@ export type IntentRecord = {
   evaluation?: EvaluationResult & {
     evaluated_at: Date;
     policy_only: boolean;
+    policy_trace?: PolicyTraceEntry[];
+    human_veto_required?: boolean;
   };
   veto_expires_at?: Date;
   veto_reason?: string;

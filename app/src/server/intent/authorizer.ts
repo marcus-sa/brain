@@ -1,23 +1,9 @@
 import { generateObject, type LanguageModel } from "ai";
 import { z } from "zod";
+import type { RecordId, Surreal } from "surrealdb";
 import type { ActionSpec, BudgetLimit, EvaluationResult } from "./types";
-
-// --- Policy Gate Types ---
-
-type PolicyGateIntent = {
-  goal: string;
-  action_spec: ActionSpec;
-  budget_limit?: BudgetLimit;
-};
-
-type WorkspacePolicy = {
-  budget_cap?: BudgetLimit;
-  allowed_actions?: string[];
-};
-
-type PolicyGateResult =
-  | { passed: true }
-  | { passed: false; reason: string };
+import type { PolicyTraceEntry, IntentEvaluationContext } from "../policy/types";
+import { evaluatePolicyGate } from "../policy/policy-gate";
 
 // --- LLM Evaluator Port ---
 
@@ -28,7 +14,11 @@ export type LlmEvaluator = (
 
 // --- Pipeline Types ---
 
-type EvaluationOutput = EvaluationResult & { policy_only: boolean };
+type EvaluationOutput = EvaluationResult & {
+  policy_only: boolean;
+  policy_trace: PolicyTraceEntry[];
+  human_veto_required: boolean;
+};
 
 export type EvaluateIntentInput = {
   intent: {
@@ -36,107 +26,76 @@ export type EvaluateIntentInput = {
     reasoning: string;
     action_spec: ActionSpec;
     budget_limit?: BudgetLimit;
-    requester?: string;
+    priority?: number;
   };
-  policy: WorkspacePolicy;
+  surreal: Surreal;
+  identityId: RecordId<"identity">;
+  workspaceId: RecordId<"workspace">;
+  requesterType: string;
+  requesterRole?: string;
   llmEvaluator: LlmEvaluator;
   timeoutMs?: number;
 };
 
 const DEFAULT_EVAL_TIMEOUT_MS = 30_000;
 
-// --- Policy Gate ---
-
-export function checkPolicyGate(
-  intent: PolicyGateIntent,
-  policy: WorkspacePolicy,
-): PolicyGateResult {
-  const budgetCheck = checkBudgetCap(intent.budget_limit, policy.budget_cap);
-  if (!budgetCheck.passed) return budgetCheck;
-
-  const actionCheck = checkActionAllowlist(intent.action_spec, policy.allowed_actions);
-  if (!actionCheck.passed) return actionCheck;
-
-  return { passed: true };
-}
-
-// --- Internal pure checks ---
-
-function checkBudgetCap(
-  intentBudget: BudgetLimit | undefined,
-  policyCap: BudgetLimit | undefined,
-): PolicyGateResult {
-  if (!policyCap || !intentBudget) {
-    return { passed: true };
-  }
-
-  if (intentBudget.amount > policyCap.amount) {
-    return {
-      passed: false,
-      reason: `Intent budget ${intentBudget.amount} ${intentBudget.currency} exceeds workspace budget cap of ${policyCap.amount} ${policyCap.currency}`,
-    };
-  }
-
-  return { passed: true };
-}
-
-function checkActionAllowlist(
-  actionSpec: ActionSpec,
-  allowedActions: string[] | undefined,
-): PolicyGateResult {
-  if (!allowedActions) {
-    return { passed: true };
-  }
-
-  const actionKey = `${actionSpec.provider}.${actionSpec.action}`;
-
-  if (!allowedActions.includes(actionKey)) {
-    return {
-      passed: false,
-      reason: `Action ${actionKey} is not in the workspace allowlist`,
-    };
-  }
-
-  return { passed: true };
-}
-
-// --- Evaluate Intent Pipeline ---
-// Policy gate -> LLM evaluation -> fallback on failure
-
 export async function evaluateIntent(
   input: EvaluateIntentInput,
 ): Promise<EvaluationOutput> {
-  // Step 1: Policy gate (short-circuit on reject)
-  const policyResult = checkPolicyGate(input.intent, input.policy);
-  if (!policyResult.passed) {
+  const intentContext: IntentEvaluationContext = {
+    goal: input.intent.goal,
+    reasoning: input.intent.reasoning,
+    priority: input.intent.priority ?? 0,
+    action_spec: input.intent.action_spec,
+    budget_limit: input.intent.budget_limit,
+    requester_type: input.requesterType,
+    requester_role: input.requesterRole,
+  };
+
+  const gateResult = await evaluatePolicyGate(
+    input.surreal,
+    input.identityId,
+    input.workspaceId,
+    intentContext,
+  );
+
+  if (!gateResult.passed) {
     return {
       decision: "REJECT",
       risk_score: 0,
-      reason: policyResult.reason,
+      reason: gateResult.reason,
       policy_only: true,
+      policy_trace: gateResult.policy_trace,
+      human_veto_required: false,
     };
   }
 
-  // Step 2: LLM evaluation with timeout
+  const humanVetoRequired = gateResult.human_veto_required;
+  const policyTrace = gateResult.policy_trace;
+
   const timeoutMs = input.timeoutMs ?? DEFAULT_EVAL_TIMEOUT_MS;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const llmResult = await input.llmEvaluator(input.intent, controller.signal);
-    return { ...llmResult, policy_only: false };
+    return {
+      ...llmResult,
+      policy_only: false,
+      policy_trace: policyTrace,
+      human_veto_required: humanVetoRequired,
+    };
   } catch (error) {
-    // Step 3: Fallback to high-risk APPROVE on any LLM failure.
-    // risk_score=50 ensures the intent routes through veto_window
-    // (human review) rather than auto_approve.
     const reason = isAbortError(error)
       ? "LLM evaluation timeout — falling back to policy-only with veto window"
-      : "LLM evaluation failed — falling back to policy-only with veto window";
+      : `LLM evaluation failed: ${error instanceof Error ? error.message : String(error)} — falling back to policy-only with veto window`;
     return {
       decision: "APPROVE",
       risk_score: 50,
       reason,
       policy_only: true,
+      policy_trace: policyTrace,
+      human_veto_required: humanVetoRequired,
     };
   } finally {
     clearTimeout(timer);
@@ -175,9 +134,6 @@ export function createLlmEvaluator(model: LanguageModel): LlmEvaluator {
         : "",
       intent.budget_limit
         ? `Budget: ${intent.budget_limit.amount} ${intent.budget_limit.currency}`
-        : "",
-      intent.requester
-        ? `Requester: ${intent.requester}`
         : "",
     ].filter(Boolean).join("\n");
 

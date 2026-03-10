@@ -1,0 +1,76 @@
+roadmap:
+  project_id: policy-node
+  created_at: "2026-03-11T00:30:00Z"
+  total_steps: 5
+
+phases:
+  - id: "01"
+    name: "Schema and Core Logic"
+    steps:
+      - id: "01-01"
+        name: "Schema Migration and Types"
+        criteria:
+          - "Milestone-1 acceptance tests pass (8 tests)"
+          - "Walking skeleton tests pass (2 tests)"
+          - "Policy table enforces ASSERT on status and effect"
+          - "Graph edges governing/protects created"
+        files_to_modify:
+          - schema/migrations/0024_policy_node.surql
+          - schema/surreal-schema.surql
+          - app/src/server/policy/types.ts
+      - id: "01-02"
+        name: "Predicate Evaluator Pure Function"
+        criteria:
+          - "All 9 operators produce correct boolean results"
+          - "Dot-path resolution works for nested fields"
+          - "Missing field returns matched=false with warning"
+          - "AND-joined conditions match only when ALL true"
+        files_to_modify:
+          - app/src/server/policy/predicate-evaluator.ts
+          - tests/unit/predicate-evaluator.test.ts
+        deps: ["01-01"]
+  - id: "02"
+    name: "Query Adapter and Pipeline"
+    steps:
+      - id: "02-01"
+        name: "SurrealDB Graph Query Adapter"
+        criteria:
+          - "loadActivePolicies returns from both edges"
+          - "Deprecated policies excluded from results"
+          - "Lifecycle transitions update status"
+          - "Milestone-1 tests still pass"
+        files_to_modify:
+          - app/src/server/policy/policy-queries.ts
+        deps: ["01-01"]
+      - id: "02-02"
+        name: "Policy Gate Functional Pipeline"
+        criteria:
+          - "Empty policy set returns passed=true"
+          - "Deny rule short-circuits evaluation"
+          - "human_veto_required flag propagated"
+          - "Warnings collected for missing fields"
+          - "Milestone-2 acceptance tests pass (7 tests)"
+        files_to_modify:
+          - app/src/server/policy/policy-gate.ts
+          - tests/unit/policy-gate.test.ts
+        deps: ["01-02", "02-01"]
+  - id: "03"
+    name: "Integration"
+    steps:
+      - id: "03-01"
+        name: "Authorizer Integration and Audit"
+        criteria:
+          - "All 24 policy-node acceptance tests pass"
+          - "Intent-node acceptance tests pass (no regression)"
+          - "human_veto_required forces veto_window"
+        files_to_modify:
+          - app/src/server/intent/authorizer.ts
+          - app/src/server/intent/intent-routes.ts
+          - app/src/server/intent/risk-router.ts
+          - app/src/server/intent/types.ts
+          - app/src/server/oauth/audit.ts
+        deps: ["02-02"]
+
+validation:
+  status: approved
+  approved_at: "2026-03-11T00:30:00Z"

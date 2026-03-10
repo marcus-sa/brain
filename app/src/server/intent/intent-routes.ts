@@ -6,8 +6,68 @@ import { evaluateIntent, createLlmEvaluator } from "./authorizer";
 import { routeByRisk } from "./risk-router";
 import { renderConsentDisplay, validateTighterBounds } from "../oauth/consent-renderer";
 import type { ServerDependencies } from "../runtime/types";
-import type { IntentRecord } from "./types";
+import type { IntentRecord, RoutingDecision } from "./types";
 import type { BrainAction } from "../oauth/types";
+
+// --- Shared Helpers ---
+
+function resolveRecordId<T extends string>(
+  table: T,
+  ref: unknown,
+): RecordId<T> {
+  const rawId = typeof ref === "object" && ref !== null
+    ? ((ref as { id: unknown }).id as string)
+    : String(ref);
+  return new RecordId(table, rawId);
+}
+
+type TransitionPlan = {
+  targetStatus: "authorized" | "pending_veto" | "vetoed";
+  updateFields: Record<string, unknown>;
+  logEvent: string;
+  logMessage: string;
+  logContext: Record<string, unknown>;
+  responseBody: (evaluation: unknown) => Record<string, unknown>;
+};
+
+function routingToTransition(
+  routing: RoutingDecision,
+  intentId: string,
+  evaluationRecord: Record<string, unknown>,
+): TransitionPlan {
+  switch (routing.route) {
+    case "auto_approve":
+      return {
+        targetStatus: "authorized",
+        updateFields: { evaluation: evaluationRecord },
+        logEvent: "intent.authorized",
+        logMessage: "Intent auto-approved",
+        logContext: { intentId },
+        responseBody: (evaluation) => ({ intentId, status: "authorized", evaluation }),
+      };
+    case "veto_window":
+      return {
+        targetStatus: "pending_veto",
+        updateFields: { evaluation: evaluationRecord, veto_expires_at: routing.expires_at },
+        logEvent: "intent.pending_veto",
+        logMessage: "Intent requires veto window",
+        logContext: { intentId, veto_expires_at: routing.expires_at.toISOString() },
+        responseBody: (evaluation) => ({
+          intentId, status: "pending_veto", evaluation,
+          veto_expires_at: routing.expires_at.toISOString(),
+        }),
+      };
+    case "reject":
+      return {
+        targetStatus: "vetoed",
+        updateFields: { evaluation: evaluationRecord },
+        logEvent: "intent.vetoed",
+        logMessage: "Intent rejected by evaluation",
+        logContext: { intentId, reason: routing.reason },
+        responseBody: (evaluation) => ({ intentId, status: "vetoed", evaluation }),
+      };
+  }
+}
 
 // --- Route Handler Types ---
 
@@ -68,10 +128,15 @@ export function createIntentRouteHandlers(deps: ServerDependencies): IntentRoute
     }
 
     try {
-      // Pipeline: policy gate -> LLM evaluator -> risk router -> status update
-      const requesterId = typeof body.requester === "object" && body.requester !== undefined
-        ? (body.requester.id as string)
-        : String(body.requester);
+      const identityId = resolveRecordId("identity", body.requester);
+      const workspaceRecord = resolveRecordId("workspace", body.workspace);
+
+      // Load requester identity type/role for policy evaluation context
+      const identityRows = (await surreal.query(
+        `SELECT type, role FROM $identity;`,
+        { identity: identityId },
+      )) as Array<Array<{ type?: string; role?: string }>>;
+      const identityInfo = identityRows[0]?.[0];
 
       const evaluation = await evaluateIntent({
         intent: {
@@ -79,82 +144,41 @@ export function createIntentRouteHandlers(deps: ServerDependencies): IntentRoute
           reasoning: body.reasoning,
           action_spec: body.action_spec,
           budget_limit: body.budget_limit,
-          requester: requesterId,
+          priority: body.priority,
         },
-        policy: {},
+        surreal,
+        identityId,
+        workspaceId: workspaceRecord,
+        requesterType: identityInfo?.type ?? "agent",
+        requesterRole: identityInfo?.role,
         llmEvaluator,
       });
 
-      const routing = routeByRisk(evaluation);
+      const routing = routeByRisk(evaluation, {
+        humanVetoRequired: evaluation.human_veto_required,
+      });
       const evaluationRecord = {
         ...evaluation,
         evaluated_at: new Date(),
       };
 
-      switch (routing.route) {
-        case "auto_approve": {
-          const result = await updateIntentStatus(surreal, intentId, "authorized", {
-            evaluation: evaluationRecord,
-          });
-          if (!result.ok) {
-            logError(
-              "intent.evaluate.update_failed",
-              "Failed to update intent status to authorized",
-              new Error(result.error),
-              { intentId },
-            );
-            return jsonError(result.error, 409);
-          }
-          logInfo("intent.authorized", "Intent auto-approved", { intentId });
-          return jsonResponse({ intentId, status: "authorized", evaluation }, 200);
-        }
+      const transition = routingToTransition(routing, intentId, evaluationRecord);
+      const result = await updateIntentStatus(
+        surreal, intentId, transition.targetStatus, transition.updateFields,
+      );
 
-        case "veto_window": {
-          const result = await updateIntentStatus(surreal, intentId, "pending_veto", {
-            evaluation: evaluationRecord,
-            veto_expires_at: routing.expires_at,
-          });
-          if (!result.ok) {
-            logError(
-              "intent.evaluate.update_failed",
-              "Failed to update intent status to pending_veto",
-              new Error(result.error),
-              { intentId },
-            );
-            return jsonError(result.error, 409);
-          }
-          logInfo("intent.pending_veto", "Intent requires veto window", {
-            intentId,
-            veto_expires_at: routing.expires_at.toISOString(),
-          });
-          return jsonResponse({
-            intentId,
-            status: "pending_veto",
-            evaluation,
-            veto_expires_at: routing.expires_at.toISOString(),
-          }, 200);
-        }
-
-        case "reject": {
-          const result = await updateIntentStatus(surreal, intentId, "vetoed", {
-            evaluation: evaluationRecord,
-          });
-          if (!result.ok) {
-            logError(
-              "intent.evaluate.update_failed",
-              "Failed to update intent status to vetoed",
-              new Error(result.error),
-              { intentId },
-            );
-            return jsonError(result.error, 409);
-          }
-          logInfo("intent.vetoed", "Intent rejected by evaluation", {
-            intentId,
-            reason: routing.reason,
-          });
-          return jsonResponse({ intentId, status: "vetoed", evaluation }, 200);
-        }
+      if (!result.ok) {
+        logError(
+          "intent.evaluate.update_failed",
+          `Failed to update intent status to ${transition.targetStatus}`,
+          new Error(result.error),
+          { intentId },
+        );
+        return jsonError(result.error, 409);
       }
+
+      logInfo(transition.logEvent, transition.logMessage, transition.logContext);
+      return jsonResponse(transition.responseBody(evaluation), 200);
     } catch (error) {
       logError("intent.evaluate.error", "Intent evaluation pipeline failed", error, {
         intentId,
