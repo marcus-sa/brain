@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { randomBytes, createHash } from "node:crypto";
 import { findGitRoot, saveRepoConfig, loadGlobalConfig } from "../config";
 import { BrainHttpClient } from "../http-client";
+import { generateDPoPKeyMaterial } from "../dpop";
 import {
   BRAIN_HOOKS,
   BRAIN_CLAUDE_MD,
@@ -226,16 +227,38 @@ export async function setupAuth(
     token_type: string;
   };
 
-  // 8. Store tokens
+  // 8. Generate DPoP key material for sender-constrained tokens
+  const dpopMaterial = await generateDPoPKeyMaterial();
+
+  // 9. Discover workspace owner identity for intent submission
+  let identityId: string | undefined;
+  try {
+    const identityRes = await fetch(`${serverUrl}/api/auth/identity/${workspaceId}`);
+    if (identityRes.ok) {
+      const identityData = await identityRes.json() as { identity_id: string };
+      identityId = identityData.identity_id;
+    }
+  } catch {
+    // Identity discovery is optional during init — will be retried lazily
+  }
+
+  // 10. Store tokens + DPoP key material
   await saveRepoConfig(serverUrl, gitRoot, {
     workspace: workspaceId,
     client_id: actualClientId,
     access_token: tokens.access_token,
     refresh_token: tokens.refresh_token,
     token_expires_at: Math.floor(Date.now() / 1000) + tokens.expires_in,
+    dpop_private_jwk: dpopMaterial.privateJwk,
+    dpop_public_jwk: dpopMaterial.publicJwk,
+    dpop_thumbprint: dpopMaterial.thumbprint,
+    identity_id: identityId,
   });
 
-  console.log(`✓ Auth: OAuth tokens saved for ${gitRoot}`);
+  console.log(`✓ Auth: OAuth tokens + DPoP key pair saved for ${gitRoot}`);
+  if (identityId) {
+    console.log(`✓ Identity: ${identityId}`);
+  }
 }
 
 // ---------------------------------------------------------------------------

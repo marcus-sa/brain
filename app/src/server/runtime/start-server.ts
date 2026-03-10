@@ -33,6 +33,7 @@ import { createIntentSubmissionHandler } from "../oauth/intent-submission";
 import { createTokenEndpointHandler } from "../oauth/token-endpoint";
 import { createNonceCache } from "../oauth/nonce-cache";
 import { createBridgeExchangeHandler } from "../oauth/bridge";
+import { RecordId } from "surrealdb";
 
 export function createBrainServer(deps: ServerDependencies): ReturnType<typeof Bun.serve> {
   const config = deps.config;
@@ -411,6 +412,19 @@ export function createBrainServer(deps: ServerDependencies): ReturnType<typeof B
           "GET",
           (request) => intentHandlers.handleListPending(request.params.workspaceId),
         ),
+      },
+      // Identity discovery — returns owner identity for CLI DPoP token acquisition
+      "/api/auth/identity/:workspaceId": {
+        GET: withRequestLogging("GET /api/auth/identity/:workspaceId", "GET", async (request) => {
+          const wsId = request.params.workspaceId;
+          const rows = await deps.surreal.query<[Array<{ identityId: string }>]>(
+            `SELECT meta::id(id) AS identityId FROM identity WHERE workspace = $ws AND type = "owner" LIMIT 1;`,
+            { ws: new RecordId("workspace", wsId) },
+          );
+          const row = rows[0]?.[0];
+          if (!row) return jsonResponse({ error: "workspace_not_found" }, 404);
+          return jsonResponse({ identity_id: row.identityId }, 200);
+        }),
       },
       // OAuth 2.1 RAR+DPoP — Intent submission with DPoP thumbprint binding
       "/api/auth/intents": {

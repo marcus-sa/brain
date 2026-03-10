@@ -14,6 +14,12 @@
 import { RecordId, type Surreal } from "surrealdb";
 import * as jose from "jose";
 import {
+  generateKeyPair,
+  computeJwkThumbprint,
+  createDPoPProof,
+  type DPoPKeyPair as SharedDPoPKeyPair,
+} from "../../../app/shared/dpop";
+import {
   setupAcceptanceSuite,
   createTestUser,
   fetchRaw,
@@ -34,12 +40,7 @@ export {
 // Types -- Business Language
 // ---------------------------------------------------------------------------
 
-export type DPoPKeyPair = {
-  privateKey: CryptoKey;
-  publicKey: CryptoKey;
-  publicJwk: JsonWebKey;
-  thumbprint: string;
-};
+export type DPoPKeyPair = SharedDPoPKeyPair;
 
 export type BrainAction = {
   type: "brain_action";
@@ -96,41 +97,18 @@ export function setupOAuthSuite(
 
 /**
  * Generates an ES256 key pair for DPoP proof signing.
- * Simulates what an agent sandbox or browser session does at startup.
+ * Delegates to shared generateKeyPair from app/shared/dpop.
  */
 export async function generateActorKeyPair(): Promise<DPoPKeyPair> {
-  const { publicKey, privateKey } = await crypto.subtle.generateKey(
-    { name: "ECDSA", namedCurve: "P-256" },
-    true,
-    ["sign", "verify"],
-  );
-
-  const publicJwk = await crypto.subtle.exportKey("jwk", publicKey);
-
-  const thumbprint = await computeKeyThumbprint(publicJwk);
-
-  return { privateKey, publicKey, publicJwk, thumbprint };
+  return generateKeyPair();
 }
 
 /**
  * Computes JWK thumbprint per RFC 7638.
- * The thumbprint uniquely identifies an actor's key for sender binding.
+ * Delegates to shared computeJwkThumbprint from app/shared/dpop.
  */
 export async function computeKeyThumbprint(publicJwk: JsonWebKey): Promise<string> {
-  // RFC 7638: for EC keys, use only { crv, kty, x, y } in lexicographic order
-  const thumbprintInput = JSON.stringify({
-    crv: publicJwk.crv,
-    kty: publicJwk.kty,
-    x: publicJwk.x,
-    y: publicJwk.y,
-  });
-
-  const hashBuffer = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(thumbprintInput),
-  );
-
-  return base64url(new Uint8Array(hashBuffer));
+  return computeJwkThumbprint(publicJwk);
 }
 
 // ---------------------------------------------------------------------------
@@ -139,39 +117,14 @@ export async function computeKeyThumbprint(publicJwk: JsonWebKey): Promise<strin
 
 /**
  * Creates a signed DPoP proof for a specific request.
- * Each proof is bound to an HTTP method and target URI.
+ * Delegates to shared createDPoPProof from app/shared/dpop.
  */
 export async function createProofForRequest(
   keyPair: DPoPKeyPair,
   method: string,
   targetUri: string,
 ): Promise<string> {
-  const header = {
-    typ: "dpop+jwt",
-    alg: "ES256",
-    jwk: {
-      kty: keyPair.publicJwk.kty,
-      crv: keyPair.publicJwk.crv,
-      x: keyPair.publicJwk.x,
-      y: keyPair.publicJwk.y,
-    },
-  };
-
-  const payload = {
-    jti: crypto.randomUUID(),
-    htm: method,
-    htu: targetUri,
-    iat: Math.floor(Date.now() / 1000),
-  };
-
-  const importedKey = await jose.importJWK(
-    await crypto.subtle.exportKey("jwk", keyPair.privateKey),
-    "ES256",
-  );
-
-  return await new jose.SignJWT(payload)
-    .setProtectedHeader(header)
-    .sign(importedKey);
+  return createDPoPProof(keyPair.privateKey, keyPair.publicJwk, method, targetUri);
 }
 
 /**
@@ -666,11 +619,3 @@ export async function waitForIntentStatus(
   );
 }
 
-// ---------------------------------------------------------------------------
-// Internal Utilities
-// ---------------------------------------------------------------------------
-
-function base64url(bytes: Uint8Array): string {
-  const binary = String.fromCharCode(...bytes);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-}

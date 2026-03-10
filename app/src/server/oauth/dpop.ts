@@ -1,73 +1,29 @@
 /**
- * DPoP Pure Functions
+ * DPoP Server-Side Validation
  *
- * Pure functions for DPoP proof validation, JWK thumbprint computation,
- * and ES256 key pair generation.
+ * Re-exports shared DPoP primitives (key generation, thumbprint, proof creation)
+ * from app/shared/dpop and adds server-only proof validation logic.
  *
- * No side effects -- all functions are pure (crypto operations are
- * deterministic given the same inputs).
+ * Clients (CLI, tests) import directly from "app/shared/dpop".
  */
 import * as jose from "jose";
+import { computeJwkThumbprint } from "../../../shared/dpop";
 import type { DPoPProofPayload, DPoPValidationResult } from "./types";
 
-// ---------------------------------------------------------------------------
-// Key Pair Generation (ES256 / ECDSA P-256)
-// ---------------------------------------------------------------------------
+// Re-export shared primitives for server-internal consumers
+export {
+  generateKeyPair,
+  computeJwkThumbprint,
+  createDPoPProof,
+  base64url,
+  type DPoPKeyPair,
+} from "../../../shared/dpop";
 
-export type KeyPair = {
-  privateKey: CryptoKey;
-  publicKey: CryptoKey;
-  publicJwk: JsonWebKey;
-  thumbprint: string;
-};
-
-/**
- * Generates an ES256 key pair with exportable keys and pre-computed thumbprint.
- * Used for testing and agent sandbox key provisioning.
- */
-export async function generateKeyPair(): Promise<KeyPair> {
-  const { publicKey, privateKey } = await crypto.subtle.generateKey(
-    { name: "ECDSA", namedCurve: "P-256" },
-    true,
-    ["sign", "verify"],
-  );
-
-  const publicJwk = await crypto.subtle.exportKey("jwk", publicKey);
-  const thumbprint = await computeJwkThumbprint(publicJwk);
-
-  return { privateKey, publicKey, publicJwk, thumbprint };
-}
+/** @deprecated Use DPoPKeyPair from app/shared/dpop */
+export type { DPoPKeyPair as KeyPair } from "../../../shared/dpop";
 
 // ---------------------------------------------------------------------------
-// JWK Thumbprint (RFC 7638)
-// ---------------------------------------------------------------------------
-
-/**
- * Computes a JWK thumbprint per RFC 7638.
- *
- * For EC keys: uses lexicographic order { crv, kty, x, y },
- * SHA-256 hash, base64url encoded.
- */
-export async function computeJwkThumbprint(
-  publicJwk: JsonWebKey,
-): Promise<string> {
-  const thumbprintInput = JSON.stringify({
-    crv: publicJwk.crv,
-    kty: publicJwk.kty,
-    x: publicJwk.x,
-    y: publicJwk.y,
-  });
-
-  const hashBuffer = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(thumbprintInput),
-  );
-
-  return base64url(new Uint8Array(hashBuffer));
-}
-
-// ---------------------------------------------------------------------------
-// DPoP Proof Validation
+// DPoP Proof Validation (server-only)
 // ---------------------------------------------------------------------------
 
 type ClockSkew = {
@@ -270,12 +226,4 @@ function invalidStructure(message: string): ValidationErr {
       code: "dpop_invalid_structure",
     },
   };
-}
-
-function base64url(bytes: Uint8Array): string {
-  const binary = String.fromCharCode(...bytes);
-  return btoa(binary)
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=/g, "");
 }
