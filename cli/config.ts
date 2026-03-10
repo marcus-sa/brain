@@ -13,6 +13,15 @@ export type BrainConfig = {
   access_token: string;
   refresh_token: string;
   token_expires_at: number;
+  /** DPoP key material for sender-constrained tokens */
+  dpop_private_jwk?: JsonWebKey;
+  dpop_public_jwk?: JsonWebKey;
+  dpop_thumbprint?: string;
+  /** DPoP-bound access token for MCP endpoints */
+  dpop_access_token?: string;
+  dpop_token_expires_at?: number;
+  /** Identity for intent submission */
+  identity_id?: string;
 };
 
 /** Per-repo auth entry in ~/.brain/config.json */
@@ -22,6 +31,12 @@ export type RepoConfig = {
   access_token: string;
   refresh_token: string;
   token_expires_at: number;
+  dpop_private_jwk?: JsonWebKey;
+  dpop_public_jwk?: JsonWebKey;
+  dpop_thumbprint?: string;
+  dpop_access_token?: string;
+  dpop_token_expires_at?: number;
+  identity_id?: string;
 };
 
 /** Root shape of ~/.brain/config.json */
@@ -122,6 +137,12 @@ export async function loadConfig(): Promise<BrainConfig | undefined> {
       access_token: repo.access_token,
       refresh_token: repo.refresh_token,
       token_expires_at: repo.token_expires_at,
+      dpop_private_jwk: repo.dpop_private_jwk,
+      dpop_public_jwk: repo.dpop_public_jwk,
+      dpop_thumbprint: repo.dpop_thumbprint,
+      dpop_access_token: repo.dpop_access_token,
+      dpop_token_expires_at: repo.dpop_token_expires_at,
+      identity_id: repo.identity_id,
     };
   }
   return undefined;

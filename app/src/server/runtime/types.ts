@@ -2,6 +2,8 @@ import type { Surreal } from "surrealdb";
 import type { ServerConfig } from "./config";
 import type { SseRegistry } from "../streaming/sse-registry";
 import type { Auth } from "../auth/config";
+import type { AsSigningKey } from "../oauth/as-key-management";
+import type { NonceCache } from "../oauth/nonce-cache";
 
 export type InflightTracker = {
   track(promise: Promise<unknown>): void;
@@ -37,4 +39,6 @@ export type ServerDependencies = {
   embeddingModel: any;
   sse: SseRegistry;
   inflight: InflightTracker;
+  asSigningKey: AsSigningKey;
+  nonceCache: NonceCache;
 };

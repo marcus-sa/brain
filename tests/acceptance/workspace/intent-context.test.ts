@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { RecordId, type Surreal } from "surrealdb";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createEmbeddingVector } from "../../../app/src/server/graph/embeddings";
-import { fetchJson, setupAcceptanceSuite } from "../acceptance-test-kit";
+import { createTestUserWithMcp, setupAcceptanceSuite, type TestUserWithMcp } from "../acceptance-test-kit";
 
 // ---------------------------------------------------------------------------
 // Setup
@@ -25,111 +25,13 @@ type IntentContextResponse = {
 };
 
 // ---------------------------------------------------------------------------
-// OAuth helpers (mirrors oauth-mcp-auth.test.ts pattern)
+// DPoP-authenticated workspace setup (uses createTestUserWithMcp)
 // ---------------------------------------------------------------------------
-
-function base64url(buf: Buffer): string {
-  return buf.toString("base64url");
-}
-
-function generatePkce(): { verifier: string; challenge: string } {
-  const verifier = base64url(randomBytes(32));
-  const challenge = base64url(createHash("sha256").update(verifier).digest());
-  return { verifier, challenge };
-}
-
-async function signUpAndGetSession(baseUrl: string, email: string, name: string): Promise<{
-  userId: string;
-  headers: Record<string, string>;
-}> {
-  const res = await fetch(`${baseUrl}/api/auth/sign-up/email`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password: "test-password-123!", name }),
-  });
-  if (!res.ok) throw new Error(`Sign up failed: ${res.status} ${await res.text()}`);
-
-  const data = (await res.json()) as { user: { id: string }; token: string };
-  const cookies = res.headers.getSetCookie();
-  const sessionCookie = cookies.find((c) => c.startsWith("better-auth.session_token="));
-  const sessionToken = sessionCookie
-    ? decodeURIComponent(sessionCookie.split("=")[1].split(";")[0])
-    : data.token;
-
-  return {
-    userId: data.user.id,
-    headers: { Cookie: `better-auth.session_token=${sessionToken}` },
-  };
-}
-
-async function getOAuthToken(
-  baseUrl: string,
-  surreal: Surreal,
-  sessionHeaders: Record<string, string>,
-): Promise<string> {
-  const dcrRes = await fetch(`${baseUrl}/api/auth/oauth2/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      client_name: "intent-test-client",
-      redirect_uris: ["http://127.0.0.1:9999/callback"],
-      grant_types: ["authorization_code", "refresh_token"],
-      response_types: ["code"],
-      token_endpoint_auth_method: "none",
-    }),
-  });
-  if (!dcrRes.ok) throw new Error(`DCR failed: ${dcrRes.status} ${await dcrRes.text()}`);
-
-  const { client_id } = (await dcrRes.json()) as { client_id: string };
-
-  await surreal.query(`UPDATE oauthClient SET skipConsent = true WHERE clientId = $cid;`, {
-    cid: client_id,
-  });
-
-  const { verifier, challenge } = generatePkce();
-  const authUrl = new URL(`${baseUrl}/api/auth/oauth2/authorize`);
-  authUrl.searchParams.set("client_id", client_id);
-  authUrl.searchParams.set("redirect_uri", "http://127.0.0.1:9999/callback");
-  authUrl.searchParams.set("response_type", "code");
-  authUrl.searchParams.set("scope", "graph:read graph:reason offline_access");
-  authUrl.searchParams.set("state", "test-state");
-  authUrl.searchParams.set("code_challenge", challenge);
-  authUrl.searchParams.set("code_challenge_method", "S256");
-  authUrl.searchParams.set("resource", baseUrl);
-
-  const authRes = await fetch(authUrl.toString(), {
-    headers: sessionHeaders,
-    redirect: "manual",
-  });
-  if (authRes.status !== 302) throw new Error(`Authorize did not redirect: ${authRes.status}`);
-
-  const location = authRes.headers.get("location")!;
-  const redirectUrl = new URL(location, baseUrl);
-  const code = redirectUrl.searchParams.get("code") ?? "";
-  if (!code) throw new Error(`No code in redirect: ${location}`);
-
-  const tokenRes = await fetch(`${baseUrl}/api/auth/oauth2/token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      code,
-      redirect_uri: "http://127.0.0.1:9999/callback",
-      client_id,
-      code_verifier: verifier,
-      resource: baseUrl,
-    }),
-  });
-  if (!tokenRes.ok) throw new Error(`Token exchange failed: ${tokenRes.status} ${await tokenRes.text()}`);
-
-  const tokens = (await tokenRes.json()) as { access_token: string };
-  return tokens.access_token;
-}
 
 type AuthedWorkspace = {
   workspaceId: string;
   workspaceRecord: RecordId<"workspace", string>;
-  accessToken: string;
+  mcpFetch: TestUserWithMcp["mcpFetch"];
 };
 
 async function createWorkspaceWithOAuth(
@@ -137,9 +39,6 @@ async function createWorkspaceWithOAuth(
   surreal: Surreal,
   name?: string,
 ): Promise<AuthedWorkspace> {
-  const email = `intent-${Date.now()}-${Math.random().toString(36).slice(2)}@test.local`;
-  const { userId, headers: sessionHeaders } = await signUpAndGetSession(baseUrl, email, "Intent Tester");
-
   const workspaceId = randomUUID();
   const workspaceRecord = new RecordId("workspace", workspaceId);
   await surreal.query(
@@ -155,29 +54,15 @@ async function createWorkspaceWithOAuth(
     { ws: workspaceRecord, name: name ?? `Intent Smoke ${Date.now()}` },
   );
 
-  // Create identity + spoke edge + workspace membership
-  const personRecord = new RecordId("person", userId);
-  const identityRecord = new RecordId("identity", randomUUID());
-  await surreal.query(
-    `CREATE $identity CONTENT { name: "Intent Tester", type: "human", role: "admin", workspace: $ws, created_at: time::now() };`,
-    { identity: identityRecord, ws: workspaceRecord },
-  );
-  await surreal.query(
-    `RELATE $identity->identity_person->$person SET added_at = time::now();`,
-    { identity: identityRecord, person: personRecord },
-  );
-  await surreal.query(
-    `RELATE $identity->member_of->$ws SET role = "admin", added_at = time::now();`,
-    { identity: identityRecord, ws: workspaceRecord },
+
+  // Get DPoP-capable user bound to THIS workspace (token's workspace claim must match)
+  const mcpUser = await createTestUserWithMcp(
+    baseUrl, surreal,
+    `intent-ctx-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+    { workspaceId },
   );
 
-  // Trigger JWKS key generation
-  await fetch(`${baseUrl}/api/auth/jwks`);
-
-  // Get OAuth token
-  const accessToken = await getOAuthToken(baseUrl, surreal, sessionHeaders);
-
-  return { workspaceId, workspaceRecord, accessToken };
+  return { workspaceId, workspaceRecord, mcpFetch: mcpUser.mcpFetch };
 }
 
 async function seedProject(
@@ -251,20 +136,14 @@ async function seedDecision(
   return decisionRecord;
 }
 
-function postContext(
-  baseUrl: string,
+async function postContext(
+  mcpFetch: TestUserWithMcp["mcpFetch"],
   workspaceId: string,
-  accessToken: string,
   body: { intent: string; cwd?: string; paths?: string[] },
 ): Promise<IntentContextResponse> {
-  return fetchJson<IntentContextResponse>(`${baseUrl}/api/mcp/${workspaceId}/context`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify(body),
-  });
+  const res = await mcpFetch(`/api/mcp/${workspaceId}/context`, { body });
+  if (!res.ok) throw new Error(`postContext failed: ${res.status} ${await res.text()}`);
+  return res.json() as Promise<IntentContextResponse>;
 }
 
 // ---------------------------------------------------------------------------
@@ -282,7 +161,7 @@ describe("intent-context integration", () => {
     const taskId = targetTask.id as string;
 
     // Agent says what brain map told it
-    const result = await postContext(baseUrl, ws.workspaceId, ws.accessToken, {
+    const result = await postContext(ws.mcpFetch, ws.workspaceId, {
       intent: `I'm implementing task:${taskId} - adding payment processing`,
     });
 
@@ -301,7 +180,7 @@ describe("intent-context integration", () => {
     await seedDecision(surreal, ws.workspaceRecord, project, "Use token bucket for rate limiting", "confirmed");
 
     // Agent describes work naturally — no task ID, no project ID
-    const result = await postContext(baseUrl, ws.workspaceId, ws.accessToken, {
+    const result = await postContext(ws.mcpFetch, ws.workspaceId, {
       intent: "I need to add error handling to the API endpoints",
     });
 
@@ -321,7 +200,7 @@ describe("intent-context integration", () => {
     await seedDecision(surreal, ws.workspaceRecord, project, "Use FCM over APNs", "provisional");
     const projectId = project.id as string;
 
-    const result = await postContext(baseUrl, ws.workspaceId, ws.accessToken, {
+    const result = await postContext(ws.mcpFetch, ws.workspaceId, {
       intent: `I need the architecture context for project:${projectId}`,
     });
 
@@ -342,7 +221,7 @@ describe("intent-context integration", () => {
     await seedTask(surreal, ws.workspaceRecord, mobile, "Fix login screen crash");
 
     // Agent working in mobile-app directory
-    const result = await postContext(baseUrl, ws.workspaceId, ws.accessToken, {
+    const result = await postContext(ws.mcpFetch, ws.workspaceId, {
       intent: "Adding unit tests for the login module",
       cwd: "/Users/dev/mobile-app/src/auth",
     });
@@ -373,7 +252,7 @@ describe("intent-context integration", () => {
     await seedDecision(surreal, ws.workspaceRecord, billing, "Use Stripe Billing API instead of custom invoice logic", "confirmed", decisionEmb);
 
     // Agent describes billing work — no task ID, no project ID, no cwd
-    const result = await postContext(baseUrl, ws.workspaceId, ws.accessToken, {
+    const result = await postContext(ws.mcpFetch, ws.workspaceId, {
       intent: "I'm working on the payment invoice flow and need to handle Stripe webhooks",
     });
 
@@ -403,7 +282,7 @@ describe("intent-context integration", () => {
     await seedTask(surreal, ws.workspaceRecord, anotherProject, "Build admin user management page", otherEmb);
 
     // Agent intent closely matches the Redis task
-    const result = await postContext(baseUrl, ws.workspaceId, ws.accessToken, {
+    const result = await postContext(ws.mcpFetch, ws.workspaceId, {
       intent: "Implementing Redis-based session caching for auth tokens",
     });
 
@@ -424,7 +303,7 @@ describe("intent-context integration", () => {
     await seedProject(surreal, ws.workspaceRecord, "Mobile App");
 
     // Agent asks something generic — no task ID, no project match, no cwd
-    const result = await postContext(baseUrl, ws.workspaceId, ws.accessToken, {
+    const result = await postContext(ws.mcpFetch, ws.workspaceId, {
       intent: "What should I work on next?",
     });
 
@@ -441,7 +320,7 @@ describe("intent-context integration", () => {
     await seedProject(surreal, ws.workspaceRecord, "Solo Project");
 
     // Agent has a stale task ID — should still get useful context (single project fallback)
-    const result = await postContext(baseUrl, ws.workspaceId, ws.accessToken, {
+    const result = await postContext(ws.mcpFetch, ws.workspaceId, {
       intent: "Continuing work on task:deleted-task-00000",
     });
 

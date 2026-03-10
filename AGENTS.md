@@ -96,6 +96,19 @@
 
 - Always read `schema/surreal-schema.surql` before writing queries, seed data, or any code that creates/updates SurrealDB records. The schema defines required fields, types, and relations — guessing leads to silent `SCHEMAFULL` rejections.
 
+## DPoP Acceptance Test Infrastructure
+
+- All MCP endpoints require DPoP (Demonstration of Proof-of-Possession) authentication. Use `createTestUserWithMcp()` from `acceptance-test-kit.ts` — it generates a key pair, creates identity + workspace + intent records, acquires a DPoP-bound token, and returns `mcpFetch` for authenticated requests.
+- **Workspace binding**: The DPoP token contains a `urn:brain:workspace` claim. The middleware (`dpop-middleware.ts:311`) extracts the workspace from the JWT claim, NOT the URL path parameter. All MCP endpoint authorization is scoped to this claim.
+- **`member_of` edge required**: The DPoP middleware calls `lookupWorkspace()` which queries `SELECT in FROM member_of WHERE out = $ws LIMIT 1`. Without a `member_of` relation edge between identity and workspace, all MCP requests return 401 "Workspace not found". `createTestUserWithMcp()` creates this edge automatically.
+- **Workspace mismatch pitfall**: If a test creates a workspace via the API (`POST /api/workspaces`) and then acquires a DPoP token via `createTestUserWithMcp()`, the token is bound to a *different* workspace. MCP endpoints will return 404 for resources in the API-created workspace. Fix: pass `{ workspaceId }` to `createTestUserWithMcp()` to bind the token to the pre-existing workspace, or use `user.workspaceId` for all resource creation.
+- **Pattern**: Create test user first (`createTestUserWithMcp`), then create tasks/projects in `user.workspaceId`. Do NOT create a separate workspace via API unless you pass its ID to `createTestUserWithMcp`.
+- **`mcpFetch` vs `mcpHeaders`**: Always use `user.mcpFetch(path, { body })` — it creates a fresh DPoP proof per request. The `mcpHeaders` property is deprecated and will fail because DPoP proofs are single-use.
+
+## Test Uniqueness
+
+- Use `crypto.randomUUID()` for test identifiers (emails, IDs, suffixes) — never `Date.now()` alone. Concurrent test runs share the same millisecond, causing collisions.
+
 ## Testing Setup
 
 - Install deps: `bun install`
@@ -104,6 +117,12 @@
 - Run eval suite: `bun run eval`
 - Run eval watch mode: `bun run eval:watch`
 - Agents must not run evals directly. Delegate eval execution to the user and ask them to run eval commands and share results.
+
+### Deliver Phase Testing Gate
+
+- After every `nw:deliver` step execution, run the acceptance tests affected by or introduced for the feature (`bun test tests/acceptance/<relevant-suite>`) before proceeding to the next step.
+- If acceptance tests fail, fix the issue before moving on. Do NOT skip or defer failing tests.
+- This applies to each individual step in the roadmap, not just the final step.
 
 ### Acceptance Test Isolation
 

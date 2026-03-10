@@ -31,7 +31,6 @@ export {
 
 import {
   fetchJson,
-  fetchRaw,
   type TestUser,
   type TestUserWithToken,
 } from "../coding-agent-orchestrator/orchestrator-test-kit";
@@ -81,7 +80,7 @@ export type IntentRecord = {
   veto_expires_at?: string;
   veto_reason?: string;
   error_reason?: string;
-  trace_id: string;
+  trace_id: RecordId<"trace">;
   created_at: string;
   updated_at?: string;
 };
@@ -115,13 +114,26 @@ export async function createDraftIntent(
   const workspaceRecord = new RecordId("workspace", workspaceId);
   const requesterRecord = new RecordId("identity", requesterId);
 
+  // Create trace record for the intent
+  const traceId = `trace-${intentId}`;
+  const traceRecord = new RecordId("trace", traceId);
+  await surreal.query(`CREATE $trace CONTENT $content;`, {
+    trace: traceRecord,
+    content: {
+      type: "intent_submission",
+      actor: requesterRecord,
+      workspace: workspaceRecord,
+      created_at: new Date(),
+    },
+  });
+
   const content: Record<string, unknown> = {
     goal: opts.goal,
     reasoning: opts.reasoning,
     status: "draft",
     priority: opts.priority ?? 50,
     action_spec: opts.action_spec,
-    trace_id: `trace-${intentId}`,
+    trace_id: traceRecord,
     requester: requesterRecord,
     workspace: workspaceRecord,
     created_at: new Date(),
@@ -221,15 +233,11 @@ export async function vetoIntent(
   intentId: string,
   reason: string,
 ): Promise<{ vetoed: boolean }> {
-  const headers = "bearerHeaders" in user
-    ? (user as TestUserWithToken).bearerHeaders
-    : { "Content-Type": "application/json", ...user.headers };
-
   return fetchJson<{ vetoed: boolean }>(
     `${baseUrl}/api/workspaces/${workspaceId}/intents/${intentId}/veto`,
     {
       method: "POST",
-      headers,
+      headers: { "Content-Type": "application/json", ...user.headers },
       body: JSON.stringify({ reason }),
     },
   );
@@ -261,21 +269,21 @@ export async function createIntentViaMcp(
   workspaceId: string,
   opts: CreateIntentOptions,
 ): Promise<{ intentId: string }> {
-  return fetchJson<{ intentId: string }>(
-    `${baseUrl}/api/mcp/${workspaceId}/tools/create_intent`,
+  const res = await user.mcpFetch(
+    `/api/mcp/${workspaceId}/tools/create_intent`,
     {
-      method: "POST",
-      headers: user.bearerHeaders,
-      body: JSON.stringify({
+      body: {
         goal: opts.goal,
         reasoning: opts.reasoning,
         priority: opts.priority ?? 50,
         action_spec: opts.action_spec,
         budget_limit: opts.budget_limit,
         task_id: opts.taskId,
-      }),
+      },
     },
   );
+  if (!res.ok) throw new Error(`createIntentViaMcp failed: ${res.status} ${await res.text()}`);
+  return res.json() as Promise<{ intentId: string }>;
 }
 
 /**
@@ -287,14 +295,12 @@ export async function submitIntentViaMcp(
   workspaceId: string,
   intentId: string,
 ): Promise<{ status: IntentStatus }> {
-  return fetchJson<{ status: IntentStatus }>(
-    `${baseUrl}/api/mcp/${workspaceId}/tools/submit_intent`,
-    {
-      method: "POST",
-      headers: user.bearerHeaders,
-      body: JSON.stringify({ intent_id: intentId }),
-    },
+  const res = await user.mcpFetch(
+    `/api/mcp/${workspaceId}/tools/submit_intent`,
+    { body: { intent_id: intentId } },
   );
+  if (!res.ok) throw new Error(`submitIntentViaMcp failed: ${res.status} ${await res.text()}`);
+  return res.json() as Promise<{ status: IntentStatus }>;
 }
 
 /**
@@ -306,14 +312,12 @@ export async function getIntentStatusViaMcp(
   workspaceId: string,
   intentId: string,
 ): Promise<{ intentId: string; status: IntentStatus }> {
-  return fetchJson<{ intentId: string; status: IntentStatus }>(
-    `${baseUrl}/api/mcp/${workspaceId}/tools/get_intent_status`,
-    {
-      method: "POST",
-      headers: user.bearerHeaders,
-      body: JSON.stringify({ intent_id: intentId }),
-    },
+  const res = await user.mcpFetch(
+    `/api/mcp/${workspaceId}/tools/get_intent_status`,
+    { body: { intent_id: intentId } },
   );
+  if (!res.ok) throw new Error(`getIntentStatusViaMcp failed: ${res.status} ${await res.text()}`);
+  return res.json() as Promise<{ intentId: string; status: IntentStatus }>;
 }
 
 /**

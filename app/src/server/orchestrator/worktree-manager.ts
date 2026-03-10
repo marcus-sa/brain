@@ -183,6 +183,21 @@ export function parseNameStatus(output: string): NameStatusEntry[] {
     });
 }
 
+const GIT_STATUS_NAMES: Record<string, string> = {
+  A: "added",
+  M: "modified",
+  D: "deleted",
+  R: "renamed",
+  C: "copied",
+  T: "type-changed",
+};
+
+function normalizeGitStatus(raw: string): string {
+  // git --name-status may produce R100, C080 etc. — take the leading letter.
+  const letter = raw.charAt(0).toUpperCase();
+  return GIT_STATUS_NAMES[letter] ?? "modified";
+}
+
 export function combineDiffFileEntries(
   numstat: NumstatEntry[],
   nameStatus: NameStatusEntry[],
@@ -190,7 +205,7 @@ export function combineDiffFileEntries(
   const statusByPath = new Map(nameStatus.map((e) => [e.path, e.status]));
   return numstat.map((entry) => ({
     path: entry.path,
-    status: statusByPath.get(entry.path) ?? "M",
+    status: normalizeGitStatus(statusByPath.get(entry.path) ?? "M"),
     additions: entry.additions,
     deletions: entry.deletions,
   }));

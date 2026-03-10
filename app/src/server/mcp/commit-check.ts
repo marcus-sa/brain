@@ -10,14 +10,13 @@ export type UpdateTaskResult = {
   updated: boolean;
 };
 
-/** Port: update a task's status. Returns the result of the update. */
-export type UpdateTaskPort = (
-  taskId: string,
-  status: string,
-) => Promise<UpdateTaskResult>;
-
 /** Port: check whether a task exists in the workspace. */
 export type TaskExistsPort = (taskId: string) => Promise<boolean>;
+
+/** Port: batch-complete tasks in a single transaction. */
+export type BatchCompleteTasksPort = (
+  taskIds: string[],
+) => Promise<UpdateTaskResult[]>;
 
 // ---------------------------------------------------------------------------
 // Core pipeline
@@ -25,7 +24,7 @@ export type TaskExistsPort = (taskId: string) => Promise<boolean>;
 
 export type CommitCheckInput = {
   commitMessage: string;
-  updateTask: UpdateTaskPort;
+  batchCompleteTasks: BatchCompleteTasksPort;
   taskExists: TaskExistsPort;
 };
 
@@ -38,7 +37,7 @@ export type CommitCheckResult = {
  * matched tasks to "done".
  *
  * Pipeline:
- *   commitMessage -> extractReferencedTaskIds (regex) -> filter existing -> updateTask each -> results
+ *   commitMessage -> extractReferencedTaskIds (regex) -> filter existing -> batch complete -> results
  */
 export async function processCommitTaskRefs(
   input: CommitCheckInput,
@@ -61,10 +60,7 @@ export async function processCommitTaskRefs(
     return { updatedTasks: [] };
   }
 
-  // Update each task to "done"
-  const updatedTasks = await Promise.all(
-    existingTaskIds.map((taskId) => input.updateTask(taskId, "done")),
-  );
+  const updatedTasks = await input.batchCompleteTasks(existingTaskIds);
 
   return { updatedTasks };
 }

@@ -10,3 +10,4 @@ eval-results/
 dist/
 .devtools
 .brain/
+*.log

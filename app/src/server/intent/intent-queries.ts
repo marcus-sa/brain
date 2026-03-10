@@ -1,5 +1,6 @@
 import { RecordId, type Surreal } from "surrealdb";
 import type { IntentRecord, IntentStatus, ActionSpec, BudgetLimit, EvaluationResult } from "./types";
+import type { BrainAction } from "../oauth/types";
 import { transitionStatus } from "./status-machine";
 
 // --- Query Result Types ---
@@ -10,10 +11,12 @@ type CreateIntentParams = {
   priority: number;
   action_spec: ActionSpec;
   budget_limit?: BudgetLimit;
-  trace_id: string;
+  trace_id: RecordId<"trace", string>;
   requester: RecordId<"identity", string>;
   workspace: RecordId<"workspace", string>;
   expiry?: Date;
+  authorization_details?: BrainAction[];
+  dpop_jwk_thumbprint?: string;
 };
 
 type StatusUpdateFields = {
@@ -27,6 +30,44 @@ type ListFilters = {
   status?: IntentStatus;
   limit?: number;
 };
+
+// --- Trace Creation ---
+
+export type TraceType = "tool_call" | "message" | "subagent_spawn" | "intent_submission" | "bridge_exchange";
+
+export type CreateTraceParams = {
+  type: TraceType;
+  actor: RecordId<"identity", string>;
+  workspace: RecordId<"workspace", string>;
+  session?: RecordId<"agent_session", string>;
+  parent_trace?: RecordId<"trace", string>;
+  tool_name?: string;
+  input?: Record<string, unknown>;
+};
+
+export async function createTrace(
+  surreal: Surreal,
+  params: CreateTraceParams,
+): Promise<RecordId<"trace", string>> {
+  const id = crypto.randomUUID();
+  const record = new RecordId("trace", id);
+
+  const content: Record<string, unknown> = {
+    type: params.type,
+    actor: params.actor,
+    workspace: params.workspace,
+    created_at: new Date(),
+  };
+
+  if (params.session) content.session = params.session;
+  if (params.parent_trace) content.parent_trace = params.parent_trace;
+  if (params.tool_name) content.tool_name = params.tool_name;
+  if (params.input) content.input = params.input;
+
+  await surreal.query("CREATE $record CONTENT $content;", { record, content });
+
+  return record;
+}
 
 // --- Query Functions ---
 
@@ -55,6 +96,12 @@ export async function createIntent(
   }
   if (params.expiry) {
     content.expiry = params.expiry;
+  }
+  if (params.authorization_details) {
+    content.authorization_details = params.authorization_details;
+  }
+  if (params.dpop_jwk_thumbprint) {
+    content.dpop_jwk_thumbprint = params.dpop_jwk_thumbprint;
   }
 
   await surreal.query(
@@ -123,6 +170,25 @@ export async function updateIntentStatus(
   );
 
   return { ok: true, record: rows[0] };
+}
+
+export async function recordTokenIssuance(
+  surreal: Surreal,
+  intentId: string,
+  tokenIssuedAt: Date,
+  tokenExpiresAt: Date,
+): Promise<void> {
+  const record = new RecordId("intent", intentId);
+  await surreal.query(
+    "UPDATE $record MERGE $fields;",
+    {
+      record,
+      fields: {
+        token_issued_at: tokenIssuedAt,
+        token_expires_at: tokenExpiresAt,
+      },
+    },
+  );
 }
 
 export async function listPendingIntents(

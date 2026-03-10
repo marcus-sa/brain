@@ -232,19 +232,19 @@ describe("Worktree Manager: combineDiffFileEntries", () => {
     const result = combineDiffFileEntries(numstat, nameStatus);
 
     expect(result).toEqual([
-      { path: "src/app.ts", status: "M", additions: 10, deletions: 5 },
-      { path: "src/new.ts", status: "A", additions: 20, deletions: 0 },
+      { path: "src/app.ts", status: "modified", additions: 10, deletions: 5 },
+      { path: "src/new.ts", status: "added", additions: 20, deletions: 0 },
     ]);
   });
 
-  test("defaults status to M when file missing from name-status", () => {
+  test("defaults status to modified when file missing from name-status", () => {
     const numstat = [{ path: "src/app.ts", additions: 3, deletions: 1 }];
     const nameStatus: Array<{ path: string; status: string }> = [];
 
     const result = combineDiffFileEntries(numstat, nameStatus);
 
     expect(result).toEqual([
-      { path: "src/app.ts", status: "M", additions: 3, deletions: 1 },
+      { path: "src/app.ts", status: "modified", additions: 3, deletions: 1 },
     ]);
   });
 });
@@ -304,8 +304,8 @@ describe("Worktree Manager: getDiff", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.files).toEqual([
-        { path: "src/app.ts", status: "M", additions: 10, deletions: 5 },
-        { path: "src/utils.ts", status: "A", additions: 3, deletions: 0 },
+        { path: "src/app.ts", status: "modified", additions: 10, deletions: 5 },
+        { path: "src/utils.ts", status: "added", additions: 3, deletions: 0 },
       ]);
       expect(result.value.stats).toEqual({
         filesChanged: 2,

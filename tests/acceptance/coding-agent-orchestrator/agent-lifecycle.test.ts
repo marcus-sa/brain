@@ -16,8 +16,6 @@ import {
   createTestUser,
   createTestWorkspace,
   getTestUserBearerToken,
-  fetchJson,
-  fetchRaw,
 } from "./orchestrator-test-kit";
 
 const getRuntime = setupOrchestratorSuite("agent_lifecycle");
@@ -36,14 +34,10 @@ describe("Agent Lifecycle: Session start hook", () => {
     const tokenUser = await getTestUserBearerToken(baseUrl, surreal, user);
 
     // When the agent fires the session.created hook
-    const session = await fetchJson<{ session_id: string }>(
-      `${baseUrl}/api/mcp/${workspace.workspaceId}/sessions/start`,
-      {
-        method: "POST",
-        headers: tokenUser.bearerHeaders,
-        body: JSON.stringify({ agent: "claude" }),
-      },
-    );
+    const res = await tokenUser.mcpFetch(`/api/mcp/${workspace.workspaceId}/sessions/start`, {
+      body: { agent: "claude" },
+    });
+    const session = await res.json() as { session_id: string };
 
     // Then a session is registered for tracking the agent's activity
     expect(session.session_id).toBeTruthy();
@@ -61,14 +55,9 @@ describe("Agent Lifecycle: Session start hook", () => {
     const tokenUser = await getTestUserBearerToken(baseUrl, surreal, user);
 
     // When the session start is attempted without an agent type
-    const response = await fetchRaw(
-      `${baseUrl}/api/mcp/${workspace.workspaceId}/sessions/start`,
-      {
-        method: "POST",
-        headers: tokenUser.bearerHeaders,
-        body: JSON.stringify({}),
-      },
-    );
+    const response = await tokenUser.mcpFetch(`/api/mcp/${workspace.workspaceId}/sessions/start`, {
+      body: {},
+    });
 
     // Then the request is rejected because the agent type is required
     expect(response.ok).toBe(false);
@@ -87,31 +76,22 @@ describe("Agent Lifecycle: Session end hook", () => {
     const workspace = await createTestWorkspace(baseUrl, user);
     const tokenUser = await getTestUserBearerToken(baseUrl, surreal, user);
 
-    const session = await fetchJson<{ session_id: string }>(
-      `${baseUrl}/api/mcp/${workspace.workspaceId}/sessions/start`,
-      {
-        method: "POST",
-        headers: tokenUser.bearerHeaders,
-        body: JSON.stringify({ agent: "claude" }),
-      },
-    );
+    const startRes = await tokenUser.mcpFetch(`/api/mcp/${workspace.workspaceId}/sessions/start`, {
+      body: { agent: "claude" },
+    });
+    const session = await startRes.json() as { session_id: string };
 
     // When the agent fires the session.idle hook with a summary
-    await fetchJson(
-      `${baseUrl}/api/mcp/${workspace.workspaceId}/sessions/end`,
-      {
-        method: "POST",
-        headers: tokenUser.bearerHeaders,
-        body: JSON.stringify({
-          session_id: session.session_id,
-          summary: "Implemented user registration endpoint with email validation",
-          files_changed: [
-            { path: "src/auth/register.ts", change_type: "created" },
-            { path: "tests/auth/register.test.ts", change_type: "created" },
-          ],
-        }),
+    await tokenUser.mcpFetch(`/api/mcp/${workspace.workspaceId}/sessions/end`, {
+      body: {
+        session_id: session.session_id,
+        summary: "Implemented user registration endpoint with email validation",
+        files_changed: [
+          { path: "src/auth/register.ts", change_type: "created" },
+          { path: "tests/auth/register.test.ts", change_type: "created" },
+        ],
       },
-    );
+    });
 
     // Then the session is closed with its work summary recorded
     // (verified by session no longer appearing as active -- implementation will confirm)
@@ -129,17 +109,12 @@ describe("Agent Lifecycle: Session end hook", () => {
     const tokenUser = await getTestUserBearerToken(baseUrl, surreal, user);
 
     // When the agent tries to end a nonexistent session
-    const response = await fetchRaw(
-      `${baseUrl}/api/mcp/${workspace.workspaceId}/sessions/end`,
-      {
-        method: "POST",
-        headers: tokenUser.bearerHeaders,
-        body: JSON.stringify({
-          session_id: "nonexistent-session-id",
-          summary: "Some work",
-        }),
+    const response = await tokenUser.mcpFetch(`/api/mcp/${workspace.workspaceId}/sessions/end`, {
+      body: {
+        session_id: "nonexistent-session-id",
+        summary: "Some work",
       },
-    );
+    });
 
     // Then the request fails because no matching session was found
     expect(response.ok).toBe(false);
@@ -156,39 +131,25 @@ describe("Agent Lifecycle: Session end hook", () => {
     const workspace = await createTestWorkspace(baseUrl, user);
     const tokenUser = await getTestUserBearerToken(baseUrl, surreal, user);
 
-    const session = await fetchJson<{ session_id: string }>(
-      `${baseUrl}/api/mcp/${workspace.workspaceId}/sessions/start`,
-      {
-        method: "POST",
-        headers: tokenUser.bearerHeaders,
-        body: JSON.stringify({ agent: "claude" }),
-      },
-    );
+    const startRes = await tokenUser.mcpFetch(`/api/mcp/${workspace.workspaceId}/sessions/start`, {
+      body: { agent: "claude" },
+    });
+    const session = await startRes.json() as { session_id: string };
 
-    await fetchJson(
-      `${baseUrl}/api/mcp/${workspace.workspaceId}/sessions/end`,
-      {
-        method: "POST",
-        headers: tokenUser.bearerHeaders,
-        body: JSON.stringify({
-          session_id: session.session_id,
-          summary: "First end",
-        }),
+    await tokenUser.mcpFetch(`/api/mcp/${workspace.workspaceId}/sessions/end`, {
+      body: {
+        session_id: session.session_id,
+        summary: "First end",
       },
-    );
+    });
 
     // When the agent fires session.idle again (e.g. due to retry)
-    const response = await fetchRaw(
-      `${baseUrl}/api/mcp/${workspace.workspaceId}/sessions/end`,
-      {
-        method: "POST",
-        headers: tokenUser.bearerHeaders,
-        body: JSON.stringify({
-          session_id: session.session_id,
-          summary: "Duplicate end",
-        }),
+    const response = await tokenUser.mcpFetch(`/api/mcp/${workspace.workspaceId}/sessions/end`, {
+      body: {
+        session_id: session.session_id,
+        summary: "Duplicate end",
       },
-    );
+    });
 
     // Then the second end is handled without error (idempotent)
     // Either succeeds silently or returns a clear "already ended" response

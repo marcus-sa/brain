@@ -28,6 +28,12 @@ import { BRAIN_SCOPES } from "../auth/scopes";
 import { createClientInfoHandler } from "../auth/client-info-route";
 import { createVetoManager } from "../intent/veto-manager";
 import { updateIntentStatus, queryExpiredVetoIntents } from "../intent/intent-queries";
+import { buildJwksResponse } from "../oauth/as-key-management";
+import { createIntentSubmissionHandler } from "../oauth/intent-submission";
+import { createTokenEndpointHandler } from "../oauth/token-endpoint";
+import { createNonceCache } from "../oauth/nonce-cache";
+import { createBridgeExchangeHandler } from "../oauth/bridge";
+import { RecordId } from "surrealdb";
 
 export function createBrainServer(deps: ServerDependencies): ReturnType<typeof Bun.serve> {
   const config = deps.config;
@@ -56,6 +62,9 @@ export function createBrainServer(deps: ServerDependencies): ReturnType<typeof B
   const chatRouteHandler = createChatRouteHandler(deps);
   const mcpHandlers = createMcpRouteHandlers(deps);
   const intentHandlers = createIntentRouteHandlers(deps);
+  const intentSubmissionHandler = createIntentSubmissionHandler(deps);
+  const tokenEndpointHandler = createTokenEndpointHandler(deps);
+  const bridgeExchangeHandler = createBridgeExchangeHandler(deps);
 
   // Orchestrator wiring
   const orchestratorHandlers = wireOrchestratorRoutes({
@@ -360,6 +369,33 @@ export function createBrainServer(deps: ServerDependencies): ReturnType<typeof B
           intentHandlers.handleEvaluate(request.params.intentId, request),
         ),
       },
+      // Intent — consent display
+      "/api/workspaces/:workspaceId/intents/:intentId/consent": {
+        GET: withRequestLogging(
+          "GET /api/workspaces/:workspaceId/intents/:intentId/consent",
+          "GET",
+          (request) =>
+            intentHandlers.handleConsent(request.params.workspaceId, request.params.intentId),
+        ),
+      },
+      // Intent — approve from consent
+      "/api/workspaces/:workspaceId/intents/:intentId/approve": {
+        POST: withRequestLogging(
+          "POST /api/workspaces/:workspaceId/intents/:intentId/approve",
+          "POST",
+          (request) =>
+            intentHandlers.handleApprove(request.params.workspaceId, request.params.intentId),
+        ),
+      },
+      // Intent — constrain from consent
+      "/api/workspaces/:workspaceId/intents/:intentId/constrain": {
+        POST: withRequestLogging(
+          "POST /api/workspaces/:workspaceId/intents/:intentId/constrain",
+          "POST",
+          (request) =>
+            intentHandlers.handleConstrain(request.params.workspaceId, request.params.intentId, request),
+        ),
+      },
       // Intent — veto
       "/api/workspaces/:workspaceId/intents/:intentId/veto": {
         POST: withRequestLogging(
@@ -375,6 +411,43 @@ export function createBrainServer(deps: ServerDependencies): ReturnType<typeof B
           "GET /api/workspaces/:workspaceId/intents/pending",
           "GET",
           (request) => intentHandlers.handleListPending(request.params.workspaceId),
+        ),
+      },
+      // Identity discovery — returns owner identity for CLI DPoP token acquisition
+      "/api/auth/identity/:workspaceId": {
+        GET: withRequestLogging("GET /api/auth/identity/:workspaceId", "GET", async (request) => {
+          const wsId = request.params.workspaceId;
+          const rows = await deps.surreal.query<[Array<{ identityId: string }>]>(
+            `SELECT meta::id(id) AS identityId FROM identity WHERE workspace = $ws AND type = "owner" LIMIT 1;`,
+            { ws: new RecordId("workspace", wsId) },
+          );
+          const row = rows[0]?.[0];
+          if (!row) return jsonResponse({ error: "workspace_not_found" }, 404);
+          return jsonResponse({ identity_id: row.identityId }, 200);
+        }),
+      },
+      // OAuth 2.1 RAR+DPoP — Intent submission with DPoP thumbprint binding
+      "/api/auth/intents": {
+        POST: withRequestLogging("POST /api/auth/intents", "POST", (request) =>
+          intentSubmissionHandler(request),
+        ),
+      },
+      // OAuth 2.1 RAR+DPoP — Token endpoint
+      "/api/auth/token": {
+        POST: withRequestLogging("POST /api/auth/token", "POST", (request) =>
+          tokenEndpointHandler(request),
+        ),
+      },
+      // OAuth 2.1 RAR+DPoP — Bridge session-to-token exchange
+      "/api/auth/bridge/exchange": {
+        POST: withRequestLogging("POST /api/auth/bridge/exchange", "POST", (request) =>
+          bridgeExchangeHandler(request),
+        ),
+      },
+      // AS JWKS endpoint — public keys for token verification
+      "/api/auth/brain/.well-known/jwks": {
+        GET: withRequestLogging("GET /api/auth/brain/.well-known/jwks", "GET", async () =>
+          jsonResponse(buildJwksResponse(deps.asSigningKey), 200),
         ),
       },
       // OAuth 2.1 discovery — proxy root-level .well-known to better-auth handler
@@ -420,6 +493,8 @@ export async function startServer(): Promise<void> {
     embeddingModel: runtime.embeddingModel,
     sse: createSseRegistry(),
     inflight: createInflightTracker(),
+    asSigningKey: runtime.asSigningKey,
+    nonceCache: createNonceCache(),
   };
 
   const server = createBrainServer(deps);

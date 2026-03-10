@@ -1,4 +1,5 @@
 import type { RecordId } from "surrealdb";
+import type { BrainAction } from "../oauth/types";
 
 // --- Intent Status (state machine states) ---
 
@@ -59,7 +60,11 @@ export type IntentRecord = {
   veto_expires_at?: Date;
   veto_reason?: string;
   error_reason?: string;
-  trace_id: string;
+  authorization_details?: BrainAction[];
+  dpop_jwk_thumbprint?: string;
+  token_issued_at?: Date;
+  token_expires_at?: Date;
+  trace_id: RecordId<"trace", string>;
   requester: RecordId<"identity", string>;
   workspace: RecordId<"workspace", string>;
   created_at: Date;

@@ -455,6 +455,60 @@ export async function updateTaskStatus(input: {
   };
 }
 
+/**
+ * Batch-update multiple tasks to "done" in a single transaction,
+ * then compute parent rollup for any affected parents.
+ */
+export async function batchCompleteTasksInTransaction(input: {
+  surreal: Surreal;
+  workspaceRecord: RecordId<"workspace", string>;
+  taskIds: string[];
+}): Promise<Array<{ task_id: string; status: string; updated: boolean }>> {
+  if (input.taskIds.length === 0) return [];
+
+  const taskRecords = input.taskIds.map((id) => new RecordId("task", id));
+
+  // Single transaction: verify ownership + update all tasks + collect parents
+  const query = `
+    BEGIN TRANSACTION;
+
+    -- Update all matching tasks in this workspace to done.
+    -- Compare workspace directly as record<workspace> (workspace.id matching does not work reliably).
+    UPDATE task
+      SET status = 'done', updated_at = time::now()
+      WHERE id IN $tasks AND workspace = $workspace
+      RETURN AFTER;
+
+    -- Collect parent records for rollup (dedupe in app layer).
+    SELECT VALUE out FROM subtask_of WHERE \`in\` IN $tasks;
+
+    COMMIT TRANSACTION;
+  `;
+
+  const result = await input.surreal.query<[
+    null,
+    Array<{ id: RecordId<"task", string>; status: string }>,
+    Array<RecordId<"task", string>>,
+    null,
+  ]>(query, { tasks: taskRecords, workspace: input.workspaceRecord });
+
+  // BEGIN/COMMIT emit null outputs, so update rows are at index 1.
+  const updatedRows = result[1] ?? [];
+  const updatedIds = new Set(updatedRows.map((r) => r.id.id as string));
+
+  const parentRows = result[2] ?? [];
+  const parentIds = Array.from(
+    new Map(parentRows.map((parent) => [parent.id as string, parent])).values(),
+  );
+  await Promise.all(parentIds.map((parent) => computeSubtaskRollup(input.surreal, parent)));
+
+  return input.taskIds.map((id) => ({
+    task_id: id,
+    status: "done",
+    updated: updatedIds.has(id),
+  }));
+}
+
 /** Compute and apply subtask rollup on a parent task */
 async function computeSubtaskRollup(
   surreal: Surreal,

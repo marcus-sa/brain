@@ -20,18 +20,12 @@ async function createWorkspaceAndTask(
   suffix: string,
   taskStatus: string,
 ) {
-  const user = await createTestUserWithMcp(baseUrl, surreal, `session-status-${suffix}`, "session:write graph:read offline_access");
+  const user = await createTestUserWithMcp(baseUrl, surreal, `session-status-${suffix}`);
 
-  const workspace = await fetchJson<{ workspaceId: string }>(
-    `${baseUrl}/api/workspaces`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...user.headers },
-      body: JSON.stringify({ name: `Session Status ${Date.now()} ${suffix}` }),
-    },
-  );
+  // Use the workspace from createTestUserWithMcp (matches the DPoP token's workspace claim)
+  const workspaceId = user.workspaceId;
+  const workspaceRecord = new RecordId("workspace", workspaceId);
 
-  const workspaceRecord = new RecordId("workspace", workspace.workspaceId);
   const taskId = `session-task-${suffix}-${Date.now()}`;
   const taskRecord = new RecordId("task", taskId);
 
@@ -45,7 +39,7 @@ async function createWorkspaceAndTask(
     updated_at: new Date(),
   });
 
-  return { user, workspace, workspaceRecord, taskId, taskRecord };
+  return { user, workspace: { workspaceId }, workspaceRecord, taskId, taskRecord };
 }
 
 /** Create a workspace + task + orchestrator-managed session directly in DB */
@@ -109,14 +103,11 @@ describe("session creation does not change task status (US-1)", () => {
     );
 
     // Create agent session for the task via MCP endpoint
-    const session = await fetchJson<{ session_id: string }>(
-      `${baseUrl}/api/mcp/${workspace.workspaceId}/sessions/start`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...user.mcpHeaders },
-        body: JSON.stringify({ agent: "claude", task_id: taskId }),
-      },
+    const sessionRes = await user.mcpFetch(
+      `/api/mcp/${workspace.workspaceId}/sessions/start`,
+      { body: { agent: "claude", task_id: taskId } },
     );
+    const session = await sessionRes.json() as { session_id: string };
 
     expect(session.session_id).toBeDefined();
 
@@ -138,13 +129,9 @@ describe("session creation does not change task status (US-1)", () => {
       baseUrl, surreal, "todo-1", "todo",
     );
 
-    await fetchJson<{ session_id: string }>(
-      `${baseUrl}/api/mcp/${workspace.workspaceId}/sessions/start`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...user.mcpHeaders },
-        body: JSON.stringify({ agent: "claude", task_id: taskId }),
-      },
+    await user.mcpFetch(
+      `/api/mcp/${workspace.workspaceId}/sessions/start`,
+      { body: { agent: "claude", task_id: taskId } },
     );
 
     const [taskRows] = await surreal
@@ -163,13 +150,9 @@ describe("session creation does not change task status (US-1)", () => {
       baseUrl, surreal, "inprog-1", "in_progress",
     );
 
-    await fetchJson<{ session_id: string }>(
-      `${baseUrl}/api/mcp/${workspace.workspaceId}/sessions/start`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...user.mcpHeaders },
-        body: JSON.stringify({ agent: "claude", task_id: taskId }),
-      },
+    await user.mcpFetch(
+      `/api/mcp/${workspace.workspaceId}/sessions/start`,
+      { body: { agent: "claude", task_id: taskId } },
     );
 
     const [taskRows] = await surreal
