@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "63de77357282",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/landing-intent-oauth",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "index.html"
+  ],
+  "sessions": [
+    {
+      "metadata": "/63/de77357282/0/metadata.json",
+      "transcript": "/63/de77357282/0/full.jsonl",
+      "context": "/63/de77357282/0/context.md",
+      "content_hash": "/63/de77357282/0/content_hash.txt",
+      "prompt": "/63/de77357282/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 191,
+    "cache_creation_tokens": 417969,
+    "cache_read_tokens": 5757511,
+    "output_tokens": 21871,
+    "api_call_count": 74
+  }
+}
