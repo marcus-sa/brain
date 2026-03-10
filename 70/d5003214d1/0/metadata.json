@@ -1,0 +1,31 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "70d5003214d1",
+  "session_id": "5c771fb8-032b-4c18-97af-1570b4e831d7",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-10T18:20:29.719238Z",
+  "branch": "marcus-sa/trace-table-migration",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "docs/feature/trace-migration/execution-log.yaml",
+    "docs/feature/trace-migration/roadmap.yaml"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "2f7b71f1bb02",
+  "token_usage": {
+    "input_tokens": 102,
+    "cache_creation_tokens": 109364,
+    "cache_read_tokens": 5114263,
+    "output_tokens": 25197,
+    "api_call_count": 58
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-10T18:20:29.529008Z",
+    "agent_lines": 192,
+    "human_added": 124,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 316,
+    "agent_percentage": 60.75949367088608
+  }
+}
