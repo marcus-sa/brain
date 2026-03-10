@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "46bb8ff03ae4",
+  "session_id": "25a509b7-17ce-4f7b-bb3e-793f1d3ada35",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-10T06:35:27.30027Z",
+  "branch": "marcus-sa/oauth-rar-dpop-server",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "docs/adrs/ADR-014-custom-as-over-better-auth-extension.md",
+    "docs/adrs/ADR-015-jose-for-dpop-and-rar-tokens.md",
+    "docs/adrs/ADR-016-in-memory-nonce-cache-for-replay-protection.md",
+    "docs/adrs/ADR-017-hard-cut-bearer-to-dpop-migration.md",
+    "docs/adrs/ADR-018-brain-action-authorization-details-format.md",
+    "docs/feature/oauth-rar-dpop/design/architecture-design.md",
+    "docs/feature/oauth-rar-dpop/design/component-boundaries.md",
+    "docs/feature/oauth-rar-dpop/design/data-models.md",
+    "docs/feature/oauth-rar-dpop/design/technology-stack.md"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "e0d81619bf2e",
+  "token_usage": {
+    "input_tokens": 15,
+    "cache_creation_tokens": 34891,
+    "cache_read_tokens": 264215,
+    "output_tokens": 3090,
+    "api_call_count": 7
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-10T06:35:27.075607Z",
+    "agent_lines": 1305,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 1305,
+    "agent_percentage": 100
+  }
+}
