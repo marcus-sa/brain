@@ -245,5 +245,91 @@ events:
   s: EXECUTED
   sid: 03-02
   t: '2026-03-10T10:35:30Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 03-02
+  t: '2026-03-10T10:35:47Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 03-04
+  t: '2026-03-10T10:37:41Z'
+- d: 'NOT_APPLICABLE: Walking Skeleton 1 requires full server boot with DB; covered
+    by acceptance suite'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 03-04
+  t: '2026-03-10T10:37:47Z'
+- d: PASS
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 03-04
+  t: '2026-03-10T10:38:31Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 03-04
+  t: '2026-03-10T10:45:42Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 03-04
+  t: '2026-03-10T10:45:56Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 04-01
+  t: '2026-03-10T10:47:58Z'
+- d: 'NOT_APPLICABLE: acceptance tests pre-exist in milestone-4-bridge-exchange.test.ts'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 04-01
+  t: '2026-03-10T10:48:06Z'
+- d: PASS
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 04-01
+  t: '2026-03-10T10:48:34Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 04-03
+  t: '2026-03-10T10:48:53Z'
+- d: 'NOT_APPLICABLE: acceptance tests pre-exist in milestone-5-consent-and-identity.test.ts'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 04-03
+  t: '2026-03-10T10:49:01Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 04-02
+  t: '2026-03-10T10:50:49Z'
+- d: 'NOT_APPLICABLE: acceptance tests pre-exist in milestone-5'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 04-02
+  t: '2026-03-10T10:50:50Z'
+- d: PASS
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 04-02
+  t: '2026-03-10T10:50:55Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 04-02
+  t: '2026-03-10T10:50:56Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 04-02
+  t: '2026-03-10T10:50:56Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 04-01
+  t: '2026-03-10T10:51:27Z'
 project_id: oauth-rar-dpop
 schema_version: '3.0'

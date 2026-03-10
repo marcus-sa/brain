@@ -32,6 +32,7 @@ import { buildJwksResponse } from "../oauth/as-key-management";
 import { createIntentSubmissionHandler } from "../oauth/intent-submission";
 import { createTokenEndpointHandler } from "../oauth/token-endpoint";
 import { createNonceCache } from "../oauth/nonce-cache";
+import { createBridgeExchangeHandler } from "../oauth/bridge";
 
 export function createBrainServer(deps: ServerDependencies): ReturnType<typeof Bun.serve> {
   const config = deps.config;
@@ -62,6 +63,7 @@ export function createBrainServer(deps: ServerDependencies): ReturnType<typeof B
   const intentHandlers = createIntentRouteHandlers(deps);
   const intentSubmissionHandler = createIntentSubmissionHandler(deps);
   const tokenEndpointHandler = createTokenEndpointHandler(deps);
+  const bridgeExchangeHandler = createBridgeExchangeHandler(deps);
 
   // Orchestrator wiring
   const orchestratorHandlers = wireOrchestratorRoutes({
@@ -420,6 +422,12 @@ export function createBrainServer(deps: ServerDependencies): ReturnType<typeof B
       "/api/auth/token": {
         POST: withRequestLogging("POST /api/auth/token", "POST", (request) =>
           tokenEndpointHandler(request),
+        ),
+      },
+      // OAuth 2.1 RAR+DPoP — Bridge session-to-token exchange
+      "/api/auth/bridge/exchange": {
+        POST: withRequestLogging("POST /api/auth/bridge/exchange", "POST", (request) =>
+          bridgeExchangeHandler(request),
         ),
       },
       // AS JWKS endpoint — public keys for token verification
