@@ -102,5 +102,22 @@ events:
   s: EXECUTED
   sid: 02-02
   t: '2026-03-10T18:48:55Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 03-01
+  t: '2026-03-10T18:52:35Z'
+- d: 'PASS: baseline 22/24 policy-node, 24/24 intent-node. 2 failures: (1) audit query
+    missing created_at in SELECT, (2) rules.*.condition TYPE object rejects array
+    for AND-joined conditions'
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 03-01
+  t: '2026-03-10T18:52:42Z'
+- d: 'NOT_APPLICABLE: integration step tested via acceptance tests'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 03-01
+  t: '2026-03-10T18:52:47Z'
 project_id: policy-node
 schema_version: '3.0'

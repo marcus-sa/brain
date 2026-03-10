@@ -73,19 +73,37 @@ export function createIntentRouteHandlers(deps: ServerDependencies): IntentRoute
         ? (body.requester.id as string)
         : String(body.requester);
 
+      const identityId = new RecordId("identity", requesterId);
+      const workspaceRecord = typeof body.workspace === "object" && body.workspace !== undefined
+        ? new RecordId("workspace", body.workspace.id as string)
+        : new RecordId("workspace", String(body.workspace));
+
+      // Load requester identity type/role for policy evaluation context
+      const identityRows = (await surreal.query(
+        `SELECT type, role FROM $identity;`,
+        { identity: identityId },
+      )) as Array<Array<{ type?: string; role?: string }>>;
+      const identityInfo = identityRows[0]?.[0];
+
       const evaluation = await evaluateIntent({
         intent: {
           goal: body.goal,
           reasoning: body.reasoning,
           action_spec: body.action_spec,
           budget_limit: body.budget_limit,
-          requester: requesterId,
+          priority: body.priority,
         },
-        policy: {},
+        surreal,
+        identityId,
+        workspaceId: workspaceRecord,
+        requesterType: identityInfo?.type ?? "agent",
+        requesterRole: identityInfo?.role,
         llmEvaluator,
       });
 
-      const routing = routeByRisk(evaluation);
+      const routing = routeByRisk(evaluation, {
+        human_veto_required: evaluation.human_veto_required,
+      });
       const evaluationRecord = {
         ...evaluation,
         evaluated_at: new Date(),

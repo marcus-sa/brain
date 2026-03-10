@@ -1,0 +1,198 @@
+project_id: policy-node
+title: "Policy Node: Graph-Based Governance for Intent Authorization"
+description: |
+  Implements persistent policy records in SurrealDB connected to identities and
+  workspaces via graph edges. The authorizer traverses the policy graph at intent
+  evaluation time, applying structured predicate rules deterministically before
+  the LLM tier runs. 24 pre-written acceptance tests drive the implementation.
+
+validation:
+  status: approved
+  approved_at: "2026-03-11T00:30:00Z"
+  note: "Architecture fully designed in DESIGN wave. Acceptance tests written in DISTILL wave."
+
+steps:
+  - step_id: "01-01"
+    title: "Schema Migration and Type Definitions"
+    description: |
+      Create the SurrealDB schema migration for the policy table, governing/protects
+      relation tables, intent.evaluation.policy_trace extension, and audit_event
+      event_type extension. Also create pure TypeScript algebraic data types in
+      app/src/server/policy/types.ts.
+
+      Migration 0024_policy_node.surql defines:
+      - policy SCHEMAFULL table (title, version, status, selector, rules, human_veto_required, etc.)
+      - governing TYPE RELATION (identity -> policy)
+      - protects TYPE RELATION (policy -> workspace)
+      - evaluation.policy_trace array fields on intent
+      - evaluation.human_veto_required on intent
+      - Extended audit_event event_type ASSERT with policy_created/activated/updated/deprecated
+
+      Update schema/surreal-schema.surql with the same definitions.
+
+      Types file exports: RulePredicate, RuleCondition, PolicyRule, PolicySelector,
+      PolicyStatus, PolicyRecord, PolicyTraceEntry, PolicyGateWarning, PolicyGateResult,
+      IntentEvaluationContext.
+    acceptance_criteria:
+      - "bun test tests/acceptance/policy-node/milestone-1-schema-and-lifecycle.test.ts passes (8 tests)"
+      - "bun test tests/acceptance/policy-node/walking-skeleton.test.ts passes (2 tests)"
+      - "Policy table enforces ASSERT on status and rules[*].effect"
+      - "Graph edges governing/protects created with created_at timestamps"
+      - "Version immutability: new version supersedes old"
+    files_to_modify:
+      - schema/migrations/0024_policy_node.surql
+      - schema/surreal-schema.surql
+      - app/src/server/policy/types.ts
+    depends_on: []
+
+  - step_id: "01-02"
+    title: "Predicate Evaluator — Pure Function with Unit Tests"
+    description: |
+      Create the predicate evaluator as a pure function with zero dependencies on DB
+      or side effects. This is the core rule engine that resolves dot-path field
+      references against intent context and applies comparison operators.
+
+      File: app/src/server/policy/predicate-evaluator.ts
+      Exports:
+      - evaluatePredicate(context: Record<string, unknown>, predicate: RulePredicate): { matched: boolean; warning?: PolicyGateWarning }
+      - evaluateCondition(context: Record<string, unknown>, condition: RuleCondition, ruleId: string, policyId: string): { matched: boolean; warnings: PolicyGateWarning[] }
+
+      Operators: eq, neq, lt, lte, gt, gte, in, not_in, exists
+      Dot-path resolution: "action_spec.action" -> context.action_spec.action
+      Missing fields: return { matched: false, warning: { rule_id, field, policy_id } }
+      AND-joined conditions (RulePredicate[]): all must match
+
+      Unit tests in tests/unit/predicate-evaluator.test.ts covering:
+      - Each operator with matching/non-matching values
+      - Dot-path resolution for nested fields
+      - Missing field returns false with warning
+      - AND-joined conditions (all true → match, any false → no match)
+      - Type coercion edge cases
+      - Explicit dedup test for policy loaded via both governing and protects edges (recommendation)
+    acceptance_criteria:
+      - "All 9 operators produce correct boolean results"
+      - "Dot-path resolution works for nested fields (action_spec.action, budget_limit.amount)"
+      - "Missing field returns matched=false with warning containing rule_id and field path"
+      - "AND-joined conditions (RulePredicate[]) match only when ALL predicates true"
+      - "Unit tests pass: bun test tests/unit/predicate-evaluator.test.ts"
+    files_to_modify:
+      - app/src/server/policy/predicate-evaluator.ts
+      - tests/unit/predicate-evaluator.test.ts
+    depends_on:
+      - "01-01"
+
+  - step_id: "02-01"
+    title: "Policy Queries — SurrealDB Graph Adapter"
+    description: |
+      Create the SurrealDB adapter for policy loading and lifecycle management.
+      This is the effect boundary — all DB access for policies goes through here.
+
+      File: app/src/server/policy/policy-queries.ts
+      Exports:
+      - loadActivePolicies(surreal, identityId, workspaceId): PolicyRecord[]
+        Graph traversal: identity->governing->policy + workspace<-protects<-policy
+        Deduplicate by ID, filter status=active only
+      - createPolicy(surreal, params): PolicyRecord
+      - transitionPolicyStatus(surreal, policyId, newStatus): void
+      - removeEdgesOnDeprecation(surreal, policyId): void
+      - createPolicyAuditEvent(surreal, eventType, actor, workspace, policyId, version): void
+
+      Query patterns match the policy-test-kit.ts helpers (which mirror production queries).
+      The loadActivePolicies query must handle policies linked via BOTH governing AND
+      protects edges and deduplicate them.
+    acceptance_criteria:
+      - "loadActivePolicies returns policies from both identity and workspace edges"
+      - "Deprecated policies excluded from results"
+      - "Lifecycle transitions update status and timestamps"
+      - "Edge removal on deprecation verified"
+      - "Milestone-1 acceptance tests still pass after introducing production queries"
+    files_to_modify:
+      - app/src/server/policy/policy-queries.ts
+    depends_on:
+      - "01-01"
+
+  - step_id: "02-02"
+    title: "Policy Gate Pipeline — Functional Composition"
+    description: |
+      Create the policy gate as a composition pipeline of pure transformations with
+      a single effect boundary (the initial loadActivePolicies call).
+
+      File: app/src/server/policy/policy-gate.ts
+      Exports:
+      - evaluatePolicyGate(surreal, identityId, workspaceId, intentContext): PolicyGateResult
+
+      Pipeline:
+        loadActivePolicies(surreal, identity, workspace)    -- effect: DB read
+          |> deduplicatePolicies                            -- pure
+          |> collectAndSortRules                            -- pure: merge rules, sort by priority DESC
+          |> evaluateRulesAgainstContext(intentContext)      -- pure: predicate evaluation per rule
+          |> buildPolicyTrace                               -- pure: construct trace entries
+          |> buildGateResult                                -- pure: first deny = reject, check veto flag
+
+      Empty policy set → { passed: true, policy_trace: [], human_veto_required: false, warnings: [] }
+      First deny match → short-circuit REJECT with trace up to that point
+      human_veto_required on ANY loaded policy → flag in result
+
+      Unit tests for pipeline composition in tests/unit/policy-gate.test.ts
+    acceptance_criteria:
+      - "Empty policy set returns passed=true with empty trace"
+      - "Deny rule at highest priority short-circuits (lower rules not evaluated)"
+      - "Allow-only rules pass with complete trace"
+      - "human_veto_required flag propagated from any loaded policy"
+      - "Warnings collected for missing fields"
+      - "bun test tests/acceptance/policy-node/milestone-2-policy-gate-evaluation.test.ts passes (7 tests)"
+    files_to_modify:
+      - app/src/server/policy/policy-gate.ts
+      - tests/unit/policy-gate.test.ts
+    depends_on:
+      - "01-02"
+      - "02-01"
+
+  - step_id: "03-01"
+    title: "Authorizer Integration, Risk Router, and Audit Extensions"
+    description: |
+      Wire the policy gate into the existing intent authorization pipeline. This is
+      the integration step that replaces the stub checkPolicyGate() with the real
+      graph-backed policy gate, extends the risk router with human_veto_required,
+      and adds policy audit event types.
+
+      Modified files:
+      1. app/src/server/intent/authorizer.ts
+         - Remove WorkspacePolicy type, checkPolicyGate(), checkBudgetCap(), checkActionAllowlist()
+         - Change EvaluateIntentInput to accept surreal, identityId, workspaceId, requesterType, requesterRole
+         - evaluateIntent() calls evaluatePolicyGate() from policy/policy-gate.ts
+         - If gate returns passed=false → REJECT with policy_trace, skip LLM
+         - If passed=true → continue to LLM, carry human_veto_required and policy_trace
+         - EvaluationOutput extends with policy_trace and human_veto_required
+
+      2. app/src/server/intent/intent-routes.ts
+         - handleEvaluate() passes surreal, identityId, workspaceId to evaluateIntent()
+         - Load identity.type and identity.role from requester record
+         - After evaluation, persist policy_trace on intent.evaluation
+
+      3. app/src/server/intent/risk-router.ts
+         - routeByRisk() accepts human_veto_required boolean parameter
+         - When true AND decision=APPROVE → force veto_window route
+
+      4. app/src/server/intent/types.ts
+         - Add PolicyTraceEntry import/re-export
+         - Extend IntentRecord.evaluation with policy_trace and human_veto_required
+
+      5. app/src/server/oauth/audit.ts
+         - Add policy_created, policy_activated, policy_updated, policy_deprecated to AuditEventType
+         - Add severity mappings (all "info")
+    acceptance_criteria:
+      - "bun test tests/acceptance/policy-node/walking-skeleton.test.ts passes (2 tests)"
+      - "bun test tests/acceptance/policy-node/milestone-2-policy-gate-evaluation.test.ts passes (7 tests)"
+      - "bun test tests/acceptance/policy-node/milestone-3-audit-and-authorization.test.ts passes (7 tests)"
+      - "All 24 policy-node acceptance tests pass"
+      - "Existing intent-node acceptance tests still pass (no regression)"
+      - "human_veto_required forces veto_window in risk router"
+    files_to_modify:
+      - app/src/server/intent/authorizer.ts
+      - app/src/server/intent/intent-routes.ts
+      - app/src/server/intent/risk-router.ts
+      - app/src/server/intent/types.ts
+      - app/src/server/oauth/audit.ts
+    depends_on:
+      - "02-02"

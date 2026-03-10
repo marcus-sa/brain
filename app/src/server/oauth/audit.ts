@@ -27,7 +27,11 @@ export type AuditEventType =
   | "token_rejected"
   | "dpop_verified"
   | "dpop_rejected"
-  | "security_alert";
+  | "security_alert"
+  | "policy_created"
+  | "policy_activated"
+  | "policy_updated"
+  | "policy_deprecated";
 
 export type AuditSeverity = "info" | "warning" | "security";
 

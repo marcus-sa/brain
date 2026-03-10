@@ -304,7 +304,7 @@ export async function getAuditEventsForPolicy(
   policyId: string,
 ): Promise<Array<{ event_type: string; payload: Record<string, unknown> }>> {
   const rows = (await surreal.query(
-    `SELECT event_type, payload FROM audit_event
+    `SELECT event_type, payload, created_at FROM audit_event
      WHERE payload.policy_id = $policyId
      ORDER BY created_at ASC;`,
     { policyId },
