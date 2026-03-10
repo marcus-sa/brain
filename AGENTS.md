@@ -1,6 +1,7 @@
 ## Git Commits
 
 - Always use `--no-verify` when committing. The pre-commit hook requires `brain init` which is not available in worktree environments.
+- Always use `-s` (GPG sign) when committing.
 
 ## Data Value Contract
 
