@@ -1,0 +1,39 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "f7f0fa4b81dc",
+  "session_id": "8e7bfe53-ba5f-4cf6-b395-94fda014bcd1",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-10T09:44:14.19789Z",
+  "branch": "marcus-sa/oauth-rar-dpop-server",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "docs/feature/oauth-rar-dpop/distill/acceptance-review.md",
+    "docs/feature/oauth-rar-dpop/distill/test-scenarios.md",
+    "docs/feature/oauth-rar-dpop/distill/walking-skeleton.md",
+    "tests/acceptance/oauth-rar-dpop/milestone-1-dpop-key-and-intent.test.ts",
+    "tests/acceptance/oauth-rar-dpop/milestone-2-token-issuance.test.ts",
+    "tests/acceptance/oauth-rar-dpop/milestone-3-brain-verification.test.ts",
+    "tests/acceptance/oauth-rar-dpop/milestone-4-bridge-exchange.test.ts",
+    "tests/acceptance/oauth-rar-dpop/milestone-5-consent-and-identity.test.ts",
+    "tests/acceptance/oauth-rar-dpop/oauth-test-kit.ts",
+    "tests/acceptance/oauth-rar-dpop/walking-skeleton.test.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "a1be234c13a1",
+  "token_usage": {
+    "input_tokens": 37,
+    "cache_creation_tokens": 220587,
+    "cache_read_tokens": 1061999,
+    "output_tokens": 8765,
+    "api_call_count": 19
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-10T09:44:13.686324Z",
+    "agent_lines": 3082,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 3082,
+    "agent_percentage": 100
+  }
+}
