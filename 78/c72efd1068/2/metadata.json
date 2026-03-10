@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "78c72efd1068",
+  "session_id": "e76f9f52-e530-4e3a-9590-e1a4825fd363",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-10T03:59:18.805271Z",
+  "branch": "marcus-sa/intent-node-issue",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "tests/acceptance/orchestrator-ui/walking-skeleton.test.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "1431682815ee",
+  "token_usage": {
+    "input_tokens": 3,
+    "cache_creation_tokens": 25758,
+    "cache_read_tokens": 10768,
+    "output_tokens": 317,
+    "api_call_count": 1
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-10T03:59:18.79926Z",
+    "agent_lines": 0,
+    "human_added": 0,
+    "human_modified": 6,
+    "human_removed": 5,
+    "total_committed": 0,
+    "agent_percentage": 0
+  }
+}
