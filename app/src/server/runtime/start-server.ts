@@ -31,6 +31,7 @@ import { updateIntentStatus, queryExpiredVetoIntents } from "../intent/intent-qu
 import { buildJwksResponse } from "../oauth/as-key-management";
 import { createIntentSubmissionHandler } from "../oauth/intent-submission";
 import { createTokenEndpointHandler } from "../oauth/token-endpoint";
+import { createNonceCache } from "../oauth/nonce-cache";
 
 export function createBrainServer(deps: ServerDependencies): ReturnType<typeof Bun.serve> {
   const config = deps.config;
@@ -444,6 +445,7 @@ export async function startServer(): Promise<void> {
     sse: createSseRegistry(),
     inflight: createInflightTracker(),
     asSigningKey: runtime.asSigningKey,
+    nonceCache: createNonceCache(),
   };
 
   const server = createBrainServer(deps);
