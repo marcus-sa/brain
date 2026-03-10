@@ -1,0 +1,36 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "ec7f85e7b017",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/policy-node",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "docs/feature/policy-node/requirements/acceptance-criteria.md",
+    "docs/feature/policy-node/requirements/dor-checklist.md",
+    "docs/feature/policy-node/requirements/requirements.md",
+    "docs/feature/policy-node/requirements/user-stories.md",
+    "docs/ux/policy-node/journey-policy-lifecycle-visual.md",
+    "docs/ux/policy-node/journey-policy-lifecycle.feature",
+    "docs/ux/policy-node/journey-policy-lifecycle.yaml",
+    "docs/ux/policy-node/jtbd-four-forces.md",
+    "docs/ux/policy-node/jtbd-job-stories.md",
+    "docs/ux/policy-node/jtbd-opportunity-scores.md",
+    "docs/ux/policy-node/shared-artifacts-registry.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/ec/7f85e7b017/0/metadata.json",
+      "transcript": "/ec/7f85e7b017/0/full.jsonl",
+      "context": "/ec/7f85e7b017/0/context.md",
+      "content_hash": "/ec/7f85e7b017/0/content_hash.txt",
+      "prompt": "/ec/7f85e7b017/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 2314,
+    "cache_creation_tokens": 137757,
+    "cache_read_tokens": 1999895,
+    "output_tokens": 25981,
+    "api_call_count": 29
+  }
+}

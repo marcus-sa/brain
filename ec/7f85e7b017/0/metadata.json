@@ -1,0 +1,40 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "ec7f85e7b017",
+  "session_id": "7bb03f20-778f-4785-a15e-8acde5cd3ec0",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-10T17:46:13.148524Z",
+  "branch": "marcus-sa/policy-node",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "docs/feature/policy-node/requirements/acceptance-criteria.md",
+    "docs/feature/policy-node/requirements/dor-checklist.md",
+    "docs/feature/policy-node/requirements/requirements.md",
+    "docs/feature/policy-node/requirements/user-stories.md",
+    "docs/ux/policy-node/journey-policy-lifecycle-visual.md",
+    "docs/ux/policy-node/journey-policy-lifecycle.feature",
+    "docs/ux/policy-node/journey-policy-lifecycle.yaml",
+    "docs/ux/policy-node/jtbd-four-forces.md",
+    "docs/ux/policy-node/jtbd-job-stories.md",
+    "docs/ux/policy-node/jtbd-opportunity-scores.md",
+    "docs/ux/policy-node/shared-artifacts-registry.md"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "94446d067de0",
+  "token_usage": {
+    "input_tokens": 2314,
+    "cache_creation_tokens": 137757,
+    "cache_read_tokens": 1999895,
+    "output_tokens": 25981,
+    "api_call_count": 29
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-10T17:46:12.703393Z",
+    "agent_lines": 910,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 491,
+    "total_committed": 910,
+    "agent_percentage": 100
+  }
+}
