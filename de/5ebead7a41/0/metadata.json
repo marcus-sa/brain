@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "de5ebead7a41",
+  "session_id": "9a3e3528-2bae-44a9-ba1d-45ac4c351d00",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-10T10:29:54.119898Z",
+  "branch": "marcus-sa/oauth-rar-dpop-server",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "docs/feature/oauth-rar-dpop/execution-log.yaml"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "a43312c2666e",
+  "token_usage": {
+    "input_tokens": 75,
+    "cache_creation_tokens": 259209,
+    "cache_read_tokens": 3140214,
+    "output_tokens": 38689,
+    "api_call_count": 33
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-10T10:29:53.276876Z",
+    "agent_lines": 30,
+    "human_added": 1326,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 1356,
+    "agent_percentage": 2.2123893805309733
+  }
+}
