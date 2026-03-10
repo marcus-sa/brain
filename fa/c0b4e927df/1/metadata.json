@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "fac0b4e927df",
+  "session_id": "6bb294c1-136c-474b-a2e6-37121a07cd9a",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-10T17:11:32.46544Z",
+  "branch": "marcus-sa/oauth-rar-dpop-server",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "app/src/server/mcp/mcp-queries.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "a3ce8c17f2db",
+  "checkpoint_transcript_start": 576,
+  "transcript_lines_at_start": 576,
+  "token_usage": {
+    "input_tokens": 2,
+    "cache_creation_tokens": 668,
+    "cache_read_tokens": 138294,
+    "output_tokens": 102,
+    "api_call_count": 2
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-10T17:11:32.196093Z",
+    "agent_lines": 19,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 19,
+    "agent_percentage": 100
+  }
+}
