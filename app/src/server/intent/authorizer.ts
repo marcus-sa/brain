@@ -88,7 +88,7 @@ export async function evaluateIntent(
   } catch (error) {
     const reason = isAbortError(error)
       ? "LLM evaluation timeout — falling back to policy-only with veto window"
-      : "LLM evaluation failed — falling back to policy-only with veto window";
+      : `LLM evaluation failed: ${error instanceof Error ? error.message : String(error)} — falling back to policy-only with veto window`;
     return {
       decision: "APPROVE",
       risk_score: 50,

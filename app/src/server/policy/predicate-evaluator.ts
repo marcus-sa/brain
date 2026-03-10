@@ -16,7 +16,10 @@ export const resolveDotPath = (
   let current: unknown = context;
 
   for (const segment of segments) {
-    if (current === undefined || current === null || typeof current !== "object") {
+    if (current === null) {
+      throw new Error(`Contract violation: null encountered in context at segment '${segment}'`);
+    }
+    if (current === undefined || typeof current !== "object") {
       return undefined;
     }
     current = (current as Record<string, unknown>)[segment];
