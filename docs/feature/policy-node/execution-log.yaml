@@ -72,5 +72,31 @@ events:
   s: EXECUTED
   sid: 02-01
   t: '2026-03-10T18:44:16Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-03-10T18:44:45Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 02-02
+  t: '2026-03-10T18:46:30Z'
+- d: 'PASS: 7/7 milestone-2 acceptance tests pass (using simulatePolicyGateResult)'
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 02-02
+  t: '2026-03-10T18:46:32Z'
+- d: 'PASS: 0/13 tests pass, module not found as expected'
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 02-02
+  t: '2026-03-10T18:47:29Z'
+- d: 'PASS: 14/14 unit tests, 7/7 milestone-2 acceptance tests, 2 pre-existing milestone-3
+    failures unrelated'
+  p: GREEN
+  s: EXECUTED
+  sid: 02-02
+  t: '2026-03-10T18:48:28Z'
 project_id: policy-node
 schema_version: '3.0'
