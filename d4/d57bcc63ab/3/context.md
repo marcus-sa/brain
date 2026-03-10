@@ -46,3 +46,8 @@ so a script file that spawns these in parallel, gathers the output afterwards an
 
 Commit and push all changes
 
+### Prompt 6
+
+Stop hook feedback:
+Prompt hook condition was not met: Brain MCP tools not available in this session - unable to log decisions, questions, observations, or suggestions
+
