@@ -109,6 +109,86 @@ function mapChildToStep(child: ChildTraceRow): SubagentTraceStep {
 }
 
 // ---------------------------------------------------------------------------
+// Write path: persist SubagentTrace as normalized trace records + spawns edge
+// ---------------------------------------------------------------------------
+
+/**
+ * Persist a SubagentTrace as a root trace record + child trace records + spawns edge.
+ * All records are created in a single transaction for atomicity.
+ */
+export async function persistSubagentTrace(
+  surreal: Surreal,
+  messageRecord: RecordId<"message", string>,
+  workspaceRecord: RecordId<"workspace", string>,
+  actorRecord: RecordId<"identity", string>,
+  trace: SubagentTrace,
+): Promise<void> {
+  const rootId = crypto.randomUUID();
+  const now = new Date();
+
+  // Build child trace content records
+  const childEntries = trace.steps.map((step, i) => ({
+    id: crypto.randomUUID(),
+    type: step.type === "text" ? "message" : "tool_call",
+    tool_name: step.type === "tool_call" ? step.toolName : undefined,
+    input: step.type === "tool_call"
+      ? (step.argsJson ? JSON.parse(step.argsJson) : undefined)
+      : (step.text ? { text: step.text } : undefined),
+    output: step.type === "tool_call" && step.resultJson
+      ? JSON.parse(step.resultJson)
+      : undefined,
+    duration_ms: step.durationMs,
+    created_at: new Date(now.getTime() + i + 1),
+  }));
+
+  // Single transaction: root + children + spawns edge
+  const childCreates = childEntries
+    .map((c) => {
+      const fields = [
+        `type: ${JSON.stringify(c.type)}`,
+        `actor: $actor`,
+        `workspace: $workspace`,
+        `parent_trace: $rootRecord`,
+        `created_at: <datetime> ${JSON.stringify(c.created_at.toISOString())}`,
+      ];
+      if (c.tool_name) fields.push(`tool_name: ${JSON.stringify(c.tool_name)}`);
+      if (c.input) fields.push(`input: ${JSON.stringify(c.input)}`);
+      if (c.output) fields.push(`output: ${JSON.stringify(c.output)}`);
+      if (c.duration_ms !== undefined) fields.push(`duration_ms: ${c.duration_ms}`);
+      return `CREATE type::thing("trace", ${JSON.stringify(c.id)}) CONTENT { ${fields.join(", ")} };`;
+    })
+    .join("\n    ");
+
+  await surreal.query(
+    `
+    BEGIN TRANSACTION;
+    LET $rootRecord = type::thing("trace", $rootId);
+    CREATE $rootRecord CONTENT {
+      type: "subagent_spawn",
+      actor: $actor,
+      workspace: $workspace,
+      tool_name: "invoke_pm_agent",
+      input: $rootInput,
+      duration_ms: $durationMs,
+      created_at: <datetime> $now
+    };
+    ${childCreates}
+    RELATE $message -> spawns -> $rootRecord;
+    COMMIT TRANSACTION;
+    `,
+    {
+      rootId,
+      actor: actorRecord,
+      workspace: workspaceRecord,
+      rootInput: { intent: trace.intent, agentId: trace.agentId },
+      durationMs: trace.totalDurationMs,
+      now: now.toISOString(),
+      message: messageRecord,
+    },
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Batch loading: 2-query pattern
 // ---------------------------------------------------------------------------
 
