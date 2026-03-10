@@ -1,0 +1,23 @@
+events:
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-03-10T18:03:21Z'
+- d: 'NOT_APPLICABLE: schema migration has no acceptance test'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 01-01
+  t: '2026-03-10T18:03:25Z'
+- d: 'NOT_APPLICABLE: schema changes validated via bun migrate'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 01-01
+  t: '2026-03-10T18:03:27Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-03-10T18:03:32Z'
+project_id: trace-migration
+schema_version: '3.0'
