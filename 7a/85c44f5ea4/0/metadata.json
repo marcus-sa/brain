@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "7a85c44f5ea4",
+  "session_id": "f8e99bf0-3a31-4ae0-8f68-c0dcef23b70d",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-10T13:17:17.543444Z",
+  "branch": "marcus-sa/oauth-rar-dpop-server",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "tests/acceptance/acceptance-test-kit.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "99a2f66fb49d",
+  "checkpoint_transcript_start": 58,
+  "transcript_lines_at_start": 58,
+  "token_usage": {
+    "input_tokens": 6,
+    "cache_creation_tokens": 5828,
+    "cache_read_tokens": 308196,
+    "output_tokens": 1139,
+    "api_call_count": 4
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-10T13:17:17.337155Z",
+    "agent_lines": 0,
+    "human_added": 0,
+    "human_modified": 1,
+    "human_removed": 0,
+    "total_committed": 0,
+    "agent_percentage": 0
+  }
+}
