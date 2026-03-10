@@ -1,0 +1,36 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "38b0a5420563",
+  "session_id": "a3f55bb4-088d-4748-ba1b-d9c55980191b",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-10T18:13:47.023225Z",
+  "branch": "marcus-sa/policy-node",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "docs/feature/policy-node/distill/test-scenarios.md",
+    "docs/feature/policy-node/distill/walking-skeleton.md",
+    "tests/acceptance/policy-node/milestone-1-schema-and-lifecycle.test.ts",
+    "tests/acceptance/policy-node/milestone-2-policy-gate-evaluation.test.ts",
+    "tests/acceptance/policy-node/milestone-3-audit-and-authorization.test.ts",
+    "tests/acceptance/policy-node/policy-test-kit.ts",
+    "tests/acceptance/policy-node/walking-skeleton.test.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "8cf5e415e5fa",
+  "token_usage": {
+    "input_tokens": 32,
+    "cache_creation_tokens": 111171,
+    "cache_read_tokens": 1325138,
+    "output_tokens": 25461,
+    "api_call_count": 16
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-10T18:13:46.698278Z",
+    "agent_lines": 1945,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 1945,
+    "agent_percentage": 100
+  }
+}
