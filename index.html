@@ -327,6 +327,7 @@ footer .right a:hover { color: var(--text-dim); }
     <a href="#problem">Problem</a>
     <a href="#agents">Agents</a>
     <a href="#how">How it works</a>
+    <a href="#auth">Auth</a>
     <a href="#oss">Open Source</a>
     <a href="https://www.linkedin.com/pulse/why-message-buses-arent-enough-building-multi-agent-knowledge-schack-0itnc/" target="_blank">Article</a>
     <a href="#cta" class="btn btn-accent">Request Access</a>
@@ -353,9 +354,11 @@ footer .right a:hover { color: var(--text-dim); }
     <div class="d-arrow">↕</div>
     <div class="d-row"><div class="d-tag">Agents</div><div class="d-boxes"><div class="d-box a">Architect</div><div class="d-box a">Strategist</div><div class="d-box a">Management</div><div class="d-box a">Coding · MCP</div><div class="d-box a">Observer</div></div></div>
     <div class="d-arrow">↕</div>
-    <div class="d-row"><div class="d-tag">Graph</div><div class="d-boxes"><div class="d-box g">Projects</div><div class="d-box g">Decisions</div><div class="d-box g">Tasks</div><div class="d-box g">Observations</div><div class="d-box g">Features</div><div class="d-box g">Questions</div><div class="d-box g">Suggestions</div><div class="d-box g">Conversations</div><div class="d-box g">Commits</div></div></div>
+    <div class="d-row"><div class="d-tag">Graph</div><div class="d-boxes"><div class="d-box g">Projects</div><div class="d-box g">Decisions</div><div class="d-box g">Tasks</div><div class="d-box g">Observations</div><div class="d-box g">Features</div><div class="d-box g">Questions</div><div class="d-box g">Suggestions</div><div class="d-box g">Conversations</div><div class="d-box g">Commits</div><div class="d-box g">Intents</div><div class="d-box g">Learnings</div></div></div>
     <div class="d-arrow">↕</div>
-    <div class="d-row"><div class="d-tag">Integrations</div><div class="d-boxes"><div class="d-box i">GitHub</div><div class="d-box i">Slack</div><div class="d-box i">Git Hooks</div><div class="d-box i">OAuth 2.1</div></div></div>
+    <div class="d-row"><div class="d-tag">Auth</div><div class="d-boxes"><div class="d-box i">OAuth 2.1</div><div class="d-box i">RAR (RFC 9396)</div><div class="d-box i">DPoP (RFC 9449)</div><div class="d-box i">Better Auth IdP</div></div></div>
+    <div class="d-arrow">↕</div>
+    <div class="d-row"><div class="d-tag">Integrations</div><div class="d-boxes"><div class="d-box i">GitHub</div><div class="d-box i">Slack</div><div class="d-box i">Git Hooks</div><div class="d-box i">MCP Protocol</div></div></div>
   </div>
 </div>
 
@@ -527,6 +530,14 @@ footer .right a:hover { color: var(--text-dim); }
       <p>Control what each agent can do without asking. Start restrictive. Expand trust over time. You set the boundary — agents stay within it.</p>
     </div>
     <div class="concept">
+      <h3>⬢ Intents</h3>
+      <p>Every agent action starts as an intent — a structured request in the graph. Intents carry the full authorization context: what, why, and with what constraints. They're evaluated against authority scopes before execution.</p>
+    </div>
+    <div class="concept">
+      <h3>🧠 Learnings</h3>
+      <p>Agents that repeat mistakes are useless. Learnings are behavioral rules injected into agent prompts at runtime — created by humans directly or suggested by other agents. The system gets smarter as it works, not dumber.</p>
+    </div>
+    <div class="concept">
       <h3>◇ Living Descriptions</h3>
       <p>Descriptions update themselves. Ship a feature — the project summary reflects it. Confirm a decision — related entities incorporate it. No one writes status updates.</p>
     </div>
@@ -575,13 +586,58 @@ footer .right a:hover { color: var(--text-dim); }
 <span class="b">Graph</span>        SurrealDB
 <span class="b">Backend</span>      Bun (Bun.serve) · TypeScript
 <span class="b">Frontend</span>     React · Tiptap · Reagraph
-<span class="b">Auth</span>         Better Auth · OAuth 2.1
+<span class="b">Auth</span>         Better Auth · OAuth 2.1 · RAR · DPoP
 <span class="b">LLM</span>          Provider-agnostic (OpenRouter · Ollama · BYO keys)
 <span class="b">Agents</span>       MCP Server · Git Hooks
-<span class="b">Protocol</span>     MCP · OAuth 2.1 · OIDC
+<span class="b">Protocol</span>     MCP · OAuth 2.1 · RAR · DPoP · OIDC
 
 <span class="cm"># Lines of duct tape replaced</span>
 <span class="g">∞</span></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="sep">
+
+<!-- AGENTIC AUTH -->
+<section class="section-wide reveal" id="auth">
+  <div class="oss-grid">
+    <div>
+      <div class="tag">Agentic authorization</div>
+      <h2>Tokens that know<br>what they're for</h2>
+      <p>Generic OAuth scopes like <code>write:tasks</code> aren't enough for autonomous agents. Brain's authorization server issues tokens that carry the full intent — what the agent wants to do, why, and with what constraints.</p>
+      <div class="oss-points">
+        <div class="oss-pt"><span class="ic">◈</span><div><strong>Rich Authorization Requests (RAR)</strong><span>Tokens embed structured <code>authorization_details</code> from the knowledge graph. Not "scope: finance" — but "move $500 from Account A to Account B, authorized by Decision #47."</span></div></div>
+        <div class="oss-pt"><span class="ic">◈</span><div><strong>DPoP Proof-of-Possession</strong><span>Every token is cryptographically bound to the agent's key. Stolen tokens are useless without the private key in the agent's isolated runtime.</span></div></div>
+        <div class="oss-pt"><span class="ic">◈</span><div><strong>Intents as Authorization Context</strong><span>Agent actions start as intents in the graph. The authorization server evaluates intents against authority scopes, then mints a token scoped to exactly that action.</span></div></div>
+        <div class="oss-pt"><span class="ic">◈</span><div><strong>Better Auth as Identity Provider</strong><span>Human authentication (login, MFA, sessions) stays with Better Auth. The custom authorization server handles the agent side — token issuance, RAR scopes, DPoP binding.</span></div></div>
+      </div>
+    </div>
+    <div>
+      <div class="codeblock">
+        <div class="codeblock-bar"><div class="dots"><span></span><span></span><span></span></div><div class="title">authorization flow</div></div>
+        <pre><span class="cm"># 1. Human authenticates via Better Auth</span>
+<span class="b">User</span>  →  Better Auth (login, MFA)
+        →  session cookie
+
+<span class="cm"># 2. Agent requests authorization with intent</span>
+<span class="b">Agent</span> →  POST /authorize
+        authorization_details: [{
+          type: <span class="g">"intent"</span>,
+          intent: <span class="g">"task:deploy-v2"</span>,
+          actions: [<span class="g">"execute"</span>],
+          constraints: <span class="g">decision:d47</span>
+        }]
+
+<span class="cm"># 3. Token issued with DPoP binding</span>
+<span class="b">AS</span>    →  Access Token (JWT)
+        cnf: { jkt: <span class="g">"agent-key-thumbprint"</span> }
+        authorization_details: [<span class="g">...</span>]
+
+<span class="cm"># 4. Agent proves possession on every request</span>
+<span class="b">Agent</span> →  DPoP: <span class="g">signed-proof-jwt</span>
+        Authorization: DPoP <span class="g">access_token</span></pre>
       </div>
     </div>
   </div>
