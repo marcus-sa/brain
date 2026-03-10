@@ -46,7 +46,7 @@ jobs:
       fail-fast: false
       matrix:
         acceptance_dir: ${{ fromJSON(needs.acceptance-test-matrix.outputs.acceptance_dirs) }}
-    runs-on: ubicloud-standard-8
+    runs-on: ubicloud-standard-4
     name: acceptance-tests (${{ matrix.acceptance_dir }})
     steps:
       - uses: actions/checkout@v4

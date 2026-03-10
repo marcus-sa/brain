@@ -235,7 +235,7 @@ The two pipelines are independent but complementary. They share the word "intent
 
 ### Context Pipeline
 
-Acceptance tests in `tests/acceptance/core/intent-context.test.ts`:
+Acceptance tests in `tests/acceptance/workspace/intent-context.test.ts`:
 - Explicit `task:id` and `project:id` resolution
 - Single-project workspace shortcut
 - Multi-project with `cwd` path matching

@@ -10,7 +10,11 @@ tests/
   unit/                              # Deterministic, no network/DB
   acceptance/                        # Requires running SurrealDB, in-process server
     acceptance-test-kit.ts           # Shared infrastructure (server boot, DB isolation, auth)
-    core/                            # Core platform acceptance tests
+    auth/                            # Authentication & authorization tests
+    chat/                            # Chat pipeline, onboarding, subagent tests
+    extraction/                      # Extraction quality, pipeline, description tests
+    graph/                           # Graph relationships, work items, branch tests
+    workspace/                       # Workspace setup, webhooks, logging tests
     task-status-ownership/           # Task status transition tests
     unified-identity/                # Identity model tests
     coding-agent-orchestrator/       # Orchestrator acceptance tests
@@ -24,7 +28,11 @@ tests/
 - Unit: `bun test tests/unit/`
 - All acceptance: `bun test tests/acceptance/` (requires `SURREAL_URL` + credentials)
 - Acceptance suite: `bun test tests/acceptance/<suite>/`
-- Single file: `bun test tests/acceptance/core/phase1.test.ts`
+- Single file: `bun test tests/acceptance/chat/phase1.test.ts`
+
+## CI Sharding
+
+Each subdirectory under `tests/acceptance/` runs as a separate CI matrix job (see `.github/scripts/collect-acceptance-matrix.ts`). When adding new acceptance tests, place them in the appropriate existing directory or create a new one — the matrix auto-discovers directories.
 
 ## Conventions
 
@@ -43,6 +51,12 @@ tests/
 - All env vars are validated via `requireTestEnv` (fail-fast, no defaults).
 - Required env: `OPENROUTER_API_KEY`, `EXTRACTION_MODEL`, `OPENROUTER_EMBEDDING_MODEL`, `EMBEDDING_DIMENSION`.
 - Fake model stubs (`{} as any`, `undefined as any`) break fire-and-forget description triggers when entities accumulate >1 description entry — the Vercel AI SDK requires `specificationVersion` on model objects.
+
+## Concurrent Test Isolation
+
+- Acceptance tests run with `--concurrent`, so all `it()` blocks in a `describe` execute in parallel.
+- NEVER use shared `let` variables at `describe` scope for per-test state (e.g. `user`, `workspace`). Concurrent tests overwrite the shared variable, causing cross-test contamination (wrong workspace ID, wrong auth context).
+- Always declare per-test state as `const` inside each `it()` block.
 
 ## What to Mock
 
