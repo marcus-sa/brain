@@ -75,6 +75,15 @@
 - Nested async work inside tracked parents (e.g. `seedDescriptionEntry`, `fireDescriptionUpdates`, `persistEmbeddings`) should use `await ... .catch(() => undefined)` instead of `void`. Since the parent is already background work, awaiting doesn't affect user-facing latency.
 - When adding new background DB operations in route handlers, always use `deps.inflight.track()` or `await` within an already-tracked parent.
 
+## SurrealDB EVENT Webhook Timing
+
+- SurrealDB `DEFINE EVENT` HTTP webhooks can fire before the triggering write is visible to other requests.
+- Prefer `DEFINE EVENT ... ASYNC` for webhook-style side effects so callback execution runs after the triggering write commits.
+- Use `RETRY <n>` on webhook events to reduce transient callback/network flakiness.
+- For intent authorization (`draft -> pending_auth`), avoid synchronous webhook flows that immediately re-read/update the same intent unless the event is `ASYNC`.
+- If a webhook path must do DB follow-up without `ASYNC`, wait briefly for the triggering transition to commit before applying routing/state transitions.
+- If async follow-up work is needed in route handlers, track it with `deps.inflight.track(...)`.
+
 ## Failure Handling
 
 - Do NOT add fallback logic that masks invalid state, malformed payloads, or contract violations.
@@ -91,16 +100,16 @@
 
 - Install deps: `bun install`
 - Run deterministic unit tests (no LLM/API calls): `bun test tests/unit/`
-- Run smoke test: `bun test tests/smoke/`
+- Run acceptance tests: `bun test tests/acceptance/`
 - Run eval suite: `bun run eval`
 - Run eval watch mode: `bun run eval:watch`
 - Agents must not run evals directly. Delegate eval execution to the user and ask them to run eval commands and share results.
 
-### Smoke Test Isolation
+### Acceptance Test Isolation
 
-- Smoke tests create an isolated Surreal namespace/database, apply `schema/surreal-schema.surql`, run assertions, then remove the test DB/namespace.
-- Smoke tests require a reachable SurrealDB server at `SURREAL_URL` with credentials from env.
-- Smoke tests boot a dedicated app server process with test `SURREAL_NAMESPACE`, `SURREAL_DATABASE`, and `PORT`; do not point smoke runs at shared production-like DBs.
+- Acceptance tests boot an in-process Brain server with an isolated Surreal namespace/database, apply `schema/surreal-schema.surql`, run assertions, then remove the test DB/namespace.
+- Acceptance tests require a reachable SurrealDB server at `SURREAL_URL` with credentials from env.
+- All test suites share `tests/acceptance/acceptance-test-kit.ts` for server boot and DB isolation; domain-specific kits (orchestrator, intent, coding-session) extend it with business-language helpers.
 
 ### Eval Requirements
 

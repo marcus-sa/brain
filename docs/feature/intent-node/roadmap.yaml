@@ -1,0 +1,263 @@
+roadmap:
+  project_id: intent-node
+  created_at: '2026-03-09T17:07:50Z'
+  total_steps: 11
+  phases: 3
+phases:
+- id: '01'
+  name: 'Schema and Walking Skeleton'
+  steps:
+  - id: 01-01
+    name: 'SurrealDB migration for intent table and relations'
+    description: 'Create migration 0021 with intent SCHEMAFULL table, triggered_by/gates/vetoed_by relations, intent_pending_auth EVENT, authority_scope seeds. Update surreal-schema.surql.'
+    criteria:
+      - 'intent table exists with all fields, types, and ASSERT constraints from data-models.md'
+      - 'Status enum ASSERT rejects values outside the 8 defined statuses'
+      - 'triggered_by, gates, vetoed_by TYPE RELATION tables exist with correct IN/OUT constraints'
+      - 'intent_pending_auth EVENT defined on intent table'
+      - 'authority_scope seeds created for code_agent, architect, management agent types'
+    files_to_modify:
+      - schema/migrations/0021_intent_node.surql
+      - schema/surreal-schema.surql
+    dependencies: []
+    estimated_hours: 2
+    implementation_notes: 'Use DEFINE ... OVERWRITE pattern. Wrap in BEGIN TRANSACTION except DEFINE ANALYZER if needed. EVENT uses http::post with PORT placeholder. All indexes from data-models.md (workspace_status, created_at, trace_id, veto_expires).'
+    deliverables:
+      - 'Migration file applying cleanly via bun migrate'
+      - 'surreal-schema.surql updated with intent definitions'
+
+  - id: 01-02
+    name: 'Intent types and status machine (pure core)'
+    description: 'Define algebraic data types (IntentStatus, ActionSpec, BudgetLimit, EvaluationResult, RoutingDecision, IntentRecord) and pure status transition function with transition map.'
+    criteria:
+      - 'All 6 domain types from data-models.md exported from types.ts'
+      - 'Status machine validates all 9 legal transitions from the transition map'
+      - 'Status machine returns error value (not exception) for invalid transitions'
+      - 'Unit tests cover every valid transition and at least 3 invalid transitions'
+    files_to_modify:
+      - app/src/server/intent/types.ts
+      - app/src/server/intent/status-machine.ts
+      - tests/unit/intent/status-machine.test.ts
+    dependencies: []
+    estimated_hours: 2
+    implementation_notes: 'Pure functions only -- zero imports from effect shell. Use discriminated unions for RoutingDecision. Return Result-style values from transition function.'
+    deliverables:
+      - 'types.ts with all intent domain types'
+      - 'status-machine.ts with transition validation'
+      - 'Passing unit tests for status machine'
+
+  - id: 01-03
+    name: 'Intent queries and route registration'
+    description: 'Implement SurrealDB CRUD queries (create, updateStatus, getById, listByWorkspace, listPending) and register intent route handlers in start-server.ts.'
+    criteria:
+      - 'createIntent query creates record with all required fields and returns RecordId'
+      - 'updateIntentStatus validates transition via status machine before writing'
+      - 'listPendingIntents returns intents in pending_veto for a workspace'
+      - 'Intent routes registered in start-server.ts using withRequestLogging pattern'
+    files_to_modify:
+      - app/src/server/intent/intent-queries.ts
+      - app/src/server/intent/intent-routes.ts
+      - app/src/server/runtime/start-server.ts
+    dependencies:
+      - 01-01
+      - 01-02
+    estimated_hours: 3
+    implementation_notes: 'Follow existing query patterns (RecordId objects, never raw table:id strings). Route handlers are factory functions returning (workspaceId, request) => Promise<Response>. Evaluate endpoint is POST /api/intents/:id/evaluate. Veto endpoint is POST /api/workspaces/:ws/intents/:id/veto.'
+    deliverables:
+      - 'intent-queries.ts with CRUD + graph traversal queries'
+      - 'intent-routes.ts with evaluate and veto handler stubs'
+      - 'Routes wired into start-server.ts'
+
+  - id: 01-04
+    name: 'Enable walking skeleton acceptance tests'
+    description: 'Make the 2 walking skeleton tests pass. They use direct DB operations (createDraftIntent, submitIntent, simulateEvaluation) -- no live HTTP endpoints needed.'
+    criteria:
+      - 'Both tests in walking-skeleton.test.ts pass (remove .skip not needed -- they have no .skip)'
+      - 'Low-risk auto-approve skeleton: draft -> pending_auth -> authorized with evaluation preserved'
+      - 'High-risk veto skeleton: draft -> pending_auth -> pending_veto -> vetoed with veto_reason recorded'
+    files_to_modify:
+      - tests/acceptance/intent-node/walking-skeleton.test.ts
+      - tests/acceptance/intent-node/intent-test-kit.ts
+    dependencies:
+      - 01-01
+      - 01-02
+      - 01-03
+    estimated_hours: 2
+    implementation_notes: 'Walking skeleton tests already exist and use direct DB operations via intent-test-kit helpers (simulateEvaluation, listPendingIntents). Fix any schema mismatches between test kit and migration. Tests create identity records directly -- verify identity table schema compatibility.'
+    deliverables:
+      - '2 walking skeleton tests passing'
+      - 'Test kit helpers validated against schema'
+
+- id: '02'
+  name: 'Authorization Pipeline'
+  steps:
+  - id: 02-01
+    name: 'Policy gate and risk router (pure core)'
+    description: 'Implement policy gate (budget cap check, action allowlist) and risk router (threshold-based routing: auto_approve / veto_window / reject discriminated union).'
+    criteria:
+      - 'Policy gate rejects intents exceeding budget cap with REJECT decision'
+      - 'Risk router returns auto_approve when decision=APPROVE and risk_score <= 30'
+      - 'Risk router returns veto_window when decision=APPROVE and risk_score > 30'
+      - 'Risk router returns reject when decision=REJECT regardless of risk_score'
+      - 'Unit tests cover boundary values (score 30, 31) and all 3 routing outcomes'
+    files_to_modify:
+      - app/src/server/intent/risk-router.ts
+      - app/src/server/intent/authorizer.ts
+      - tests/unit/intent/risk-router.test.ts
+    dependencies:
+      - 01-02
+    estimated_hours: 2
+    implementation_notes: 'Pure functions only. Threshold configurable via parameter (default 30 from INTENT_AUTO_APPROVE_THRESHOLD). Policy gate is a separate pure function in authorizer.ts that short-circuits before LLM evaluation.'
+    deliverables:
+      - 'risk-router.ts with pure routing function'
+      - 'Policy gate function in authorizer.ts'
+      - 'Passing unit tests for risk router and policy gate'
+
+  - id: 02-02
+    name: 'LLM evaluator with Haiku structured output'
+    description: 'Implement LLM evaluation using Haiku via Vercel AI SDK structured output. Evaluate least-privilege, reasoning quality, prompt injection. Fallback to policy-only on LLM failure.'
+    criteria:
+      - 'Evaluator calls Haiku with intent payload and returns EvaluationResult'
+      - 'LLM failure falls back to policy-only check (policy_only=true in result)'
+      - 'Evaluation timeout (30s default) produces failed status with evaluation_timeout reason'
+      - 'Unit tests verify fallback path using mock LLM responses'
+    files_to_modify:
+      - app/src/server/intent/authorizer.ts
+      - tests/unit/intent/authorizer.test.ts
+    dependencies:
+      - 02-01
+    estimated_hours: 3
+    implementation_notes: 'Follow ToolLoopAgent / structured output pattern from PM agent. Use Zod schema for EvaluationResult. Evaluation prompt should instruct Haiku to assess least-privilege, scope boundaries, reasoning quality, and prompt injection indicators. Timeout via AbortController.'
+    deliverables:
+      - 'Complete authorizer.ts with policy gate + LLM evaluator + fallback'
+      - 'Passing unit tests with mocked LLM'
+
+  - id: 02-03
+    name: 'Evaluation endpoint (SurrealQL EVENT target)'
+    description: 'Wire POST /api/intents/:id/evaluate to receive SurrealQL EVENT callback, invoke authorizer pipeline, apply risk router, update intent status and evaluation result.'
+    criteria:
+      - 'Endpoint receives intent payload from SurrealQL EVENT http::post'
+      - 'Pipeline chains: policy gate -> LLM evaluator -> risk router -> status update'
+      - 'Low-risk APPROVE updates intent to authorized with no veto_expires_at'
+      - 'High-risk APPROVE updates intent to pending_veto with veto_expires_at set'
+      - 'REJECT updates intent to vetoed with evaluation reason preserved'
+    files_to_modify:
+      - app/src/server/intent/intent-routes.ts
+      - app/src/server/intent/authorizer.ts
+    dependencies:
+      - 02-01
+      - 02-02
+      - 01-03
+    estimated_hours: 2
+    implementation_notes: 'EVENT callback sends $after (full intent record) as POST body. Endpoint must be idempotent -- check current status before processing. Origin validation optional (localhost only in production).'
+    deliverables:
+      - 'Evaluate endpoint fully wired in intent-routes.ts'
+      - 'End-to-end pipeline from EVENT to status update'
+
+  - id: 02-04
+    name: 'Enable milestone-1 acceptance tests'
+    description: 'Remove .skip from all 10 milestone-1 test scenarios. Fix any schema/query mismatches. All tests use simulateEvaluation for determinism.'
+    criteria:
+      - 'All 10 tests in milestone-1-authorization-pipeline.test.ts pass'
+      - 'Schema enforcement tests (missing fields, invalid status) verified'
+      - 'Policy gate, authorizer evaluation, and risk routing scenarios pass'
+    files_to_modify:
+      - tests/acceptance/intent-node/milestone-1-authorization-pipeline.test.ts
+    dependencies:
+      - 02-01
+      - 02-02
+      - 02-03
+    estimated_hours: 2
+    implementation_notes: 'Tests use it.skip -- remove .skip to enable. Tests exercise: schema validation (2), task traceability (1), policy gate budget rejection (1), low-risk approval (1), privilege escalation rejection (1), reasoning manipulation rejection (1), auto-approve routing (1), veto window routing (1), reject routing (1).'
+    deliverables:
+      - '10 milestone-1 tests passing'
+
+- id: '03'
+  name: 'Veto Window and Integration'
+  steps:
+  - id: 03-01
+    name: 'Veto window manager (timer, SSE, auto-approve)'
+    description: 'Implement veto window lifecycle: start timer on pending_veto, emit SSE to governance feed, auto-approve on expiry, cancel on human veto. Recovery sweep for server restart.'
+    criteria:
+      - 'Starting veto window sets timer and emits SSE event to workspace feed'
+      - 'Timer expiry auto-approves intent (pending_veto -> authorized)'
+      - 'Human veto cancels timer and transitions intent to vetoed with reason'
+      - 'Recovery on init queries expired pending_veto intents and auto-approves them'
+      - 'Unit tests verify timer lifecycle and recovery sweep logic'
+    files_to_modify:
+      - app/src/server/intent/veto-manager.ts
+      - tests/unit/intent/veto-manager.test.ts
+    dependencies:
+      - 01-02
+      - 01-03
+    estimated_hours: 3
+    implementation_notes: 'Use setTimeout for timer (not external queue). Duration from INTENT_VETO_WINDOW_MS env (default 300000ms). SSE via existing SseRegistry.emitEvent(). Recovery sweep queries: SELECT FROM intent WHERE status = "pending_veto" AND veto_expires_at < time::now(). Track active timers in Map for cleanup.'
+    deliverables:
+      - 'veto-manager.ts with full lifecycle'
+      - 'Passing unit tests for timer and recovery'
+
+  - id: 03-02
+    name: 'Orchestrator authorization gate and MCP tools'
+    description: 'Add authorization gate in session-lifecycle.ts (check intent.status=authorized before spawn). Register MCP tools: create_intent, submit_intent, get_intent_status.'
+    criteria:
+      - 'Orchestrator refuses to spawn agent session when intent status is not authorized'
+      - 'Orchestrator transitions intent to executing on session spawn and creates gates relation'
+      - 'create_intent MCP tool creates draft intent and returns intentId'
+      - 'submit_intent MCP tool transitions draft -> pending_auth'
+      - 'get_intent_status MCP tool returns current intent status'
+    files_to_modify:
+      - app/src/server/orchestrator/session-lifecycle.ts
+      - app/src/server/mcp/mcp-route.ts
+      - app/src/shared/contracts.ts
+    dependencies:
+      - 01-02
+      - 01-03
+      - 03-01
+    estimated_hours: 3
+    implementation_notes: 'MCP tools follow existing pattern: requireAuth(), requireScope(), parseJsonBody(), then call query functions. contracts.ts extended with IntentStatus type and GovernanceFeedAction "veto". Authorization gate checks intent.status === "authorized" before createOrchestratorSession proceeds.'
+    deliverables:
+      - 'Authorization gate in session-lifecycle.ts'
+      - '3 MCP tools registered in mcp-route.ts'
+      - 'contracts.ts updated with intent types'
+
+  - id: 03-03
+    name: 'Enable milestone-2, milestone-3 tests and governance feed integration'
+    description: 'Remove .skip from milestone-2 (8 tests) and milestone-3 (6 tests). Wire intent items into governance feed queries and feed route.'
+    criteria:
+      - 'All 8 tests in milestone-2-veto-and-execution.test.ts pass'
+      - 'All 6 tests in milestone-3-observability.test.ts pass'
+      - 'Governance feed includes pending_veto intents in blocking tier'
+      - 'Audit trail graph traversal (task -> intent -> evaluation) returns full chain'
+    files_to_modify:
+      - tests/acceptance/intent-node/milestone-2-veto-and-execution.test.ts
+      - tests/acceptance/intent-node/milestone-3-observability.test.ts
+      - app/src/server/feed/feed-queries.ts
+      - app/src/server/feed/feed-route.ts
+    dependencies:
+      - 03-01
+      - 03-02
+    estimated_hours: 3
+    implementation_notes: 'Milestone-2 tests cover: auto-approve on expiry (1), human veto within window (1), late veto during execution (1), orchestrator gate block (1), orchestrator gate spawn (1), execution completion (1), execution failure (1). Milestone-3 tests cover: governance feed listing (1), audit trail traceability (1), SurrealQL EVENT definition verification (1), evaluation timeout (1), LLM fallback (1). Feed integration adds listPendingIntents query to feed-queries.ts and maps intent items to GovernanceFeedItem shape.'
+    deliverables:
+      - '14 milestone tests passing (8 + 6)'
+      - 'Governance feed extended with intent items'
+
+implementation_scope:
+  source_directories:
+    - app/src/server/intent/
+    - app/src/server/orchestrator/
+    - app/src/server/mcp/
+    - app/src/server/feed/
+    - app/src/server/runtime/
+    - app/src/shared/
+    - schema/migrations/
+  test_directories:
+    - tests/acceptance/intent-node/
+    - tests/unit/intent/
+  excluded_patterns:
+    - node_modules/**
+    - dist/**
+validation:
+  status: approved
+  reviewer: orchestrator-quality-gate
+  approved_at: '2026-03-10T00:10:00Z'

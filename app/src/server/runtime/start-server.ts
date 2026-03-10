@@ -1,7 +1,7 @@
 import appHtml from "../../client/index.html";
 import { withRequestLogging } from "../http/request-logging";
 import { jsonResponse } from "../http/response";
-import { logInfo } from "../http/observability";
+import { logError, logInfo } from "../http/observability";
 import { createSseRegistry } from "../streaming/sse-registry";
 import { createRuntimeDependencies } from "./dependencies";
 import { loadServerConfig } from "./config";
@@ -20,11 +20,14 @@ import { createGitHubWebhookHandler } from "../webhook/github-webhook-route";
 import { createFeedRouteHandler } from "../feed/feed-route";
 import { createChatRouteHandler } from "../chat/chat-route";
 import { createMcpRouteHandlers } from "../mcp/mcp-route";
+import { createIntentRouteHandlers } from "../intent/intent-routes";
 import { wireOrchestratorRoutes } from "../orchestrator/routes";
 import type { ShellExec } from "../orchestrator/worktree-manager";
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { BRAIN_SCOPES } from "../auth/scopes";
 import { createClientInfoHandler } from "../auth/client-info-route";
+import { createVetoManager } from "../intent/veto-manager";
+import { updateIntentStatus, queryExpiredVetoIntents } from "../intent/intent-queries";
 
 export function createBrainServer(deps: ServerDependencies): ReturnType<typeof Bun.serve> {
   const config = deps.config;
@@ -52,6 +55,7 @@ export function createBrainServer(deps: ServerDependencies): ReturnType<typeof B
   const feedHandler = createFeedRouteHandler(deps);
   const chatRouteHandler = createChatRouteHandler(deps);
   const mcpHandlers = createMcpRouteHandlers(deps);
+  const intentHandlers = createIntentRouteHandlers(deps);
 
   // Orchestrator wiring
   const orchestratorHandlers = wireOrchestratorRoutes({
@@ -334,6 +338,45 @@ export function createBrainServer(deps: ServerDependencies): ReturnType<typeof B
           mcpHandlers.handlePostCheck(request.params.workspaceId, request),
         ),
       },
+      // MCP — Intent tools
+      "/api/mcp/:workspaceId/intents/create": {
+        POST: withRequestLogging("POST /api/mcp/:workspaceId/intents/create", "POST", (request) =>
+          mcpHandlers.handleCreateIntent(request.params.workspaceId, request),
+        ),
+      },
+      "/api/mcp/:workspaceId/intents/submit": {
+        POST: withRequestLogging("POST /api/mcp/:workspaceId/intents/submit", "POST", (request) =>
+          mcpHandlers.handleSubmitIntent(request.params.workspaceId, request),
+        ),
+      },
+      "/api/mcp/:workspaceId/intents/status": {
+        POST: withRequestLogging("POST /api/mcp/:workspaceId/intents/status", "POST", (request) =>
+          mcpHandlers.handleGetIntentStatus(request.params.workspaceId, request),
+        ),
+      },
+      // Intent — evaluate (called by SurrealQL EVENT via http::post)
+      "/api/intents/:intentId/evaluate": {
+        POST: withRequestLogging("POST /api/intents/:intentId/evaluate", "POST", (request) =>
+          intentHandlers.handleEvaluate(request.params.intentId, request),
+        ),
+      },
+      // Intent — veto
+      "/api/workspaces/:workspaceId/intents/:intentId/veto": {
+        POST: withRequestLogging(
+          "POST /api/workspaces/:workspaceId/intents/:intentId/veto",
+          "POST",
+          (request) =>
+            intentHandlers.handleVeto(request.params.workspaceId, request.params.intentId, request),
+        ),
+      },
+      // Intent — list pending for governance feed
+      "/api/workspaces/:workspaceId/intents/pending": {
+        GET: withRequestLogging(
+          "GET /api/workspaces/:workspaceId/intents/pending",
+          "GET",
+          (request) => intentHandlers.handleListPending(request.params.workspaceId),
+        ),
+      },
       // OAuth 2.1 discovery — proxy root-level .well-known to better-auth handler
       "/.well-known/oauth-authorization-server/*": {
         GET: async (request) => deps.auth.handler(request),
@@ -380,6 +423,18 @@ export async function startServer(): Promise<void> {
   };
 
   const server = createBrainServer(deps);
+
+  // Recover intents stuck in pending_veto with expired windows (fire-and-forget)
+  const vetoManager = createVetoManager();
+  deps.inflight.track(
+    vetoManager.recoverExpiredWindows({
+      updateStatus: (intentId, status) => updateIntentStatus(deps.surreal, intentId, status),
+      emitVetoEvent: (event) => logInfo("intent.veto.recovery", "Recovered expired veto window", { event }),
+      queryExpiredVetoIntents: () => queryExpiredVetoIntents(deps.surreal),
+    }).catch((err) => {
+      logError("intent.veto.recovery", "Failed to recover expired veto windows", err);
+    }),
+  );
 
   logInfo("server.started", "Brain app server started", {
     port: server.port,

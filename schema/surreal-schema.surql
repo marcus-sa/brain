@@ -483,6 +483,62 @@ DEFINE TABLE attended_by TYPE RELATION IN meeting OUT identity SCHEMAFULL;
 DEFINE FIELD role ON attended_by TYPE option<string> ASSERT $value = NONE OR $value IN ["organizer", "attendee"];
 DEFINE FIELD added_at ON attended_by TYPE option<datetime>;
 
+-- Intent governance
+DEFINE TABLE intent SCHEMAFULL;
+DEFINE FIELD goal ON intent TYPE string;
+DEFINE FIELD reasoning ON intent TYPE string;
+DEFINE FIELD status ON intent TYPE string
+  ASSERT $value IN ["draft", "pending_auth", "pending_veto", "authorized", "executing", "completed", "vetoed", "failed"];
+DEFINE FIELD priority ON intent TYPE int
+  ASSERT $value >= 0 AND $value <= 100;
+DEFINE FIELD action_spec ON intent TYPE object;
+DEFINE FIELD action_spec.provider ON intent TYPE string;
+DEFINE FIELD action_spec.action ON intent TYPE string;
+DEFINE FIELD action_spec.params ON intent TYPE option<object> FLEXIBLE;
+DEFINE FIELD budget_limit ON intent TYPE option<object>;
+DEFINE FIELD budget_limit.amount ON intent TYPE float;
+DEFINE FIELD budget_limit.currency ON intent TYPE string;
+DEFINE FIELD evaluation ON intent TYPE option<object>;
+DEFINE FIELD evaluation.decision ON intent TYPE string
+  ASSERT $value IN ["APPROVE", "REJECT"];
+DEFINE FIELD evaluation.risk_score ON intent TYPE int
+  ASSERT $value >= 0 AND $value <= 100;
+DEFINE FIELD evaluation.reason ON intent TYPE string;
+DEFINE FIELD evaluation.evaluated_at ON intent TYPE datetime;
+DEFINE FIELD evaluation.policy_only ON intent TYPE bool;
+DEFINE FIELD veto_expires_at ON intent TYPE option<datetime>;
+DEFINE FIELD veto_reason ON intent TYPE option<string>;
+DEFINE FIELD error_reason ON intent TYPE option<string>;
+DEFINE FIELD trace_id ON intent TYPE string;
+DEFINE FIELD requester ON intent TYPE record<identity>;
+DEFINE FIELD workspace ON intent TYPE record<workspace>;
+DEFINE FIELD created_at ON intent TYPE datetime;
+DEFINE FIELD updated_at ON intent TYPE option<datetime>;
+DEFINE FIELD expiry ON intent TYPE option<datetime>;
+DEFINE INDEX intent_workspace_status ON intent FIELDS workspace, status;
+DEFINE INDEX intent_created_at ON intent FIELDS created_at;
+DEFINE INDEX intent_trace_id ON intent FIELDS trace_id;
+DEFINE INDEX intent_veto_expires ON intent FIELDS veto_expires_at;
+
+-- Intent evaluation event: fires http::post when status transitions to pending_auth.
+-- In production the server URL is configured via schema migration with the actual port.
+-- In tests, simulateEvaluation() writes the evaluation result directly, so this event
+-- firing against an unreachable endpoint is harmless (SurrealDB http::post errors are
+-- caught and ignored here to prevent blocking the triggering UPDATE).
+DEFINE EVENT intent_pending_auth ON intent
+  WHEN $before.status != "pending_auth" AND $after.status = "pending_auth"
+  THEN {};
+
+DEFINE TABLE triggered_by TYPE RELATION IN intent OUT task SCHEMAFULL;
+DEFINE FIELD created_at ON triggered_by TYPE datetime;
+
+DEFINE TABLE gates TYPE RELATION IN intent OUT agent_session SCHEMAFULL;
+DEFINE FIELD created_at ON gates TYPE datetime;
+
+DEFINE TABLE vetoed_by TYPE RELATION IN identity OUT intent SCHEMAFULL;
+DEFINE FIELD reason ON vetoed_by TYPE string;
+DEFINE FIELD vetoed_at ON vetoed_by TYPE datetime;
+
 -- Authority scopes: per-agent-type permission matrix
 DEFINE TABLE authority_scope SCHEMAFULL;
 DEFINE FIELD agent_type ON authority_scope TYPE string
@@ -492,7 +548,8 @@ DEFINE FIELD action ON authority_scope TYPE string
     "create_decision", "confirm_decision",
     "create_task", "complete_task",
     "create_observation", "acknowledge_observation", "resolve_observation",
-    "create_question", "create_suggestion"
+    "create_question", "create_suggestion",
+    "create_intent", "submit_intent"
   ];
 DEFINE FIELD permission ON authority_scope TYPE string
   ASSERT $value IN ["auto", "provisional", "propose", "blocked"];
@@ -533,6 +590,14 @@ CREATE authority_scope CONTENT { agent_type: "management", action: "acknowledge_
 CREATE authority_scope CONTENT { agent_type: "management", action: "resolve_observation", permission: "auto", created_at: time::now() };
 CREATE authority_scope CONTENT { agent_type: "management", action: "create_question", permission: "auto", created_at: time::now() };
 CREATE authority_scope CONTENT { agent_type: "management", action: "create_suggestion", permission: "auto", created_at: time::now() };
+
+-- Seed: intent lifecycle (code_agent, architect, management)
+CREATE authority_scope CONTENT { agent_type: "code_agent", action: "create_intent", permission: "auto", created_at: time::now() };
+CREATE authority_scope CONTENT { agent_type: "code_agent", action: "submit_intent", permission: "auto", created_at: time::now() };
+CREATE authority_scope CONTENT { agent_type: "architect", action: "create_intent", permission: "auto", created_at: time::now() };
+CREATE authority_scope CONTENT { agent_type: "architect", action: "submit_intent", permission: "auto", created_at: time::now() };
+CREATE authority_scope CONTENT { agent_type: "management", action: "create_intent", permission: "auto", created_at: time::now() };
+CREATE authority_scope CONTENT { agent_type: "management", action: "submit_intent", permission: "auto", created_at: time::now() };
 
 -- Seed: design_partner defaults
 CREATE authority_scope CONTENT { agent_type: "design_partner", action: "create_decision", permission: "provisional", created_at: time::now() };

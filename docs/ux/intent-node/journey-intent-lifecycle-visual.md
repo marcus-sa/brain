@@ -1,0 +1,122 @@
+# Intent Node -- Journey Map: Intent Lifecycle
+
+## Actors & Swimlanes
+
+```
+ WORKER AGENT          SYSTEM (Event Handler)         JUDGE AGENT           HUMAN OPERATOR
+ ─────────────         ──────────────────────         ───────────           ──────────────
+      │                         │                          │                      │
+  ┌───┴───┐                     │                          │                      │
+  │ Identify│                    │                          │                      │
+  │ action  │                    │                          │                      │
+  │ needed  │                    │                          │                      │
+  └───┬───┘                     │                          │                      │
+      │                         │                          │                      │
+  ┌───┴───────────┐             │                          │                      │
+  │ CREATE intent │             │                          │                      │
+  │ status: draft │             │                          │                      │
+  └───┬───────────┘             │                          │                      │
+      │                         │                          │                      │
+  ┌───┴────────────────┐        │                          │                      │
+  │ UPDATE intent      │        │                          │                      │
+  │ status: pending_auth│       │                          │                      │
+  └───┬────────────────┘        │                          │                      │
+      │                  ┌──────┴──────────┐               │                      │
+      │                  │ SurrealQL EVENT │               │                      │
+      │                  │ ON intent WHERE │               │                      │
+      │                  │ status =        │               │                      │
+      │                  │ "pending_auth"  │               │                      │
+      │                  └──────┬──────────┘               │                      │
+      │                         │                          │                      │
+      │                  ┌──────┴──────────┐        ┌──────┴──────────┐           │
+      │                  │ HTTP POST to    │───────►│ Evaluate intent │           │
+      │                  │ /api/intents/   │        │ - least privilege│          │
+      │                  │ {id}/evaluate   │        │ - budget check   │          │
+      │                  └─────────────────┘        │ - reasoning QA   │          │
+      │                                             └──────┬──────────┘           │
+      │                                                    │                      │
+      │                                             ┌──────┴──────────┐           │
+      │                                             │ Output:         │           │
+      │                                             │ { decision,     │           │
+      │                                             │   risk_score,   │           │
+      │                                             │   reason }      │           │
+      │                                             └──────┬──────────┘           │
+      │                                                    │                      │
+      │                         ┌──────────────────────────┘                      │
+      │                         │                                                 │
+      │                  ┌──────┴──────────────┐                                  │
+      │                  │ risk_score > threshold│                                 │
+      │                  │ OR decision = REJECT? │                                 │
+      │                  └──────┬───────┬────────┘                                │
+      │                    NO   │       │ YES                                      │
+      │                  ┌──────┴──┐ ┌──┴──────────────┐                          │
+      │                  │ AUTO-   │ │ Emit to Human   │                          │
+      │                  │ APPROVE │ │ Feed + start    │──────────────────►┌──────┴───────┐
+      │                  │ intent  │ │ veto window     │                   │ See intent   │
+      │                  └───┬─────┘ └──┬──────────────┘                   │ in feed with │
+      │                      │          │                                  │ risk score + │
+      │                      │          │          ┌──── 5 min ────┐       │ reason       │
+      │                      │          │          │   window      │       └──────┬───────┘
+      │                      │          │          └───────┬───────┘              │
+      │                      │          │                  │                 ┌────┴────┐
+      │                      │          │           ┌──────┴──────┐         │ VETO or │
+      │                      │          │           │ No veto?    │         │ let it  │
+      │                      │          │           │ Auto-approve│         │ pass    │
+      │                      │          │           └──────┬──────┘         └────┬────┘
+      │                      │          │                  │                     │
+      │                      ▼          ▼                  ▼                     │
+      │              ┌────────────────────────────────┐                          │
+      │              │ intent.status = "authorized"   │◄─── (no veto) ──────────┘
+      │              │           OR                   │                          │
+      │              │ intent.status = "vetoed"       │◄─── (vetoed) ───────────┘
+      │              └──────────┬─────────────────────┘
+      │                         │
+      │                  ┌──────┴──────────────┐
+      │                  │ IF authorized:      │
+      │                  │ Pull action_spec,   │
+      │                  │ spawn agent session │
+      │                  │ with scoped params  │
+      │                  └──────────┬──────────┘
+      │                             │
+  ┌───┴──────────────┐              │
+  │ Execute with     │◄─────────────┘
+  │ scoped action_spec│
+  └───┬──────────────┘
+      │
+  ┌───┴──────────────┐
+  │ intent.status =  │
+  │ completed|failed │
+  └──────────────────┘
+```
+
+## Emotional Arc
+
+```
+Confidence
+    ▲
+    │                                              ████ Authorized!
+    │                                           ███    Execute with
+    │                                        ███       confidence
+    │                            ▒▒▒▒▒▒▒▒▒▒▒
+    │                         ▒▒▒ Veto window
+    │                      ▒▒▒   (uncertainty)
+    │           ░░░░░░░░░░░
+    │        ░░░ Judge evaluating
+    │     ░░░   (waiting)
+    │  ░░░
+    │░░ Intent submitted
+    └──────────────────────────────────────────────────► Time
+    draft    pending     evaluating    veto       authorized    executing    completed
+```
+
+### Key Emotional Moments
+
+| Moment | Actor | Emotion | Design Response |
+|--------|-------|---------|-----------------|
+| Intent submitted | Worker Agent | Hopeful but uncertain | Immediate acknowledgment with estimated eval time |
+| Judge evaluating | Worker Agent | Waiting, mild anxiety | Status visible in agent session |
+| Risk score revealed | Human Operator | Alert (high) or reassured (low) | Color-coded risk badge in feed |
+| Veto window ticking | Human Operator | Time pressure on high-risk | Countdown visible; low-risk auto-fades |
+| Auto-approved | Worker Agent | Relief, momentum restored | Immediate execution handoff |
+| Vetoed | Worker Agent | Frustration | Clear reason from judge + human, actionable feedback |
+| Execution complete | All | Satisfaction, trust reinforced | Intent marked complete with outcome summary |

@@ -1,0 +1,182 @@
+import { RecordId, type Surreal } from "surrealdb";
+import type { IntentRecord, IntentStatus, ActionSpec, BudgetLimit, EvaluationResult } from "./types";
+import { transitionStatus } from "./status-machine";
+
+// --- Query Result Types ---
+
+type CreateIntentParams = {
+  goal: string;
+  reasoning: string;
+  priority: number;
+  action_spec: ActionSpec;
+  budget_limit?: BudgetLimit;
+  trace_id: string;
+  requester: RecordId<"identity", string>;
+  workspace: RecordId<"workspace", string>;
+  expiry?: Date;
+};
+
+type StatusUpdateFields = {
+  evaluation?: EvaluationResult & { evaluated_at: Date; policy_only: boolean };
+  veto_expires_at?: Date;
+  veto_reason?: string;
+  error_reason?: string;
+};
+
+type ListFilters = {
+  status?: IntentStatus;
+  limit?: number;
+};
+
+// --- Query Functions ---
+
+export async function createIntent(
+  surreal: Surreal,
+  params: CreateIntentParams,
+): Promise<RecordId<"intent", string>> {
+  const now = new Date();
+  const id = crypto.randomUUID();
+  const record = new RecordId("intent", id);
+
+  const content: Record<string, unknown> = {
+    goal: params.goal,
+    reasoning: params.reasoning,
+    status: "draft" satisfies IntentStatus,
+    priority: params.priority,
+    action_spec: params.action_spec,
+    trace_id: params.trace_id,
+    requester: params.requester,
+    workspace: params.workspace,
+    created_at: now,
+  };
+
+  if (params.budget_limit) {
+    content.budget_limit = params.budget_limit;
+  }
+  if (params.expiry) {
+    content.expiry = params.expiry;
+  }
+
+  await surreal.query(
+    "CREATE $record CONTENT $content;",
+    { record, content },
+  );
+
+  return record;
+}
+
+export async function getIntentById(
+  surreal: Surreal,
+  intentId: string,
+): Promise<IntentRecord | undefined> {
+  const record = new RecordId("intent", intentId);
+  const [rows] = await surreal.query<[IntentRecord[]]>(
+    "SELECT * FROM $record;",
+    { record },
+  );
+  return rows[0];
+}
+
+export async function updateIntentStatus(
+  surreal: Surreal,
+  intentId: string,
+  newStatus: IntentStatus,
+  updates?: StatusUpdateFields,
+): Promise<{ ok: true; record: IntentRecord } | { ok: false; error: string }> {
+  const existing = await getIntentById(surreal, intentId);
+  if (!existing) {
+    return { ok: false, error: `Intent ${intentId} not found` };
+  }
+
+  const transition = transitionStatus(existing.status, newStatus);
+  if (!transition.ok) {
+    return { ok: false, error: transition.error };
+  }
+
+  const record = new RecordId("intent", intentId);
+  const now = new Date();
+
+  const setFields: Record<string, unknown> = {
+    status: newStatus,
+    updated_at: now,
+  };
+
+  if (updates?.evaluation) {
+    setFields.evaluation = updates.evaluation;
+  }
+  if (updates?.veto_expires_at) {
+    setFields.veto_expires_at = updates.veto_expires_at;
+  }
+  if (updates?.veto_reason) {
+    setFields.veto_reason = updates.veto_reason;
+  }
+  if (updates?.error_reason) {
+    setFields.error_reason = updates.error_reason;
+  }
+
+  const [rows] = await surreal.query<[IntentRecord[]]>(
+    "UPDATE $record MERGE $fields RETURN AFTER;",
+    {
+      record,
+      fields: setFields,
+    },
+  );
+
+  return { ok: true, record: rows[0] };
+}
+
+export async function listPendingIntents(
+  surreal: Surreal,
+  workspaceId: string,
+): Promise<IntentRecord[]> {
+  const workspace = new RecordId("workspace", workspaceId);
+  const [rows] = await surreal.query<[IntentRecord[]]>(
+    `SELECT * FROM intent
+     WHERE workspace = $workspace
+       AND status = "pending_veto"
+     ORDER BY created_at DESC;`,
+    { workspace },
+  );
+  return rows;
+}
+
+export async function queryExpiredVetoIntents(
+  surreal: Surreal,
+): Promise<IntentRecord[]> {
+  const [rows] = await surreal.query<[IntentRecord[]]>(
+    `SELECT * FROM intent
+     WHERE status = "pending_veto"
+       AND veto_expires_at < time::now();`,
+  );
+  return rows;
+}
+
+export async function listIntentsByWorkspace(
+  surreal: Surreal,
+  workspaceId: string,
+  filters?: ListFilters,
+): Promise<IntentRecord[]> {
+  const workspace = new RecordId("workspace", workspaceId);
+  const limit = filters?.limit ?? 50;
+
+  if (filters?.status) {
+    const [rows] = await surreal.query<[IntentRecord[]]>(
+      `SELECT * FROM intent
+       WHERE workspace = $workspace
+         AND status = $status
+       ORDER BY created_at DESC
+       LIMIT $limit;`,
+      { workspace, status: filters.status, limit },
+    );
+    return rows;
+  }
+
+  const [rows] = await surreal.query<[IntentRecord[]]>(
+    `SELECT * FROM intent
+     WHERE workspace = $workspace
+     ORDER BY created_at DESC
+     LIMIT $limit;`,
+    { workspace, limit },
+  );
+  return rows;
+}

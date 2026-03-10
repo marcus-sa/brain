@@ -30,8 +30,24 @@ jobs:
           NODE_ENV: test
           LOG_LEVEL: debug
 
-  smoke-tests:
-    runs-on: ubicloud-standard-8
+  acceptance-test-matrix:
+    runs-on: ubicloud-standard-2
+    outputs:
+      acceptance_dirs: ${{ steps.collect.outputs.acceptance_dirs }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - id: collect
+        run: bun .github/scripts/collect-acceptance-matrix.ts
+
+  acceptance-tests:
+    needs: acceptance-test-matrix
+    strategy:
+      fail-fast: false
+      matrix:
+        acceptance_dir: ${{ fromJSON(needs.acceptance-test-matrix.outputs.acceptance_dirs) }}
+    runs-on: ubicloud-standard-4
+    name: acceptance-tests (${{ matrix.acceptance_dir }})
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -43,8 +59,8 @@ jobs:
           surrealdb_username: root
           surrealdb_password: root
           surrealdb_auth: true
-          surrealdb_additional_args: --allow-guests
-      - run: bun test:smoke
+          surrealdb_additional_args: --allow-guests --allow-net 127.0.0.1,localhost,host.docker.internal
+      - run: bun test --concurrent --timeout=180000 --env-file=.env tests/acceptance/${{ matrix.acceptance_dir }}/
         env:
           NODE_ENV: test
           LOG_LEVEL: debug
