@@ -1,0 +1,47 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "db22fcb03026",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/policy-node",
+  "checkpoints_count": 0,
+  "files_touched": [
+    ".nwave/des-config.json",
+    ".nwave/des/deliver-session.json",
+    ".nwave/des/des-task-active",
+    ".nwave/des/des-task-active-policy-node--03-01",
+    "INTENT_SPEC.md",
+    "app/src/server/intent/authorizer.ts",
+    "app/src/server/intent/intent-routes.ts",
+    "app/src/server/intent/risk-router.ts",
+    "app/src/server/intent/types.ts",
+    "app/src/server/oauth/audit.ts",
+    "docs/feature/policy-node/execution-log.yaml",
+    "docs/feature/policy-node/roadmap.yaml",
+    "docs/plans/iam/README.md",
+    "docs/plans/iam/phase-1.md",
+    "docs/plans/iam/phase-2.md",
+    "docs/plans/iam/phase-3.md",
+    "schema/migrations/0024_policy_node.surql",
+    "schema/migrations/0025_policy_condition_union_type.surql",
+    "schema/surreal-schema.surql",
+    "tests/acceptance/policy-node/policy-test-kit.ts",
+    "tests/unit/intent/authorizer.test.ts",
+    "tests/unit/intent/risk-router.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/db/22fcb03026/0/metadata.json",
+      "transcript": "/db/22fcb03026/0/full.jsonl",
+      "context": "/db/22fcb03026/0/context.md",
+      "content_hash": "/db/22fcb03026/0/content_hash.txt",
+      "prompt": "/db/22fcb03026/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 6,
+    "cache_creation_tokens": 31357,
+    "cache_read_tokens": 49131,
+    "output_tokens": 133,
+    "api_call_count": 2
+  }
+}

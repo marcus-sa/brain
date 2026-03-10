@@ -1,0 +1,51 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "db22fcb03026",
+  "session_id": "8f5d829d-a141-40d8-a309-baddbfdc0675",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-10T19:10:29.481205Z",
+  "branch": "marcus-sa/policy-node",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "docs/plans/iam/phase-3.md",
+    "schema/migrations/0024_policy_node.surql",
+    "schema/migrations/0025_policy_condition_union_type.surql",
+    "schema/surreal-schema.surql",
+    "tests/unit/intent/risk-router.test.ts",
+    "app/src/server/intent/intent-routes.ts",
+    "docs/feature/policy-node/execution-log.yaml",
+    "docs/plans/iam/README.md",
+    "tests/acceptance/policy-node/policy-test-kit.ts",
+    ".nwave/des/des-task-active-policy-node--03-01",
+    "app/src/server/intent/types.ts",
+    "app/src/server/oauth/audit.ts",
+    "docs/feature/policy-node/roadmap.yaml",
+    "docs/plans/iam/phase-1.md",
+    "tests/unit/intent/authorizer.test.ts",
+    ".nwave/des/deliver-session.json",
+    "INTENT_SPEC.md",
+    "app/src/server/intent/authorizer.ts",
+    "app/src/server/intent/risk-router.ts",
+    ".nwave/des-config.json",
+    ".nwave/des/des-task-active",
+    "docs/plans/iam/phase-2.md"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "3aca35fbbdf8",
+  "token_usage": {
+    "input_tokens": 6,
+    "cache_creation_tokens": 31357,
+    "cache_read_tokens": 49131,
+    "output_tokens": 133,
+    "api_call_count": 2
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-10T19:10:29.44847Z",
+    "agent_lines": 192,
+    "human_added": 0,
+    "human_modified": 83,
+    "human_removed": 54,
+    "total_committed": 275,
+    "agent_percentage": 69.81818181818183
+  }
+}
