@@ -1,0 +1,197 @@
+journey:
+  name: policy-lifecycle
+  version: "1.0"
+  jobs:
+    - job_1_define_governance_rules
+    - job_2_enforce_rules_at_intent_time
+    - job_3_review_policy_flagged_intents
+    - job_4_verify_policy_compliance
+
+actors:
+  org_admin:
+    type: human
+    role: Creates, updates, deprecates policies
+  authorizer:
+    type: system
+    role: Loads and evaluates policies at intent time
+  agent:
+    type: machine
+    role: Submits intents governed by policies
+  reviewer:
+    type: human
+    role: Approves/vetoes policy-flagged intents
+  auditor:
+    type: human
+    role: Queries policy compliance
+
+phases:
+  - name: define
+    steps:
+      - id: create_policy
+        actor: org_admin
+        action: Create policy in draft status
+        inputs:
+          - title
+          - description
+          - selector (scope object)
+          - rules[] (allow/deny with conditions and priorities)
+          - human_veto_required flag
+          - max_ttl for RAR tokens
+        outputs:
+          - ${policy_id}
+          - ${policy_version}
+        emotion: deliberate
+        artifacts:
+          - policy record in SurrealDB (status: draft)
+
+      - id: test_policy
+        actor: org_admin
+        action: Dry-run policy against recent intents
+        inputs:
+          - ${policy_id}
+        outputs:
+          - evaluation_report (false positive/negative counts)
+        emotion: cautious
+
+      - id: activate_policy
+        actor: org_admin
+        action: Transition policy to active, create graph edges
+        inputs:
+          - ${policy_id}
+          - target_identities (for governing edges)
+          - target_workspaces (for protects edges)
+        outputs:
+          - governing relation edges
+          - protects relation edges
+          - audit_event (policy_activated)
+        emotion: confident
+
+  - name: enforce
+    steps:
+      - id: submit_intent
+        actor: agent
+        action: POST /api/intents/submit with authorization_details
+        inputs:
+          - goal, reasoning, authorization_details, dpop_jwk_thumbprint
+        outputs:
+          - ${intent_id}
+          - status: pending_auth
+
+      - id: load_policies
+        actor: authorizer
+        action: Graph traversal to collect applicable policies
+        query: |
+          LET $identity_policies = SELECT ->governing->policy.* FROM $identity WHERE ->governing->policy.status = 'active';
+          LET $workspace_policies = SELECT <-protects<-policy.* FROM $workspace WHERE <-protects<-policy.status = 'active';
+        outputs:
+          - ${applicable_policies[]}
+
+      - id: evaluate_rules
+        actor: authorizer
+        action: Sort rules by priority, evaluate conditions, short-circuit on deny
+        inputs:
+          - ${applicable_policies[]}
+          - ${intent} (goal, action_spec, budget_limit, authorization_details)
+        logic: |
+          1. Merge all rules from applicable policies
+          2. Sort by priority DESC
+          3. For each rule:
+             - If condition matches intent AND effect = "deny" → REJECT (short-circuit)
+             - If condition matches intent AND effect = "allow" → mark as allowed
+          4. If any policy has human_veto_required = true → force veto_window
+          5. If no deny rules matched → pass to LLM evaluation tier
+        outputs:
+          - ${policy_gate_result} (passed | failed)
+          - ${policy_evaluation_trace} (rules matched, effects, policy refs)
+
+      - id: record_trace
+        actor: authorizer
+        action: Persist policy evaluation trace on intent record
+        inputs:
+          - ${intent_id}
+          - ${policy_evaluation_trace}
+        outputs:
+          - intent.evaluation.policy_trace (array of matched rules with policy refs)
+
+  - name: review
+    steps:
+      - id: view_flagged_intent
+        actor: reviewer
+        action: View intent in governance feed with policy trace
+        inputs:
+          - ${intent_id}
+        displays:
+          - intent goal, reasoning, action_spec
+          - policy trace (which policies, which rules, which effects)
+          - risk_score and LLM reason (if LLM tier ran)
+        emotion: informed
+
+      - id: approve_or_veto
+        actor: reviewer
+        action: POST /api/intents/:id/approve or /api/intents/:id/veto
+        inputs:
+          - ${intent_id}
+          - reviewer decision
+        outputs:
+          - intent status → authorized | vetoed
+          - audit_event (consent_approved | consent_vetoed) with policy context
+        emotion: decisive
+
+  - name: evolve
+    steps:
+      - id: update_policy
+        actor: org_admin
+        action: Create new version of policy, old version becomes immutable
+        inputs:
+          - ${policy_id}
+          - updated rules/selector/flags
+        outputs:
+          - new ${policy_version}
+          - previous version preserved (immutable)
+          - audit_event (policy_updated)
+        emotion: responsive
+
+      - id: deprecate_policy
+        actor: org_admin
+        action: Set policy status to deprecated, remove governing edges
+        inputs:
+          - ${policy_id}
+        outputs:
+          - policy.status → deprecated
+          - governing edges removed
+          - protects edges removed
+          - audit_event (policy_deprecated)
+        emotion: cleaning_up
+
+  - name: audit
+    steps:
+      - id: query_compliance
+        actor: auditor
+        action: Query audit trail with policy version context
+        queries:
+          - "Show all intents evaluated under policy X version Y"
+          - "Show all policy violations in workspace Z last 30 days"
+          - "Show policy change history for policy X"
+        outputs:
+          - compliance report with policy version references
+        emotion: verified
+
+shared_artifacts:
+  policy_id:
+    source: create_policy
+    consumers: [test_policy, activate_policy, update_policy, deprecate_policy]
+  policy_version:
+    source: create_policy / update_policy
+    consumers: [evaluate_rules, record_trace, query_compliance]
+  intent_id:
+    source: submit_intent
+    consumers: [evaluate_rules, record_trace, view_flagged_intent, approve_or_veto]
+  applicable_policies:
+    source: load_policies
+    consumers: [evaluate_rules]
+  policy_evaluation_trace:
+    source: evaluate_rules
+    consumers: [record_trace, view_flagged_intent, query_compliance]
+  policy_gate_result:
+    source: evaluate_rules
+    consumers: [intent evaluation pipeline (existing)]
