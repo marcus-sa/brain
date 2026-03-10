@@ -5,7 +5,31 @@
   "branch": "marcus-sa/intent-node-issue",
   "checkpoints_count": 1,
   "files_touched": [
-    "package.json"
+    ".github/workflows/ci.yml",
+    "docs/feature/intent-node/intent-node-reference.md",
+    "package.json",
+    "tests/AGENTS.md",
+    "tests/acceptance/auth/authority.test.ts",
+    "tests/acceptance/auth/better-auth-adapter.test.ts",
+    "tests/acceptance/auth/cli-init-auth.test.ts",
+    "tests/acceptance/auth/oauth-mcp-auth.test.ts",
+    "tests/acceptance/chat/conversation-sidebar.test.ts",
+    "tests/acceptance/chat/onboarding.test.ts",
+    "tests/acceptance/chat/phase1.test.ts",
+    "tests/acceptance/chat/subagent-traces.test.ts",
+    "tests/acceptance/extraction/description-entries.test.ts",
+    "tests/acceptance/extraction/extraction-quality.test.ts",
+    "tests/acceptance/extraction/pipeline.test.ts",
+    "tests/acceptance/extraction/priority.test.ts",
+    "tests/acceptance/graph/branch-inheritance.test.ts",
+    "tests/acceptance/graph/create-work-item-edge.test.ts",
+    "tests/acceptance/graph/graph-relationships.test.ts",
+    "tests/acceptance/graph/move-items-to-project.test.ts",
+    "tests/acceptance/workspace/github-webhook.test.ts",
+    "tests/acceptance/workspace/intent-context.test.ts",
+    "tests/acceptance/workspace/logging.test.ts",
+    "tests/acceptance/workspace/readme-import.test.ts",
+    "tests/acceptance/workspace/workspace-description.test.ts"
   ],
   "sessions": [
     {
@@ -14,6 +38,13 @@
       "context": "/18/e264aec2ce/0/context.md",
       "content_hash": "/18/e264aec2ce/0/content_hash.txt",
       "prompt": "/18/e264aec2ce/0/prompt.txt"
+    },
+    {
+      "metadata": "/18/e264aec2ce/1/metadata.json",
+      "transcript": "/18/e264aec2ce/1/full.jsonl",
+      "context": "/18/e264aec2ce/1/context.md",
+      "content_hash": "/18/e264aec2ce/1/content_hash.txt",
+      "prompt": "/18/e264aec2ce/1/prompt.txt"
     }
   ],
   "token_usage": {
