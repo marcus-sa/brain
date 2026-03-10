@@ -413,6 +413,8 @@ export type TestUserWithMcp = TestUser & {
   mcpFetch: (path: string, options?: { method?: string; body?: unknown }) => Promise<Response>;
   accessToken: string;
   keyPair: DPoPKeyPair;
+  workspaceId: string;
+  identityId: string;
 };
 
 /**
@@ -423,27 +425,30 @@ export async function createTestUserWithMcp(
   baseUrl: string,
   surreal: Surreal,
   suffix: string,
+  options?: { workspaceId?: string },
 ): Promise<TestUserWithMcp> {
   const user = await createTestUser(baseUrl, suffix);
 
   // Generate DPoP key pair
   const keyPair = await generateDPoPKeyPair();
 
-  // Create a workspace for this test identity (required by schema)
-  const workspaceId = `test-workspace-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+  // Use provided workspace or create a new one for this test identity
+  const workspaceId = options?.workspaceId ?? `test-workspace-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
   const workspaceRecord = new RecordId("workspace", workspaceId);
-  await surreal.query(`CREATE $workspace CONTENT $content;`, {
-    workspace: workspaceRecord,
-    content: {
-      name: `Test Workspace ${suffix}`,
-      status: "active",
-      onboarding_complete: true,
-      onboarding_turn_count: 0,
-      onboarding_summary_pending: false,
-      onboarding_started_at: new Date(),
-      created_at: new Date(),
-    },
-  });
+  if (!options?.workspaceId) {
+    await surreal.query(`CREATE $workspace CONTENT $content;`, {
+      workspace: workspaceRecord,
+      content: {
+        name: `Test Workspace ${suffix}`,
+        status: "active",
+        onboarding_complete: true,
+        onboarding_turn_count: 0,
+        onboarding_summary_pending: false,
+        onboarding_started_at: new Date(),
+        created_at: new Date(),
+      },
+    });
+  }
 
   // Create identity record for this user
   const identityId = `test-identity-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
@@ -458,6 +463,12 @@ export async function createTestUserWithMcp(
       identity_status: "active",
       created_at: new Date(),
     },
+  });
+
+  // Create member_of edge linking identity to workspace (required by DPoP middleware workspace lookup)
+  await surreal.query(`RELATE $identity->member_of->$workspace SET added_at = time::now();`, {
+    identity: identityRecord,
+    workspace: workspaceRecord,
   });
 
   // Seed a broad-access authorized intent covering all MCP operations
@@ -568,6 +579,8 @@ export async function createTestUserWithMcp(
     mcpFetch,
     accessToken: access_token,
     keyPair,
+    workspaceId,
+    identityId,
   };
 }
 

@@ -54,8 +54,13 @@ async function createWorkspaceWithOAuth(
     { ws: workspaceRecord, name: name ?? `Intent Smoke ${Date.now()}` },
   );
 
-  // Get DPoP-capable user for MCP access
-  const mcpUser = await createTestUserWithMcp(baseUrl, surreal, `intent-ctx-${Date.now()}-${Math.floor(Math.random() * 10000)}`);
+
+  // Get DPoP-capable user bound to THIS workspace (token's workspace claim must match)
+  const mcpUser = await createTestUserWithMcp(
+    baseUrl, surreal,
+    `intent-ctx-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+    { workspaceId },
+  );
 
   return { workspaceId, workspaceRecord, mcpFetch: mcpUser.mcpFetch };
 }

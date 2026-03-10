@@ -16,12 +16,10 @@
 import { describe, expect, it } from "bun:test";
 import {
   setupOrchestratorSuite,
-  createTestUser,
-  createTestWorkspace,
   createReadyTask,
   createTestProject,
   getTaskStatus,
-  getTestUserBearerToken,
+  createTestUserWithMcp,
 } from "./orchestrator-test-kit";
 
 const getRuntime = setupOrchestratorSuite("agent_tools");
@@ -35,16 +33,14 @@ describe("Agent Tools: Agent reads task context", () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a task with detailed description in a workspace
-    const user = await createTestUser(baseUrl, "agent-taskctx");
-    const workspace = await createTestWorkspace(baseUrl, user);
-    const tokenUser = await getTestUserBearerToken(baseUrl, surreal, user);
-    const task = await createReadyTask(surreal, workspace.workspaceId, {
+    const tokenUser = await createTestUserWithMcp(baseUrl, surreal, "agent-taskctx");
+    const task = await createReadyTask(surreal, tokenUser.workspaceId, {
       title: "Implement CSV export",
       description: "Add ability to export entity data as CSV files with configurable columns",
     });
 
     // When the agent requests context for this task
-    const res = await tokenUser.mcpFetch(`/api/mcp/${workspace.workspaceId}/task-context`, {
+    const res = await tokenUser.mcpFetch(`/api/mcp/${tokenUser.workspaceId}/task-context`, {
       body: { task_id: task.taskId },
     });
     const context = await res.json() as {
@@ -67,21 +63,19 @@ describe("Agent Tools: Agent reads task context", () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a project with associated tasks in a workspace
-    const user = await createTestUser(baseUrl, "agent-projctx");
-    const workspace = await createTestWorkspace(baseUrl, user);
-    const tokenUser = await getTestUserBearerToken(baseUrl, surreal, user);
+    const tokenUser = await createTestUserWithMcp(baseUrl, surreal, "agent-projctx");
     const project = await createTestProject(
       surreal,
-      workspace.workspaceId,
+      tokenUser.workspaceId,
       "Data Platform",
     );
-    await createReadyTask(surreal, workspace.workspaceId, {
+    await createReadyTask(surreal, tokenUser.workspaceId, {
       title: "Build data ingestion pipeline",
       projectId: project.projectId,
     });
 
     // When the agent requests context for the project
-    const res = await tokenUser.mcpFetch(`/api/mcp/${workspace.workspaceId}/project-context`, {
+    const res = await tokenUser.mcpFetch(`/api/mcp/${tokenUser.workspaceId}/project-context`, {
       body: { project_id: project.projectId },
     });
     const context = await res.json() as {
@@ -101,12 +95,10 @@ describe("Agent Tools: Agent reads task context", () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace with no matching task
-    const user = await createTestUser(baseUrl, "agent-notask");
-    const workspace = await createTestWorkspace(baseUrl, user);
-    const tokenUser = await getTestUserBearerToken(baseUrl, surreal, user);
+    const tokenUser = await createTestUserWithMcp(baseUrl, surreal, "agent-notask");
 
     // When the agent requests context for a task that does not exist
-    const response = await tokenUser.mcpFetch(`/api/mcp/${workspace.workspaceId}/task-context`, {
+    const response = await tokenUser.mcpFetch(`/api/mcp/${tokenUser.workspaceId}/task-context`, {
       body: { task_id: "nonexistent-id" },
     });
 
@@ -124,16 +116,14 @@ describe("Agent Tools: Agent updates task status", () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a task that the agent is working on
-    const user = await createTestUser(baseUrl, "agent-block");
-    const workspace = await createTestWorkspace(baseUrl, user);
-    const tokenUser = await getTestUserBearerToken(baseUrl, surreal, user);
-    const task = await createReadyTask(surreal, workspace.workspaceId, {
+    const tokenUser = await createTestUserWithMcp(baseUrl, surreal, "agent-block");
+    const task = await createReadyTask(surreal, tokenUser.workspaceId, {
       title: "Integrate payment gateway",
       status: "in_progress",
     });
 
     // When the agent reports that the task is blocked
-    await tokenUser.mcpFetch(`/api/mcp/${workspace.workspaceId}/tasks/status`, {
+    await tokenUser.mcpFetch(`/api/mcp/${tokenUser.workspaceId}/tasks/status`, {
       body: {
         task_id: task.taskId,
         status: "blocked",
@@ -154,16 +144,14 @@ describe("Agent Tools: Agent updates task status", () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a task that the agent has been working on
-    const user = await createTestUser(baseUrl, "agent-done");
-    const workspace = await createTestWorkspace(baseUrl, user);
-    const tokenUser = await getTestUserBearerToken(baseUrl, surreal, user);
-    const task = await createReadyTask(surreal, workspace.workspaceId, {
+    const tokenUser = await createTestUserWithMcp(baseUrl, surreal, "agent-done");
+    const task = await createReadyTask(surreal, tokenUser.workspaceId, {
       title: "Add rate limiting middleware",
       status: "in_progress",
     });
 
     // When the agent reports that the task is completed
-    await tokenUser.mcpFetch(`/api/mcp/${workspace.workspaceId}/tasks/status`, {
+    await tokenUser.mcpFetch(`/api/mcp/${tokenUser.workspaceId}/tasks/status`, {
       body: {
         task_id: task.taskId,
         status: "done",
@@ -182,15 +170,13 @@ describe("Agent Tools: Agent updates task status", () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a task with status "ready"
-    const user = await createTestUser(baseUrl, "agent-badstatus");
-    const workspace = await createTestWorkspace(baseUrl, user);
-    const tokenUser = await getTestUserBearerToken(baseUrl, surreal, user);
-    const task = await createReadyTask(surreal, workspace.workspaceId, {
+    const tokenUser = await createTestUserWithMcp(baseUrl, surreal, "agent-badstatus");
+    const task = await createReadyTask(surreal, tokenUser.workspaceId, {
       title: "Fix memory leak",
     });
 
     // When the agent tries to set an invalid status
-    const response = await tokenUser.mcpFetch(`/api/mcp/${workspace.workspaceId}/tasks/status`, {
+    const response = await tokenUser.mcpFetch(`/api/mcp/${tokenUser.workspaceId}/tasks/status`, {
       body: {
         task_id: task.taskId,
         status: "invalid_status",
@@ -211,12 +197,10 @@ describe("Agent Tools: Agent creates observations", () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace where the agent is working
-    const user = await createTestUser(baseUrl, "agent-obs");
-    const workspace = await createTestWorkspace(baseUrl, user);
-    const tokenUser = await getTestUserBearerToken(baseUrl, surreal, user);
+    const tokenUser = await createTestUserWithMcp(baseUrl, surreal, "agent-obs");
 
     // When the agent creates an observation about a discovered risk
-    const obsRes = await tokenUser.mcpFetch(`/api/mcp/${workspace.workspaceId}/observations`, {
+    const obsRes = await tokenUser.mcpFetch(`/api/mcp/${tokenUser.workspaceId}/observations`, {
       body: {
         text: "Authentication tokens are stored in localStorage, vulnerable to XSS",
         severity: "warning",
@@ -236,12 +220,10 @@ describe("Agent Tools: Agent creates observations", () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace where the agent encounters contradictory decisions
-    const user = await createTestUser(baseUrl, "agent-conflict");
-    const workspace = await createTestWorkspace(baseUrl, user);
-    const tokenUser = await getTestUserBearerToken(baseUrl, surreal, user);
+    const tokenUser = await createTestUserWithMcp(baseUrl, surreal, "agent-conflict");
 
     // When the agent flags the contradiction
-    const obsRes = await tokenUser.mcpFetch(`/api/mcp/${workspace.workspaceId}/observations`, {
+    const obsRes = await tokenUser.mcpFetch(`/api/mcp/${tokenUser.workspaceId}/observations`, {
       body: {
         text: "Task requires SQLite but project decision specifies PostgreSQL",
         severity: "conflict",

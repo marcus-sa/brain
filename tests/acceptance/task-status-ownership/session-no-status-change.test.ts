@@ -22,16 +22,10 @@ async function createWorkspaceAndTask(
 ) {
   const user = await createTestUserWithMcp(baseUrl, surreal, `session-status-${suffix}`);
 
-  const workspace = await fetchJson<{ workspaceId: string }>(
-    `${baseUrl}/api/workspaces`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...user.headers },
-      body: JSON.stringify({ name: `Session Status ${Date.now()} ${suffix}` }),
-    },
-  );
+  // Use the workspace from createTestUserWithMcp (matches the DPoP token's workspace claim)
+  const workspaceId = user.workspaceId;
+  const workspaceRecord = new RecordId("workspace", workspaceId);
 
-  const workspaceRecord = new RecordId("workspace", workspace.workspaceId);
   const taskId = `session-task-${suffix}-${Date.now()}`;
   const taskRecord = new RecordId("task", taskId);
 
@@ -45,7 +39,7 @@ async function createWorkspaceAndTask(
     updated_at: new Date(),
   });
 
-  return { user, workspace, workspaceRecord, taskId, taskRecord };
+  return { user, workspace: { workspaceId }, workspaceRecord, taskId, taskRecord };
 }
 
 /** Create a workspace + task + orchestrator-managed session directly in DB */

@@ -414,3 +414,20 @@ export async function getTestUserBearerToken(
     ...mcpUser,
   };
 }
+
+/**
+ * Creates a member_of edge so the DPoP identity can access a workspace it didn't create.
+ * Call this when tests use a workspace different from the one createTestUserWithMcp created.
+ */
+export async function linkIdentityToWorkspace(
+  surreal: Surreal,
+  identityId: string,
+  workspaceId: string,
+): Promise<void> {
+  const identityRecord = new RecordId("identity", identityId);
+  const workspaceRecord = new RecordId("workspace", workspaceId);
+  await surreal.query(`RELATE $identity->member_of->$workspace SET added_at = time::now();`, {
+    identity: identityRecord,
+    workspace: workspaceRecord,
+  });
+}
