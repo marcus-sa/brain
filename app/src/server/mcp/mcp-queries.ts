@@ -455,6 +455,52 @@ export async function updateTaskStatus(input: {
   };
 }
 
+/**
+ * Batch-update multiple tasks to "done" in a single transaction,
+ * then compute parent rollup for any affected parents.
+ */
+export async function batchCompleteTasksInTransaction(input: {
+  surreal: Surreal;
+  workspaceRecord: RecordId<"workspace", string>;
+  taskIds: string[];
+}): Promise<Array<{ task_id: string; status: string; updated: boolean }>> {
+  if (input.taskIds.length === 0) return [];
+
+  const taskRecords = input.taskIds.map((id) => new RecordId("task", id));
+  const wsId = input.workspaceRecord.id as string;
+
+  // Single transaction: verify ownership + update all tasks + collect parents
+  const query = `
+    BEGIN TRANSACTION;
+
+    -- Update all matching tasks in this workspace to done
+    UPDATE $tasks SET status = 'done', updated_at = time::now()
+      WHERE workspace.id = $ws;
+
+    -- Collect distinct parent records for rollup
+    SELECT VALUE array::distinct(out) FROM subtask_of WHERE \`in\` IN $tasks;
+
+    COMMIT TRANSACTION;
+  `;
+
+  const result = await input.surreal.query<[
+    Array<{ id: RecordId<"task", string>; status: string }>,
+    RecordId<"task", string>[][],
+  ]>(query, { tasks: taskRecords, ws: wsId });
+
+  const updatedRows = result[0] ?? [];
+  const updatedIds = new Set(updatedRows.map((r) => r.id.id as string));
+
+  const parentIds = result[1]?.[0] ?? [];
+  await Promise.all(parentIds.map((p) => computeSubtaskRollup(input.surreal, p)));
+
+  return input.taskIds.map((id) => ({
+    task_id: id,
+    status: "done",
+    updated: updatedIds.has(id),
+  }));
+}
+
 /** Compute and apply subtask rollup on a parent task */
 async function computeSubtaskRollup(
   surreal: Surreal,

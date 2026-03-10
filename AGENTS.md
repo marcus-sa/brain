@@ -105,6 +105,10 @@
 - **Pattern**: Create test user first (`createTestUserWithMcp`), then create tasks/projects in `user.workspaceId`. Do NOT create a separate workspace via API unless you pass its ID to `createTestUserWithMcp`.
 - **`mcpFetch` vs `mcpHeaders`**: Always use `user.mcpFetch(path, { body })` — it creates a fresh DPoP proof per request. The `mcpHeaders` property is deprecated and will fail because DPoP proofs are single-use.
 
+## Test Uniqueness
+
+- Use `crypto.randomUUID()` for test identifiers (emails, IDs, suffixes) — never `Date.now()` alone. Concurrent test runs share the same millisecond, causing collisions.
+
 ## Testing Setup
 
 - Install deps: `bun install`

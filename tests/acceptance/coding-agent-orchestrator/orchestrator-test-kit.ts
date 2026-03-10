@@ -407,8 +407,8 @@ export async function getTestUserBearerToken(
   user: BaseTestUser,
   _scopes?: string,
 ): Promise<TestUserWithToken> {
-  // Create a full DPoP-capable user (suffix based on timestamp for uniqueness)
-  const mcpUser = await createTestUserWithMcp(baseUrl, surreal, `orch-${Date.now()}`);
+  // Create a full DPoP-capable user (suffix with timestamp + random for uniqueness under concurrency)
+  const mcpUser = await createTestUserWithMcp(baseUrl, surreal, `orch-${crypto.randomUUID()}`);
   return {
     ...user,
     ...mcpUser,

@@ -16,6 +16,7 @@ import {
   listRecentChanges,
   createSubtask,
   updateTaskStatus,
+  batchCompleteTasksInTransaction,
   logImplementationNote,
   createAgentSession,
   endAgentSession,
@@ -1353,25 +1354,22 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
       return rows.length > 0;
     };
 
-    const updateTask = async (taskId: string, status: string) => {
-      const taskRecord = new RecordId("task", taskId);
+    const batchCompleteTasks = async (taskIds: string[]) => {
       try {
-        await updateTaskStatus({
+        return await batchCompleteTasksInTransaction({
           surreal,
           workspaceRecord,
-          taskRecord,
-          status,
+          taskIds,
         });
-        return { task_id: taskId, status, updated: true };
       } catch (error) {
-        logError("commit-check", `Failed to update task ${taskId}`, error);
-        return { task_id: taskId, status, updated: false };
+        logError("commit-check", "Failed to batch-complete tasks", error);
+        return taskIds.map((id) => ({ task_id: id, status: "done", updated: false }));
       }
     };
 
     const result = await processCommitTaskRefs({
       commitMessage,
-      updateTask,
+      batchCompleteTasks,
       taskExists,
     });
 
