@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "844fd30a47da",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/trace-policy-docs",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "README.md",
+    "index.html"
+  ],
+  "sessions": [
+    {
+      "metadata": "/84/4fd30a47da/0/metadata.json",
+      "transcript": "/84/4fd30a47da/0/full.jsonl",
+      "context": "/84/4fd30a47da/0/context.md",
+      "content_hash": "/84/4fd30a47da/0/content_hash.txt",
+      "prompt": "/84/4fd30a47da/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 74,
+    "cache_creation_tokens": 156469,
+    "cache_read_tokens": 1146006,
+    "output_tokens": 5612,
+    "api_call_count": 20
+  }
+}
