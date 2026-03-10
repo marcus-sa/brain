@@ -134,12 +134,14 @@ export async function seedTraceForMessage(
     created_at: now,
   });
 
-  // Create child trace records for each step
+  // Create child trace records for each step (offset created_at for deterministic ordering)
   const childTraceIds: string[] = [];
-  for (const step of trace.steps) {
+  for (let i = 0; i < trace.steps.length; i++) {
+    const step = trace.steps[i]!;
     const childId = randomUUID();
     const childRecord = new RecordId("trace", childId);
     childTraceIds.push(childId);
+    const childTime = new Date(now.getTime() + i + 1);
 
     if (step.type === "tool_call") {
       await surreal.create(childRecord).content({
@@ -151,7 +153,7 @@ export async function seedTraceForMessage(
         input: step.argsJson ? JSON.parse(step.argsJson) : undefined,
         output: step.resultJson ? JSON.parse(step.resultJson) : undefined,
         duration_ms: step.durationMs,
-        created_at: now,
+        created_at: childTime,
       });
     } else {
       // type: "text" → stored as type: "message" in trace table
@@ -161,7 +163,7 @@ export async function seedTraceForMessage(
         workspace: workspaceRecord,
         parent_trace: rootTraceRecord,
         input: { text: step.text },
-        created_at: now,
+        created_at: childTime,
       });
     }
   }
@@ -254,7 +256,7 @@ export async function queryChildTraces(
 ): Promise<Array<{ id: RecordId; type: string; tool_name?: string; input?: Record<string, unknown> }>> {
   const [rows] = await surreal
     .query<[Array<{ id: RecordId; type: string; tool_name?: string; input?: Record<string, unknown> }>]>(
-      "SELECT id, type, tool_name, input FROM trace WHERE parent_trace = $root ORDER BY created_at ASC;",
+      "SELECT id, type, tool_name, input, created_at FROM trace WHERE parent_trace = $root ORDER BY created_at ASC, id ASC;",
       { root: rootTraceRecord },
     )
     .collect<[Array<{ id: RecordId; type: string; tool_name?: string; input?: Record<string, unknown> }>]>();
