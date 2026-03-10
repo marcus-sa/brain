@@ -23,6 +23,7 @@ import {
   type LookupIdentity,
   type LookupManager,
 } from "./identity-lifecycle";
+import { createAuditEvent, type AuditEvent } from "./audit";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -33,12 +34,16 @@ export type LookupWorkspace = (
   workspaceId: string,
 ) => Promise<{ name: string; identityId: string } | undefined>;
 
+/** Port for fire-and-forget audit event logging. */
+export type LogAudit = (event: AuditEvent) => void;
+
 export type DPoPVerificationDeps = {
   asSigningKey: AsSigningKey;
   nonceCache: NonceCache;
   lookupWorkspace: LookupWorkspace;
   lookupIdentity?: LookupIdentity;
   lookupManager?: LookupManager;
+  logAudit?: LogAudit;
 };
 
 // ---------------------------------------------------------------------------
@@ -213,6 +218,35 @@ function deriveRequestUri(request: Request): string {
 }
 
 // ---------------------------------------------------------------------------
+// Audit helper
+// ---------------------------------------------------------------------------
+
+/** Extract identity/workspace from token claims and emit a security audit event. */
+function emitSecurityAudit(
+  logAudit: LogAudit | undefined,
+  claims: DPoPBoundTokenClaims,
+  eventType: "dpop_rejected" | "security_alert",
+  payload: Record<string, unknown>,
+): void {
+  if (!logAudit) return;
+
+  const sub = claims.sub;
+  const workspaceId = claims["urn:brain:workspace"];
+  const intentId = claims["urn:brain:intent_id"];
+
+  // Extract identity id from sub (format: "identity:<id>")
+  const identityId = sub.startsWith("identity:") ? sub.slice(9) : sub;
+
+  logAudit(createAuditEvent(eventType, {
+    actor: new RecordId("identity", identityId),
+    workspace: new RecordId("workspace", workspaceId),
+    ...(intentId ? { intent_id: new RecordId("intent", intentId) } : {}),
+    dpop_thumbprint: claims.cnf.jkt,
+    payload,
+  }));
+}
+
+// ---------------------------------------------------------------------------
 // Main middleware
 // ---------------------------------------------------------------------------
 
@@ -260,12 +294,21 @@ export async function authenticateDPoPRequest(
   // Step 5: Verify sender binding
   const bindingError = verifySenderBinding(proofThumbprint, claims.cnf.jkt);
   if (bindingError) {
+    emitSecurityAudit(deps.logAudit, claims, "dpop_rejected", {
+      reason: "thumbprint mismatch",
+      proof_thumbprint: proofThumbprint,
+      token_thumbprint: claims.cnf.jkt,
+    });
     return bindingError;
   }
 
   // Step 6: Check nonce for replay protection
   const nonceAllowed = deps.nonceCache.check(jti);
   if (!nonceAllowed) {
+    emitSecurityAudit(deps.logAudit, claims, "security_alert", {
+      reason: "replay detected",
+      jti,
+    });
     return dpopError("dpop_proof_reused", 401, "DPoP proof jti has been used");
   }
 
@@ -289,6 +332,11 @@ export async function authenticateDPoPRequest(
     );
 
     if (!identityCheck.allowed) {
+      emitSecurityAudit(deps.logAudit, claims, "security_alert", {
+        reason: identityCheck.reason,
+        identity_id: workspace.identityId,
+        alert_type: "revoked_identity",
+      });
       return dpopError(
         "identity_blocked",
         401,

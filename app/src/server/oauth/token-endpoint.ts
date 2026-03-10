@@ -20,7 +20,7 @@ import { issueAccessToken } from "./token-issuer";
 import { getIntentById } from "../intent/intent-queries";
 import { jsonResponse } from "../http/response";
 import { logError, logInfo } from "../http/observability";
-import { logAuditEvent } from "./audit";
+import { logAuditEvent, createAuditEvent } from "./audit";
 import { RecordId } from "surrealdb";
 
 // ---------------------------------------------------------------------------
@@ -265,15 +265,13 @@ export function createTokenEndpointHandler(
         reason: intentVerification.errorDescription,
       });
 
-      await logAuditEvent(surreal, {
-        event_type: "token_request_rejected",
-        severity: "warning",
+      await logAuditEvent(surreal, createAuditEvent("token_rejected", {
         actor: intent.requester,
         workspace: intent.workspace,
         intent_id: intent.id,
         dpop_thumbprint: dpopResult.thumbprint,
         payload: { reason: intentVerification.errorDescription },
-      }).catch(() => {});
+      })).catch(() => {});
 
       return oauthErrorResponse(
         intentVerification.error,
@@ -333,9 +331,7 @@ export function createTokenEndpointHandler(
         expiresAt: tokenResult.expiresAt.toISOString(),
       });
 
-      await logAuditEvent(surreal, {
-        event_type: "token_issued",
-        severity: "info",
+      await logAuditEvent(surreal, createAuditEvent("token_issued", {
         actor: intent.requester,
         workspace: intent.workspace,
         intent_id: intent.id,
@@ -344,7 +340,7 @@ export function createTokenEndpointHandler(
           expires_at: tokenResult.expiresAt.toISOString(),
           authorization_details: data.authorizationDetails,
         },
-      }).catch(() => {});
+      })).catch(() => {});
 
       // 8. Return token response
       const expiresIn = Math.floor(

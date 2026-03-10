@@ -346,5 +346,31 @@ events:
   s: EXECUTED
   sid: 04-03
   t: '2026-03-10T10:53:38Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 04-03
+  t: '2026-03-10T10:54:16Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 04-04
+  t: '2026-03-10T10:55:17Z'
+- d: 'NOT_APPLICABLE: audit wiring is cross-cutting, tested through unit tests on
+    pure functions'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 04-04
+  t: '2026-03-10T10:55:22Z'
+- d: PASS
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 04-04
+  t: '2026-03-10T10:55:56Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 04-04
+  t: '2026-03-10T10:58:10Z'
 project_id: oauth-rar-dpop
 schema_version: '3.0'

@@ -24,7 +24,7 @@ import { evaluateIntent, createLlmEvaluator } from "../intent/authorizer";
 import { routeByRisk } from "../intent/risk-router";
 import { jsonResponse } from "../http/response";
 import { logError, logInfo } from "../http/observability";
-import { logAuditEvent } from "./audit";
+import { logAuditEvent, createAuditEvent } from "./audit";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -241,6 +241,17 @@ export function createBridgeExchangeHandler(
 
       const intentId = intentRecord.id as string;
 
+      await logAuditEvent(surreal, createAuditEvent("intent_submitted", {
+        actor: new RecordId("identity", identityId),
+        workspace: new RecordId("workspace", workspaceId),
+        intent_id: intentRecord,
+        dpop_thumbprint: dpopResult.thumbprint,
+        payload: {
+          source: "bridge_exchange",
+          authorization_details: authorizationDetails,
+        },
+      })).catch(() => {});
+
       // 6. Transition to pending_auth
       await updateIntentStatus(surreal, intentId, "pending_auth");
 
@@ -271,6 +282,14 @@ export function createBridgeExchangeHandler(
           evaluation: evaluationRecord,
           error_reason: routing.reason,
         });
+
+        await logAuditEvent(surreal, createAuditEvent("token_rejected", {
+          actor: new RecordId("identity", identityId),
+          workspace: new RecordId("workspace", workspaceId),
+          intent_id: new RecordId("intent", intentId),
+          dpop_thumbprint: dpopResult.thumbprint,
+          payload: { reason: routing.reason, route: "reject" },
+        })).catch(() => {});
 
         return oauthErrorResponse(
           "access_denied",
@@ -334,9 +353,7 @@ export function createBridgeExchangeHandler(
         logError("bridge.exchange.update_intent", "Failed to update intent with token timestamps", err);
       });
 
-      await logAuditEvent(surreal, {
-        event_type: "bridge_token_issued",
-        severity: "info",
+      await logAuditEvent(surreal, createAuditEvent("token_issued", {
         actor: new RecordId("identity", identityId),
         workspace: new RecordId("workspace", workspaceId),
         intent_id: intentRecord,
@@ -345,8 +362,9 @@ export function createBridgeExchangeHandler(
           expires_at: tokenResult.expiresAt.toISOString(),
           authorization_details: authorizationDetails,
           actor_type: "human",
+          source: "bridge_exchange",
         },
-      }).catch(() => {});
+      })).catch(() => {});
 
       const expiresIn = Math.floor(
         (tokenResult.expiresAt.getTime() - now.getTime()) / 1000,
