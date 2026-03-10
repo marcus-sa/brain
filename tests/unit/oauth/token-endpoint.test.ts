@@ -239,6 +239,46 @@ describe("matchAuthorizationDetails", () => {
     expect(result.error).toBe("invalid_grant");
   });
 
+  it("rejects when requested constraints exceed intent constraints", () => {
+    const requested: BrainAction[] = [
+      { type: "brain_action", action: "read", resource: "workspace", constraints: { max_results: 200 } },
+    ];
+    const intentActions: BrainAction[] = [
+      { type: "brain_action", action: "read", resource: "workspace", constraints: { max_results: 100 } },
+    ];
+
+    const result = matchAuthorizationDetails(requested, intentActions);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toBe("invalid_grant");
+    expect(result.errorDescription).toContain("max_results");
+    expect(result.errorDescription).toContain("exceeds authorized bound");
+  });
+
+  it("accepts when requested constraints are within intent bounds", () => {
+    const requested: BrainAction[] = [
+      { type: "brain_action", action: "read", resource: "workspace", constraints: { max_results: 50 } },
+    ];
+    const intentActions: BrainAction[] = [
+      { type: "brain_action", action: "read", resource: "workspace", constraints: { max_results: 100 } },
+    ];
+
+    const result = matchAuthorizationDetails(requested, intentActions);
+    expect(result.ok).toBe(true);
+  });
+
+  it("accepts when requested has no constraints but intent does", () => {
+    const requested: BrainAction[] = [
+      { type: "brain_action", action: "read", resource: "workspace" },
+    ];
+    const intentActions: BrainAction[] = [
+      { type: "brain_action", action: "read", resource: "workspace", constraints: { max_results: 100 } },
+    ];
+
+    const result = matchAuthorizationDetails(requested, intentActions);
+    expect(result.ok).toBe(true);
+  });
+
   it("rejects when intent has no authorization_details", () => {
     const requested: BrainAction[] = [
       { type: "brain_action", action: "read", resource: "workspace" },

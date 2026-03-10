@@ -171,6 +171,26 @@ describe("verifyOperationScope", () => {
     }
   });
 
+  test("non-numeric constraint followed by exceeding numeric constraint is caught", () => {
+    const requested = createBrainAction("read", "workspace", {
+      format: "json",
+      max_results: 200,
+    });
+    const authorized = [
+      createBrainAction("read", "workspace", {
+        format: "csv",
+        max_results: 100,
+      }),
+    ];
+
+    const result = verifyOperationScope(requested, authorized);
+    expect(result.authorized).toBe(false);
+    if (!result.authorized) {
+      expect(result.code).toBe("authorization_params_exceeded");
+      expect(result.error).toContain("max_results");
+    }
+  });
+
   test("includes descriptive error message on constraint exceeded", () => {
     const requested = createBrainAction("read", "workspace", { max_results: 100 });
     const authorized = [createBrainAction("read", "workspace", { max_results: 50 })];

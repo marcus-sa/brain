@@ -11,6 +11,7 @@
  * Step: 02-04
  */
 import type { BrainAction } from "./types";
+import { findExceededConstraint } from "./rar-verifier";
 import type { IntentRecord } from "../intent/types";
 import type { ServerDependencies } from "../runtime/types";
 import { validateDPoPProof } from "./dpop";
@@ -178,6 +179,17 @@ export function matchAuthorizationDetails(
         error: "invalid_grant",
         errorDescription: "Authorization details do not match",
       };
+    }
+
+    if (req.constraints && intent.constraints) {
+      const exceeded = findExceededConstraint(req.constraints, intent.constraints);
+      if (exceeded) {
+        return {
+          ok: false,
+          error: "invalid_grant",
+          errorDescription: `Constraint ${exceeded} exceeds authorized bound`,
+        };
+      }
     }
   }
 

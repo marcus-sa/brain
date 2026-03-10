@@ -20,7 +20,7 @@ function findMatchingAuthorization(
   );
 }
 
-function findExceededConstraint(
+export function findExceededConstraint(
   requestedConstraints: Record<string, unknown>,
   authorizedConstraints: Record<string, unknown>,
 ): string | undefined {
