@@ -30,6 +30,7 @@ import { createVetoManager } from "../intent/veto-manager";
 import { updateIntentStatus, queryExpiredVetoIntents } from "../intent/intent-queries";
 import { buildJwksResponse } from "../oauth/as-key-management";
 import { createIntentSubmissionHandler } from "../oauth/intent-submission";
+import { createTokenEndpointHandler } from "../oauth/token-endpoint";
 
 export function createBrainServer(deps: ServerDependencies): ReturnType<typeof Bun.serve> {
   const config = deps.config;
@@ -59,6 +60,7 @@ export function createBrainServer(deps: ServerDependencies): ReturnType<typeof B
   const mcpHandlers = createMcpRouteHandlers(deps);
   const intentHandlers = createIntentRouteHandlers(deps);
   const intentSubmissionHandler = createIntentSubmissionHandler(deps);
+  const tokenEndpointHandler = createTokenEndpointHandler(deps);
 
   // Orchestrator wiring
   const orchestratorHandlers = wireOrchestratorRoutes({
@@ -384,6 +386,12 @@ export function createBrainServer(deps: ServerDependencies): ReturnType<typeof B
       "/api/auth/intents": {
         POST: withRequestLogging("POST /api/auth/intents", "POST", (request) =>
           intentSubmissionHandler(request),
+        ),
+      },
+      // OAuth 2.1 RAR+DPoP — Token endpoint
+      "/api/auth/token": {
+        POST: withRequestLogging("POST /api/auth/token", "POST", (request) =>
+          tokenEndpointHandler(request),
         ),
       },
       // AS JWKS endpoint — public keys for token verification
