@@ -34,22 +34,17 @@ import {
   simulateAgentError,
   simulateAgentActive,
   waitForCondition,
-  type TestUser,
-  type TestWorkspace,
   type TestTask,
 } from "./orchestrator-ui-test-kit";
 
 const getRuntime = setupOrchestratorSuite("ui-walking-skeleton");
 
 describe("UI Walking Skeleton: Agent Delegation Across Three Surfaces", () => {
-  let user: TestUser;
-  let workspace: TestWorkspace;
-
   // US-0.4, US-0.5, US-1.2, US-2.1, US-2.2
   it("assigns from popup, monitors in feed, accepts in review view", async () => {
     const runtime = getRuntime();
-    user = await createTestUser(runtime.baseUrl, "ws1");
-    workspace = await createTestWorkspace(runtime.baseUrl, user);
+    const user = await createTestUser(runtime.baseUrl, "ws1");
+    const workspace = await createTestWorkspace(runtime.baseUrl, user);
 
     // Given a task with status "ready"
     const taskTitle = `Implement input validation ${Date.now()}`;
@@ -189,8 +184,8 @@ describe("UI Walking Skeleton: Agent Delegation Across Three Surfaces", () => {
   // US-2.3
   it("rejects agent work with feedback and sees agent resume", async () => {
     const runtime = getRuntime();
-    user = await createTestUser(runtime.baseUrl, "ws2");
-    workspace = await createTestWorkspace(runtime.baseUrl, user);
+    const user = await createTestUser(runtime.baseUrl, "ws2");
+    const workspace = await createTestWorkspace(runtime.baseUrl, user);
 
     // Given a task assigned to an agent with completed work
     const task = await createReadyTask(
@@ -272,8 +267,8 @@ describe("UI Walking Skeleton: Agent Delegation Across Three Surfaces", () => {
   // US-1.2
   it("surfaces agent error as blocking feed item", async () => {
     const runtime = getRuntime();
-    user = await createTestUser(runtime.baseUrl, "ws3");
-    workspace = await createTestWorkspace(runtime.baseUrl, user);
+    const user = await createTestUser(runtime.baseUrl, "ws3");
+    const workspace = await createTestWorkspace(runtime.baseUrl, user);
 
     // Given a task assigned to an agent
     const taskTitle = `Refactor auth module ${Date.now()}`;
