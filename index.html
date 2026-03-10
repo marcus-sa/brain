@@ -384,7 +384,7 @@ footer .right a:hover { color: var(--text-dim); }
     <div class="d-arrow">↕</div>
     <div class="d-row"><div class="d-tag">Agents</div><div class="d-boxes"><div class="d-box a">Architect</div><div class="d-box a">Strategist</div><div class="d-box a">Management</div><div class="d-box a">Coding · MCP</div><div class="d-box a">Observer</div></div></div>
     <div class="d-arrow">↕</div>
-    <div class="d-row"><div class="d-tag">Graph</div><div class="d-boxes"><div class="d-box g">Projects</div><div class="d-box g">Decisions</div><div class="d-box g">Tasks</div><div class="d-box g">Observations</div><div class="d-box g">Features</div><div class="d-box g">Questions</div><div class="d-box g">Suggestions</div><div class="d-box g">Conversations</div><div class="d-box g">Commits</div><div class="d-box g">Intents</div><div class="d-box g">Learnings</div></div></div>
+    <div class="d-row"><div class="d-tag">Graph</div><div class="d-boxes"><div class="d-box g">Projects</div><div class="d-box g">Decisions</div><div class="d-box g">Tasks</div><div class="d-box g">Observations</div><div class="d-box g">Features</div><div class="d-box g">Questions</div><div class="d-box g">Suggestions</div><div class="d-box g">Conversations</div><div class="d-box g">Commits</div><div class="d-box g">Intents</div><div class="d-box g">Learnings</div><div class="d-box g">Traces</div><div class="d-box g">Policies</div></div></div>
     <div class="d-arrow">↕</div>
     <div class="d-row"><div class="d-tag">Auth</div><div class="d-boxes"><div class="d-box i">OAuth 2.1</div><div class="d-box i">RAR (RFC 9396)</div><div class="d-box i">DPoP (RFC 9449)</div><div class="d-box i">Better Auth IdP</div></div></div>
     <div class="d-arrow">↕</div>
@@ -426,7 +426,7 @@ footer .right a:hover { color: var(--text-dim); }
       <tr><td>Autonomy</td><td>"Let it rip" (high risk of loops)</td><td>Authority scopes (risk-managed)</td></tr>
       <tr><td>Over time</td><td>Performance degrades</td><td>System gets smarter via learnings</td></tr>
       <tr><td>Security</td><td>Sandbox isolation (the "box")</td><td>Governance graph + sandbox (the "brain")</td></tr>
-      <tr><td>Auditing</td><td>Log-based (text dumps)</td><td>Graph-based (structured, machine-readable)</td></tr>
+      <tr><td>Auditing</td><td>Log-based (text dumps)</td><td>Graph-based (hierarchical traces, machine-readable)</td></tr>
     </tbody>
   </table>
 </section>
@@ -605,6 +605,14 @@ footer .right a:hover { color: var(--text-dim); }
       <h3>⟐ Identity</h3>
       <p>One person across all tools. Your Slack, GitHub, and terminal sessions all resolve to the same identity. Agents act on your behalf with scoped permissions.</p>
     </div>
+    <div class="concept">
+      <h3>⟁ Traces</h3>
+      <p>Every agent execution is a graph-native call tree — not a log file. Subagent spawns, tool calls, and decisions form a hierarchical trace you can traverse, query, and audit. Forensic debugging is a graph query, not grep.</p>
+    </div>
+    <div class="concept">
+      <h3>⛊ Policies</h3>
+      <p>Deterministic governance rules stored as graph nodes, not prompt text. Agents evaluate intents against policy constraints before acting. Update one node to change what every agent is allowed to do — no prompt rewriting.</p>
+    </div>
   </div>
 </section>
 
@@ -691,6 +699,14 @@ footer .right a:hover { color: var(--text-dim); }
     <div class="concept">
       <h3>Signed intent chains</h3>
       <p>When an agent spends money or merges code, the graph records which intent authorized it, which authority scope permitted it, and which human (or consensus) approved it. The full chain is machine-readable.</p>
+    </div>
+    <div class="concept">
+      <h3>Hierarchical traces</h3>
+      <p>Agent executions are graph-native call trees. A subagent spawn becomes a root trace; each tool call, message, and decision is a child node. Traverse the full execution path with a graph query — from intent to final action.</p>
+    </div>
+    <div class="concept">
+      <h3>Policy-as-graph</h3>
+      <p>Governance rules are structured nodes, not prompt instructions. Each policy carries typed rules, scopes, and approval requirements. The Authorizer evaluates intents against the policy graph before minting tokens — deterministic, auditable, and updateable without touching a single prompt.</p>
     </div>
     <div class="concept">
       <h3>Eval-ready metrics</h3>

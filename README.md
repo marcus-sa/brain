@@ -34,6 +34,7 @@ Agent Layer
 Graph Layer
   → Projects / Decisions / Tasks / Observations / Features / Questions
   → Suggestions / Conversations / Commits / Intents / Learnings
+  → Traces / Policies
 
 Auth Layer
   → OAuth 2.1 / RAR (RFC 9396) / DPoP (RFC 9449) / Better Auth IdP
@@ -51,7 +52,7 @@ Integration Layer
 | Autonomy | "Let it rip" (high risk of loops) | Authority scopes (risk-managed) |
 | Over time | Performance degrades | System gets smarter via learnings |
 | Security | Sandbox isolation (the "box") | Governance graph + sandbox (the "brain") |
-| Auditing | Log-based (text dumps) | Graph-based (structured, machine-readable) |
+| Auditing | Log-based (text dumps) | Graph-based (hierarchical traces, machine-readable) |
 
 ## Specialized Agents
 
@@ -87,6 +88,8 @@ No agent messages another agent. They write structured signals to the knowledge 
 - **Learnings** — Behavioral rules injected into agent prompts at runtime. The system gets smarter as it works, not dumber.
 - **Identity** — One person across all tools. Your Slack, GitHub, and terminal sessions all resolve to the same identity.
 - **Agent Sessions** — Every session is remembered. The next agent knows what the last one did.
+- **Traces** — Every agent execution is a graph-native call tree. Subagent spawns, tool calls, and decisions form a hierarchical trace you can traverse, query, and audit. Forensic debugging is a graph query, not grep.
+- **Policies** — Deterministic governance rules stored as graph nodes, not prompt text. Each policy carries typed rules, scopes, and approval requirements. The Authorizer evaluates intents against the policy graph before minting tokens — no prompt rewriting needed.
 
 ## Reliability: Solving the Three Drifts
 
@@ -102,6 +105,8 @@ Most autonomous platforms are black boxes. Brain is a signed logic trace. Every 
 
 - **Governance telemetry** — Every decision is a node with a UUID, author, timestamp, and reasoning. Auditors can query the graph directly.
 - **Signed intent chains** — When an agent spends money or merges code, the graph records which intent authorized it, which authority scope permitted it, and which human approved it.
+- **Hierarchical traces** — Agent executions are graph-native call trees. A subagent spawn becomes a root trace; each tool call, message, and decision is a child node. Traverse the full execution path with a graph query — from intent to final action.
+- **Policy-as-graph** — Governance rules are structured nodes with typed rules, scopes, and approval requirements. The Authorizer evaluates intents against the policy graph before minting tokens — deterministic, auditable, and updateable without touching a single prompt.
 - **The "Judge" pattern** — High-stakes actions go through an Authorizer Agent that validates intents against policy constraints before minting scoped tokens. The worker never sees master keys.
 
 ## Open Source
