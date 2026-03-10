@@ -1,0 +1,54 @@
+is this project in a good enough state to open source it? be honest. explain to me what works, what's missing. read all .md files
+
+---
+
+AGPL-3.0 vs BSL-1.1
+
+---
+
+"Only someone offering
+  Brain-as-a-service to others must share modifications" this is what i want to avoid
+
+---
+
+[Request interrupted by user]
+
+---
+
+but AGPL for community, commercial license for enterprise is ideal
+
+---
+
+create the missing OSS files now
+
+---
+
+[Request interrupted by user]
+
+---
+
+continue - create CLA as well - use:    4 │ EXTRACTION_MODEL=openai/gpt-4.1-mini                                                                                                                    
+     5 │ CHAT_AGENT_MODEL=openai/gpt-4.1-mini                                                                                                                                                
+     6 │ ANALYTICS_MODEL=openai/gpt-4.1-mini                                                                                                                                               
+     7 │ PM_AGENT_MODEL=openai/gpt-4.1-mini                                                                                                                                                
+     8 │ OPENROUTER_EMBEDDING_MODEL=openai/text-embedding-3-small
+
+---
+
+replace security@yourbrain.dev with security@schack.systems
+
+---
+
+[Request interrupted by user]
+
+---
+
+replace security@yourbrain.dev with marcus@schack.systems
+
+---
+
+how do we enforce DCO Sign-Off in github
+
+---
+
+commit
