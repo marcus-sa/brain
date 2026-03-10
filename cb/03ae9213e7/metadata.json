@@ -1,0 +1,39 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "cb03ae9213e7",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/oauth-rar-dpop-server",
+  "checkpoints_count": 3,
+  "files_touched": [
+    "docs/requirements/oauth-rar-dpop/acceptance-criteria.md",
+    "docs/requirements/oauth-rar-dpop/dor-checklist.md",
+    "docs/requirements/oauth-rar-dpop/requirements.md",
+    "docs/requirements/oauth-rar-dpop/user-stories.md",
+    "docs/ux/oauth-rar-dpop/journey-agent-token-acquisition-visual.md",
+    "docs/ux/oauth-rar-dpop/journey-agent-token-acquisition.feature",
+    "docs/ux/oauth-rar-dpop/journey-agent-token-acquisition.yaml",
+    "docs/ux/oauth-rar-dpop/journey-resource-verification-visual.md",
+    "docs/ux/oauth-rar-dpop/journey-resource-verification.feature",
+    "docs/ux/oauth-rar-dpop/journey-resource-verification.yaml",
+    "docs/ux/oauth-rar-dpop/jtbd-four-forces.md",
+    "docs/ux/oauth-rar-dpop/jtbd-job-stories.md",
+    "docs/ux/oauth-rar-dpop/jtbd-opportunity-scores.md",
+    "docs/ux/oauth-rar-dpop/shared-artifacts-registry.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/cb/03ae9213e7/0/metadata.json",
+      "transcript": "/cb/03ae9213e7/0/full.jsonl",
+      "context": "/cb/03ae9213e7/0/context.md",
+      "content_hash": "/cb/03ae9213e7/0/content_hash.txt",
+      "prompt": "/cb/03ae9213e7/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 2784,
+    "cache_creation_tokens": 87515,
+    "cache_read_tokens": 699029,
+    "output_tokens": 10058,
+    "api_call_count": 16
+  }
+}
