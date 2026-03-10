@@ -166,14 +166,14 @@ export async function requireAuthorizedContext(
 export function checkAuthorityOrError(
   permission: AuthorityPermission,
   action: AuthorityAction,
-  agentType: AgentType,
+  actorLabel: string,
 ): Response | undefined {
   if (permission === "blocked") {
-    return jsonError(`${agentType} is not authorized for action: ${action}`, 403);
+    return jsonError(`${actorLabel} is not authorized for action: ${action}`, 403);
   }
   if (permission === "propose") {
     return jsonError(
-      `${agentType} can only propose ${action} — requires human approval`,
+      `${actorLabel} can only propose ${action} — requires human approval`,
       403,
     );
   }

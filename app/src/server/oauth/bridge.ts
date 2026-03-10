@@ -300,7 +300,6 @@ export function createBridgeExchangeHandler(
 
       logInfo("bridge.exchange.authorized", "Bridge intent auto-approved", {
         intentId,
-        traceId,
       });
 
       // 10. Issue DPoP-bound token
@@ -351,7 +350,6 @@ export function createBridgeExchangeHandler(
       );
     } catch (error) {
       logError("bridge.exchange.error", "Bridge exchange failed", error, {
-        traceId,
         personId,
       });
       return oauthErrorResponse("server_error", "Internal server error", 500);

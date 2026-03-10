@@ -9,7 +9,8 @@ import { afterAll, beforeAll } from "bun:test";
 import { randomBytes, createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { Surreal } from "surrealdb";
+import { RecordId, Surreal } from "surrealdb";
+import * as jose from "jose";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createBrainServer } from "../../app/src/server/runtime/start-server";
 import { createRuntimeDependencies } from "../../app/src/server/runtime/dependencies";
@@ -398,25 +399,231 @@ export async function getOAuthToken(
   return tokens.access_token;
 }
 
+export type DPoPKeyPair = {
+  privateKey: CryptoKey;
+  publicKey: CryptoKey;
+  publicJwk: JsonWebKey;
+  thumbprint: string;
+};
+
 export type TestUserWithMcp = TestUser & {
+  /** @deprecated Use mcpFetch instead — static Bearer headers are rejected by DPoP endpoints. */
   mcpHeaders: Record<string, string>;
+  /** DPoP-protected fetch for MCP endpoints. Creates fresh proof per request. */
+  mcpFetch: (path: string, options?: { method?: string; body?: unknown }) => Promise<Response>;
+  accessToken: string;
+  keyPair: DPoPKeyPair;
 };
 
 /**
- * Create a test user with both session cookie and OAuth MCP token.
+ * Create a test user with DPoP-bound token for MCP endpoints.
+ * Generates key pair, creates identity, seeds broad-access intent, acquires token.
  */
 export async function createTestUserWithMcp(
   baseUrl: string,
   surreal: Surreal,
   suffix: string,
-  scopes?: string,
 ): Promise<TestUserWithMcp> {
   const user = await createTestUser(baseUrl, suffix);
-  const accessToken = await getOAuthToken(baseUrl, surreal, user.headers, scopes);
+
+  // Generate DPoP key pair
+  const keyPair = await generateDPoPKeyPair();
+
+  // Create identity record for this user
+  const identityId = `test-identity-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+  const identityRecord = new RecordId("identity", identityId);
+
+  // Find the workspace for this user (or create a temporary one)
+  // For broad test access, create an identity in the DB
+  await surreal.query(`CREATE $identity CONTENT $content;`, {
+    identity: identityRecord,
+    content: {
+      name: `Test User ${suffix}`,
+      type: "agent",
+      identity_status: "active",
+      created_at: new Date(),
+    },
+  });
+
+  // Seed a broad-access authorized intent covering all MCP operations
+  const broadActions = [
+    { type: "brain_action", action: "read", resource: "workspace" },
+    { type: "brain_action", action: "read", resource: "project" },
+    { type: "brain_action", action: "read", resource: "task" },
+    { type: "brain_action", action: "read", resource: "decision" },
+    { type: "brain_action", action: "read", resource: "constraint" },
+    { type: "brain_action", action: "read", resource: "change_log" },
+    { type: "brain_action", action: "read", resource: "entity" },
+    { type: "brain_action", action: "read", resource: "suggestion" },
+    { type: "brain_action", action: "read", resource: "intent" },
+    { type: "brain_action", action: "reason", resource: "decision" },
+    { type: "brain_action", action: "reason", resource: "constraint" },
+    { type: "brain_action", action: "reason", resource: "commit" },
+    { type: "brain_action", action: "create", resource: "decision" },
+    { type: "brain_action", action: "create", resource: "question" },
+    { type: "brain_action", action: "create", resource: "task" },
+    { type: "brain_action", action: "create", resource: "note" },
+    { type: "brain_action", action: "create", resource: "observation" },
+    { type: "brain_action", action: "create", resource: "suggestion" },
+    { type: "brain_action", action: "create", resource: "session" },
+    { type: "brain_action", action: "create", resource: "commit" },
+    { type: "brain_action", action: "create", resource: "intent" },
+    { type: "brain_action", action: "update", resource: "task" },
+    { type: "brain_action", action: "update", resource: "session" },
+    { type: "brain_action", action: "update", resource: "suggestion" },
+    { type: "brain_action", action: "submit", resource: "intent" },
+  ];
+
+  const intentId = `test-intent-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+  const intentRecord = new RecordId("intent", intentId);
+  const traceRecord = new RecordId("trace", `trace-${intentId}`);
+
+  await surreal.query(`CREATE $trace CONTENT $traceContent;`, {
+    trace: traceRecord,
+    traceContent: { type: "test_setup", actor: identityRecord, created_at: new Date() },
+  });
+
+  await surreal.query(`CREATE $intent CONTENT $content;`, {
+    intent: intentRecord,
+    content: {
+      goal: "Broad test access",
+      reasoning: "Pre-authorized for acceptance testing",
+      status: "authorized",
+      priority: 50,
+      authorization_details: broadActions,
+      dpop_jwk_thumbprint: keyPair.thumbprint,
+      action_spec: { provider: "test", action: "broad_access", params: {} },
+      trace_id: traceRecord,
+      requester: identityRecord,
+      evaluation: {
+        decision: "APPROVE",
+        risk_score: 0,
+        reason: "Pre-authorized for testing",
+        evaluated_at: new Date(),
+        policy_only: true,
+      },
+      created_at: new Date(),
+    },
+  });
+
+  // Request DPoP-bound access token from Custom AS
+  const tokenUri = `${baseUrl}/api/auth/token`;
+  const dpopProof = await createDPoPProof(keyPair, "POST", tokenUri);
+
+  const tokenRes = await fetch(tokenUri, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      DPoP: dpopProof,
+    },
+    body: JSON.stringify({
+      grant_type: "urn:brain:intent-authorization",
+      intent_id: intentId,
+      authorization_details: broadActions,
+    }),
+  });
+
+  if (!tokenRes.ok) {
+    const body = await tokenRes.text();
+    throw new Error(`DPoP token acquisition failed (${tokenRes.status}): ${body}`);
+  }
+
+  const { access_token } = (await tokenRes.json()) as { access_token: string };
+
+  const mcpFetch = async (path: string, options?: { method?: string; body?: unknown }): Promise<Response> => {
+    const method = options?.method ?? "POST";
+    const requestUri = `${baseUrl}${path}`;
+    const proof = await createDPoPProof(keyPair, method, requestUri);
+
+    return fetch(requestUri, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `DPoP ${access_token}`,
+        DPoP: proof,
+      },
+      body: options?.body !== undefined ? JSON.stringify(options.body) : JSON.stringify({}),
+    });
+  };
+
   return {
     ...user,
-    mcpHeaders: { Authorization: `Bearer ${accessToken}` },
+    mcpHeaders: { Authorization: `DPoP ${access_token}` },
+    mcpFetch,
+    accessToken: access_token,
+    keyPair,
   };
+}
+
+// ---------------------------------------------------------------------------
+// DPoP Helpers
+// ---------------------------------------------------------------------------
+
+async function generateDPoPKeyPair(): Promise<DPoPKeyPair> {
+  const { publicKey, privateKey } = await crypto.subtle.generateKey(
+    { name: "ECDSA", namedCurve: "P-256" },
+    true,
+    ["sign", "verify"],
+  );
+
+  const publicJwk = await crypto.subtle.exportKey("jwk", publicKey);
+  const thumbprint = await computeDPoPThumbprint(publicJwk);
+
+  return { privateKey, publicKey, publicJwk, thumbprint };
+}
+
+async function computeDPoPThumbprint(publicJwk: JsonWebKey): Promise<string> {
+  const thumbprintInput = JSON.stringify({
+    crv: publicJwk.crv,
+    kty: publicJwk.kty,
+    x: publicJwk.x,
+    y: publicJwk.y,
+  });
+
+  const hashBuffer = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(thumbprintInput),
+  );
+
+  return base64urlBytes(new Uint8Array(hashBuffer));
+}
+
+async function createDPoPProof(
+  keyPair: DPoPKeyPair,
+  method: string,
+  targetUri: string,
+): Promise<string> {
+  const header = {
+    typ: "dpop+jwt" as const,
+    alg: "ES256" as const,
+    jwk: {
+      kty: keyPair.publicJwk.kty,
+      crv: keyPair.publicJwk.crv,
+      x: keyPair.publicJwk.x,
+      y: keyPair.publicJwk.y,
+    },
+  };
+
+  const payload = {
+    jti: crypto.randomUUID(),
+    htm: method,
+    htu: targetUri,
+    iat: Math.floor(Date.now() / 1000),
+  };
+
+  const importedKey = await jose.importJWK(
+    await crypto.subtle.exportKey("jwk", keyPair.privateKey),
+    "ES256",
+  );
+
+  return await new jose.SignJWT(payload)
+    .setProtectedHeader(header)
+    .sign(importedKey);
+}
+
+function base64urlBytes(bytes: Uint8Array): string {
+  const binary = String.fromCharCode(...bytes);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
 }
 
 // ---------------------------------------------------------------------------

@@ -412,7 +412,7 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
   }
 
   /** POST /api/mcp/:workspaceId/decisions — Active decisions, optionally scoped to project/area */
-  async function handleGetDecisions(workspaceId: string, request: Request): Promise<Response> {
+  async function handleGetDecisions(_workspaceId: string, request: Request): Promise<Response> {
     const auth = await requireAuth(request);
     if (auth instanceof Response) return auth;
 
@@ -444,7 +444,7 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
   }
 
   /** POST /api/mcp/:workspaceId/tasks/dependencies — Task dependency tree */
-  async function handleGetTaskDependencies(workspaceId: string, request: Request): Promise<Response> {
+  async function handleGetTaskDependencies(_workspaceId: string, request: Request): Promise<Response> {
     const auth = await requireAuth(request);
     if (auth instanceof Response) return auth;
 
@@ -468,7 +468,7 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
   }
 
   /** POST /api/mcp/:workspaceId/constraints — Architecture constraints, optionally scoped to project */
-  async function handleGetConstraints(workspaceId: string, request: Request): Promise<Response> {
+  async function handleGetConstraints(_workspaceId: string, request: Request): Promise<Response> {
     const auth = await requireAuth(request);
     if (auth instanceof Response) return auth;
 
@@ -500,7 +500,7 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
   }
 
   /** POST /api/mcp/:workspaceId/changes — Recent changes since timestamp */
-  async function handleGetChanges(workspaceId: string, request: Request): Promise<Response> {
+  async function handleGetChanges(_workspaceId: string, request: Request): Promise<Response> {
     const auth = await requireAuth(request);
     if (auth instanceof Response) return auth;
 
@@ -534,7 +534,7 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
   }
 
   /** GET /api/mcp/:workspaceId/entities/:entityId — Entity detail */
-  async function handleGetEntityDetail(workspaceId: string, entityId: string, request: Request): Promise<Response> {
+  async function handleGetEntityDetail(_workspaceId: string, entityId: string, request: Request): Promise<Response> {
     const auth = await requireAuth(request);
     if (auth instanceof Response) return auth;
 
@@ -558,7 +558,7 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
   // =========================================================================
 
   /** POST /api/mcp/:workspaceId/decisions/resolve — Infer decision from graph */
-  async function handleResolveDecision(workspaceId: string, request: Request): Promise<Response> {
+  async function handleResolveDecision(_workspaceId: string, request: Request): Promise<Response> {
     const auth = await requireAuth(request);
     if (auth instanceof Response) return auth;
 
@@ -636,7 +636,7 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
   }
 
   /** POST /api/mcp/:workspaceId/constraints/check — Check proposed action */
-  async function handleCheckConstraints(workspaceId: string, request: Request): Promise<Response> {
+  async function handleCheckConstraints(_workspaceId: string, request: Request): Promise<Response> {
     const auth = await requireAuth(request);
     if (auth instanceof Response) return auth;
 
@@ -834,7 +834,7 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
   }
 
   /** POST /api/mcp/:workspaceId/tasks/status — Update task status */
-  async function handleUpdateTaskStatus(workspaceId: string, request: Request): Promise<Response> {
+  async function handleUpdateTaskStatus(_workspaceId: string, request: Request): Promise<Response> {
     const auth = await requireAuth(request);
     if (auth instanceof Response) return auth;
 
@@ -872,7 +872,7 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
   }
 
   /** POST /api/mcp/:workspaceId/tasks/subtask — Create subtask */
-  async function handleCreateSubtask(workspaceId: string, request: Request): Promise<Response> {
+  async function handleCreateSubtask(_workspaceId: string, request: Request): Promise<Response> {
     const auth = await requireAuth(request);
     if (auth instanceof Response) return auth;
 
@@ -911,7 +911,7 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
   }
 
   /** POST /api/mcp/:workspaceId/notes — Log implementation note */
-  async function handleLogNote(workspaceId: string, request: Request): Promise<Response> {
+  async function handleLogNote(_workspaceId: string, request: Request): Promise<Response> {
     const auth = await requireAuth(request);
     if (auth instanceof Response) return auth;
 
@@ -1055,7 +1055,7 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
   // =========================================================================
 
   /** POST /api/mcp/:workspaceId/sessions/start — Start agent session */
-  async function handleSessionStart(workspaceId: string, request: Request): Promise<Response> {
+  async function handleSessionStart(_workspaceId: string, request: Request): Promise<Response> {
     const auth = await requireAuth(request);
     if (auth instanceof Response) return auth;
 
@@ -1099,7 +1099,7 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
   }
 
   /** POST /api/mcp/:workspaceId/sessions/end — End agent session */
-  async function handleSessionEnd(workspaceId: string, request: Request): Promise<Response> {
+  async function handleSessionEnd(_workspaceId: string, request: Request): Promise<Response> {
     const auth = await requireAuth(request);
     if (auth instanceof Response) return auth;
 
@@ -1153,7 +1153,7 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
   }
 
   /** POST /api/mcp/:workspaceId/commits — Log git commit */
-  async function handleLogCommit(workspaceId: string, request: Request): Promise<Response> {
+  async function handleLogCommit(_workspaceId: string, request: Request): Promise<Response> {
     const auth = await requireAuth(request);
     if (auth instanceof Response) return auth;
 
@@ -1230,7 +1230,7 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
   });
 
   /** POST /api/mcp/:workspaceId/commits/pre-check — Pre-commit LLM analysis */
-  async function handlePreCheck(workspaceId: string, request: Request): Promise<Response> {
+  async function handlePreCheck(_workspaceId: string, request: Request): Promise<Response> {
     const auth = await requireAuth(request);
     if (auth instanceof Response) return auth;
 
@@ -1326,7 +1326,7 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
   // =========================================================================
 
   /** POST /api/mcp/:workspaceId/commits/post-check — Extract task refs and set tasks to done */
-  async function handlePostCheck(workspaceId: string, request: Request): Promise<Response> {
+  async function handlePostCheck(_workspaceId: string, request: Request): Promise<Response> {
     const auth = await requireAuth(request);
     if (auth instanceof Response) return auth;
 
@@ -1385,7 +1385,7 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
   // =========================================================================
 
   /** POST /api/mcp/:workspaceId/suggestions — List suggestions filtered by status/category */
-  async function handleListSuggestions(workspaceId: string, request: Request): Promise<Response> {
+  async function handleListSuggestions(_workspaceId: string, request: Request): Promise<Response> {
     const auth = await requireAuth(request);
     if (auth instanceof Response) return auth;
 
@@ -1460,7 +1460,7 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
   }
 
   /** POST /api/mcp/:workspaceId/suggestions/create — Create a suggestion */
-  async function handleCreateSuggestion(workspaceId: string, request: Request): Promise<Response> {
+  async function handleCreateSuggestion(_workspaceId: string, request: Request): Promise<Response> {
     const auth = await requireAuth(request);
     if (auth instanceof Response) return auth;
 
@@ -1555,7 +1555,7 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
   }
 
   /** POST /api/mcp/:workspaceId/suggestions/action — Accept/dismiss/defer a suggestion */
-  async function handleSuggestionAction(workspaceId: string, request: Request): Promise<Response> {
+  async function handleSuggestionAction(_workspaceId: string, request: Request): Promise<Response> {
     const auth = await requireAuth(request);
     if (auth instanceof Response) return auth;
 
@@ -1604,7 +1604,7 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
   }
 
   /** POST /api/mcp/:workspaceId/suggestions/convert — Convert suggestion to entity */
-  async function handleConvertSuggestion(workspaceId: string, request: Request): Promise<Response> {
+  async function handleConvertSuggestion(_workspaceId: string, request: Request): Promise<Response> {
     const auth = await requireAuth(request);
     if (auth instanceof Response) return auth;
 
@@ -1750,7 +1750,7 @@ export function createMcpRouteHandlers(deps: ServerDependencies) {
   }
 
   /** POST /api/mcp/:workspaceId/intents/status — Get current intent status */
-  async function handleGetIntentStatus(workspaceId: string, request: Request): Promise<Response> {
+  async function handleGetIntentStatus(_workspaceId: string, request: Request): Promise<Response> {
     const auth = await requireAuth(request);
     if (auth instanceof Response) return auth;
 

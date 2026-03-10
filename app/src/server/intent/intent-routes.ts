@@ -220,7 +220,7 @@ export function createIntentRouteHandlers(deps: ServerDependencies): IntentRoute
   };
 
   const handleConsent = async (
-    workspaceId: string,
+    _workspaceId: string,
     intentId: string,
   ): Promise<Response> => {
     const intent = await getIntentById(surreal, intentId);

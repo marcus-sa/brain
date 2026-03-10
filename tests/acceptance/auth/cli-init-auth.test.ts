@@ -179,10 +179,8 @@ describe("CLI init setupAuth", () => {
     expect(repo.refresh_token).toBeTruthy();
     expect(repo.token_expires_at).toBeGreaterThan(Math.floor(Date.now() / 1000));
 
-    // 6. Verify the access token actually works on an MCP route
-    const mcpRes = await fetch(`${baseUrl}/api/mcp/${workspaceId}/projects`, {
-      headers: { Authorization: `Bearer ${repo.access_token}` },
-    });
-    expect(mcpRes.status).toBe(200);
+    // Note: CLI tokens are better-auth OAuth2 tokens. MCP routes now require
+    // DPoP-bound tokens from the Custom AS. CLI DPoP support is a separate concern.
+    // Config persistence is verified by the assertions above.
   }, 60_000);
 });

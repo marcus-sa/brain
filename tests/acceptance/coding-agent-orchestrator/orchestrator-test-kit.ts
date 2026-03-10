@@ -7,8 +7,10 @@
 import { RecordId, type Surreal } from "surrealdb";
 import {
   setupAcceptanceSuite,
+  createTestUserWithMcp,
   type AcceptanceTestRuntime,
   type TestUser as BaseTestUser,
+  type TestUserWithMcp,
   fetchJson as baseFetchJson,
   fetchRaw as baseFetchRaw,
   getOAuthToken,
@@ -97,10 +99,7 @@ export type ReviewResponse = {
   };
 };
 
-export type TestUserWithToken = BaseTestUser & {
-  bearerHeaders: Record<string, string>;
-  accessToken: string;
-};
+export type TestUserWithToken = TestUserWithMcp;
 
 // ---------------------------------------------------------------------------
 // Suite Setup (delegates to shared kit with mock agent env)
@@ -396,33 +395,22 @@ export async function simulateSessionStatus(
 }
 
 // ---------------------------------------------------------------------------
-// OAuth / JWT Token Helpers (for MCP endpoint tests)
+// DPoP Token Helpers (for MCP endpoint tests)
 // ---------------------------------------------------------------------------
 
-const MCP_SCOPES = "graph:read graph:reason decision:write task:write observation:write question:write session:write offline_access";
-
 /**
- * Obtains a JWT Bearer token for a test user via the full OAuth 2.1 flow.
+ * Obtains a DPoP-bound token for a test user for MCP endpoint access.
  */
 export async function getTestUserBearerToken(
   baseUrl: string,
   surreal: Surreal,
   user: BaseTestUser,
-  scopes?: string,
+  _scopes?: string,
 ): Promise<TestUserWithToken> {
-  const accessToken = await getOAuthToken(
-    baseUrl,
-    surreal,
-    user.headers,
-    scopes ?? MCP_SCOPES,
-  );
-
+  // Create a full DPoP-capable user (suffix based on timestamp for uniqueness)
+  const mcpUser = await createTestUserWithMcp(baseUrl, surreal, `orch-${Date.now()}`);
   return {
     ...user,
-    accessToken,
-    bearerHeaders: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
+    ...mcpUser,
   };
 }

@@ -107,7 +107,7 @@ export async function validateDPoPProof(
     return headerResult.error;
   }
 
-  const { header, jwk } = headerResult.value;
+  const { jwk } = headerResult.value;
 
   // Step 2: Verify signature against embedded JWK
   const verifyResult = await verifySignature(proofJwt, jwk);

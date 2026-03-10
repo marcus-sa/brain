@@ -14,7 +14,7 @@
 import * as jose from "jose";
 import { RecordId } from "surrealdb";
 import { jsonResponse } from "../http/response";
-import { validateDPoPProof, computeJwkThumbprint } from "./dpop";
+import { validateDPoPProof } from "./dpop";
 import type { AsSigningKey } from "./as-key-management";
 import type { NonceCache } from "./nonce-cache";
 import type { DPoPAuthResult, BrainAction, DPoPBoundTokenClaims } from "./types";

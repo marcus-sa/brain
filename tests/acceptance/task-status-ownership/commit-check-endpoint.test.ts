@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { RecordId } from "surrealdb";
-import { createTestUser, createTestUserWithMcp, fetchJson, setupAcceptanceSuite } from "../acceptance-test-kit";
+import { createTestUserWithMcp, fetchJson, setupAcceptanceSuite } from "../acceptance-test-kit";
 
 /**
  * US-3: brain commit-check parses task refs and sets tasks to done.
@@ -61,14 +61,12 @@ describe("commit-check endpoint sets tasks to done (US-3)", () => {
       [{ id: taskId, title: "Implement login flow", status: "in_progress" }],
     );
 
-    const res = await fetch(
-      `${baseUrl}/api/mcp/${workspace.workspaceId}/commits/post-check`,
+    const res = await user.mcpFetch(
+      `/api/mcp/${workspace.workspaceId}/commits/post-check`,
       {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...user.mcpHeaders },
-        body: JSON.stringify({
+        body: {
           message: `Implement login flow\n\ntask:${taskId}`,
-        }),
+        },
       },
     );
 
@@ -98,14 +96,12 @@ describe("commit-check endpoint sets tasks to done (US-3)", () => {
       ],
     );
 
-    await fetch(
-      `${baseUrl}/api/mcp/${workspace.workspaceId}/commits/post-check`,
+    await user.mcpFetch(
+      `/api/mcp/${workspace.workspaceId}/commits/post-check`,
       {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...user.mcpHeaders },
-        body: JSON.stringify({
+        body: {
           message: `Batch update\n\ntasks: ${taskId1}, ${taskId2}`,
-        }),
+        },
       },
     );
 
@@ -131,12 +127,10 @@ describe("commit-check endpoint sets tasks to done (US-3)", () => {
       [{ id: taskId, title: "Unrelated task", status: "in_progress" }],
     );
 
-    const res = await fetch(
-      `${baseUrl}/api/mcp/${workspace.workspaceId}/commits/post-check`,
+    const res = await user.mcpFetch(
+      `/api/mcp/${workspace.workspaceId}/commits/post-check`,
       {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...user.mcpHeaders },
-        body: JSON.stringify({ message: "Fix typo in README" }),
+        body: { message: "Fix typo in README" },
       },
     );
 
@@ -161,14 +155,12 @@ describe("commit-check endpoint sets tasks to done (US-3)", () => {
       [{ id: taskId, title: "Already done task", status: "done" }],
     );
 
-    const res = await fetch(
-      `${baseUrl}/api/mcp/${workspace.workspaceId}/commits/post-check`,
+    const res = await user.mcpFetch(
+      `/api/mcp/${workspace.workspaceId}/commits/post-check`,
       {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...user.mcpHeaders },
-        body: JSON.stringify({
+        body: {
           message: `followup\n\ntask:${taskId}`,
-        }),
+        },
       },
     );
 
@@ -197,14 +189,12 @@ describe("commit-check endpoint sets tasks to done (US-3)", () => {
       },
     );
 
-    const res = await fetch(
-      `${baseUrl}/api/mcp/${workspace.workspaceId}/commits/post-check`,
+    const res = await user.mcpFetch(
+      `/api/mcp/${workspace.workspaceId}/commits/post-check`,
       {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...user.mcpHeaders },
-        body: JSON.stringify({
+        body: {
           message: "task:nonexistent-task-9999 some work",
-        }),
+        },
       },
     );
 
@@ -225,12 +215,10 @@ describe("commit-check endpoint sets tasks to done (US-3)", () => {
       },
     );
 
-    const res = await fetch(
-      `${baseUrl}/api/mcp/${workspace.workspaceId}/commits/post-check`,
+    const res = await user.mcpFetch(
+      `/api/mcp/${workspace.workspaceId}/commits/post-check`,
       {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...user.mcpHeaders },
-        body: JSON.stringify({}),
+        body: {},
       },
     );
 

@@ -69,7 +69,7 @@ export async function generateAsSigningKey(): Promise<AsSigningKey> {
     use: "sig",
   } as AsSigningKey["publicJwk"];
 
-  stripPrivateKeyMaterial(publicJwk as Record<string, unknown>);
+  stripPrivateKeyMaterial(publicJwk as unknown as Record<string, unknown>);
 
   return {
     kid,
@@ -96,7 +96,7 @@ export async function loadActiveKey(row: AsSigningKeyRow): Promise<AsSigningKey>
     use: "sig",
   } as AsSigningKey["publicJwk"];
 
-  stripPrivateKeyMaterial(publicJwk as Record<string, unknown>);
+  stripPrivateKeyMaterial(publicJwk as unknown as Record<string, unknown>);
 
   return {
     kid: row.kid,

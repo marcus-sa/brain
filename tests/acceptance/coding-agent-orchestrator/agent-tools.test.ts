@@ -22,8 +22,6 @@ import {
   createTestProject,
   getTaskStatus,
   getTestUserBearerToken,
-  fetchJson,
-  fetchRaw,
 } from "./orchestrator-test-kit";
 
 const getRuntime = setupOrchestratorSuite("agent_tools");
@@ -46,15 +44,14 @@ describe("Agent Tools: Agent reads task context", () => {
     });
 
     // When the agent requests context for this task
-    const context = await fetchJson<{
+    const res = await tokenUser.mcpFetch(`/api/mcp/${workspace.workspaceId}/task-context`, {
+      body: { task_id: task.taskId },
+    });
+    const context = await res.json() as {
       title: string;
       description: string;
       status: string;
-    }>(`${baseUrl}/api/mcp/${workspace.workspaceId}/task-context`, {
-      method: "POST",
-      headers: tokenUser.bearerHeaders,
-      body: JSON.stringify({ task_id: task.taskId }),
-    });
+    };
 
     // Then the agent receives the task details needed to begin work
     expect(context.title).toBe("Implement CSV export");
@@ -84,14 +81,13 @@ describe("Agent Tools: Agent reads task context", () => {
     });
 
     // When the agent requests context for the project
-    const context = await fetchJson<{
+    const res = await tokenUser.mcpFetch(`/api/mcp/${workspace.workspaceId}/project-context`, {
+      body: { project_id: project.projectId },
+    });
+    const context = await res.json() as {
       name: string;
       status: string;
-    }>(`${baseUrl}/api/mcp/${workspace.workspaceId}/project-context`, {
-      method: "POST",
-      headers: tokenUser.bearerHeaders,
-      body: JSON.stringify({ project_id: project.projectId }),
-    });
+    };
 
     // Then the agent receives the project overview needed for informed decisions
     expect(context.name).toBe("Data Platform");
@@ -110,14 +106,9 @@ describe("Agent Tools: Agent reads task context", () => {
     const tokenUser = await getTestUserBearerToken(baseUrl, surreal, user);
 
     // When the agent requests context for a task that does not exist
-    const response = await fetchRaw(
-      `${baseUrl}/api/mcp/${workspace.workspaceId}/task-context`,
-      {
-        method: "POST",
-        headers: tokenUser.bearerHeaders,
-        body: JSON.stringify({ task_id: "nonexistent-id" }),
-      },
-    );
+    const response = await tokenUser.mcpFetch(`/api/mcp/${workspace.workspaceId}/task-context`, {
+      body: { task_id: "nonexistent-id" },
+    });
 
     // Then the request fails with a clear error
     expect(response.status).toBe(404);
@@ -142,14 +133,12 @@ describe("Agent Tools: Agent updates task status", () => {
     });
 
     // When the agent reports that the task is blocked
-    await fetchJson(`${baseUrl}/api/mcp/${workspace.workspaceId}/tasks/status`, {
-      method: "POST",
-      headers: tokenUser.bearerHeaders,
-      body: JSON.stringify({
+    await tokenUser.mcpFetch(`/api/mcp/${workspace.workspaceId}/tasks/status`, {
+      body: {
         task_id: task.taskId,
         status: "blocked",
         reason: "Missing API credentials for payment provider",
-      }),
+      },
     });
 
     // Then the task status is updated to blocked
@@ -174,13 +163,11 @@ describe("Agent Tools: Agent updates task status", () => {
     });
 
     // When the agent reports that the task is completed
-    await fetchJson(`${baseUrl}/api/mcp/${workspace.workspaceId}/tasks/status`, {
-      method: "POST",
-      headers: tokenUser.bearerHeaders,
-      body: JSON.stringify({
+    await tokenUser.mcpFetch(`/api/mcp/${workspace.workspaceId}/tasks/status`, {
+      body: {
         task_id: task.taskId,
         status: "done",
-      }),
+      },
     });
 
     // Then the task status is updated to done
@@ -203,17 +190,12 @@ describe("Agent Tools: Agent updates task status", () => {
     });
 
     // When the agent tries to set an invalid status
-    const response = await fetchRaw(
-      `${baseUrl}/api/mcp/${workspace.workspaceId}/tasks/status`,
-      {
-        method: "POST",
-        headers: tokenUser.bearerHeaders,
-        body: JSON.stringify({
-          task_id: task.taskId,
-          status: "invalid_status",
-        }),
+    const response = await tokenUser.mcpFetch(`/api/mcp/${workspace.workspaceId}/tasks/status`, {
+      body: {
+        task_id: task.taskId,
+        status: "invalid_status",
       },
-    );
+    });
 
     // Then the request is rejected because the status value is not allowed
     expect(response.ok).toBe(false);
@@ -234,18 +216,14 @@ describe("Agent Tools: Agent creates observations", () => {
     const tokenUser = await getTestUserBearerToken(baseUrl, surreal, user);
 
     // When the agent creates an observation about a discovered risk
-    const observation = await fetchJson<{ id: string }>(
-      `${baseUrl}/api/mcp/${workspace.workspaceId}/observations`,
-      {
-        method: "POST",
-        headers: tokenUser.bearerHeaders,
-        body: JSON.stringify({
-          text: "Authentication tokens are stored in localStorage, vulnerable to XSS",
-          severity: "warning",
-          category: "anomaly",
-        }),
+    const obsRes = await tokenUser.mcpFetch(`/api/mcp/${workspace.workspaceId}/observations`, {
+      body: {
+        text: "Authentication tokens are stored in localStorage, vulnerable to XSS",
+        severity: "warning",
+        category: "anomaly",
       },
-    );
+    });
+    const observation = await obsRes.json() as { id: string };
 
     // Then the observation is recorded for the team to review
     expect(observation.id).toBeTruthy();
@@ -263,18 +241,14 @@ describe("Agent Tools: Agent creates observations", () => {
     const tokenUser = await getTestUserBearerToken(baseUrl, surreal, user);
 
     // When the agent flags the contradiction
-    const observation = await fetchJson<{ id: string }>(
-      `${baseUrl}/api/mcp/${workspace.workspaceId}/observations`,
-      {
-        method: "POST",
-        headers: tokenUser.bearerHeaders,
-        body: JSON.stringify({
-          text: "Task requires SQLite but project decision specifies PostgreSQL",
-          severity: "conflict",
-          category: "contradiction",
-        }),
+    const obsRes = await tokenUser.mcpFetch(`/api/mcp/${workspace.workspaceId}/observations`, {
+      body: {
+        text: "Task requires SQLite but project decision specifies PostgreSQL",
+        severity: "conflict",
+        category: "contradiction",
       },
-    );
+    });
+    const observation = await obsRes.json() as { id: string };
 
     // Then the conflict is surfaced for human resolution
     expect(observation.id).toBeTruthy();
