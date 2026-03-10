@@ -1,0 +1,37 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "636700c51440",
+  "session_id": "cd939cf8-6460-45ba-b129-3b6ef148924f",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-10T16:03:07.940878Z",
+  "branch": "marcus-sa/oauth-rar-dpop-server",
+  "checkpoints_count": 3,
+  "files_touched": [
+    ".gitignore",
+    "AGENTS.md",
+    "tests/acceptance/acceptance-test-kit.ts",
+    "tests/acceptance/coding-agent-orchestrator/agent-tools.test.ts",
+    "tests/acceptance/coding-agent-orchestrator/orchestrator-test-kit.ts",
+    "tests/acceptance/task-status-ownership/commit-check-endpoint.test.ts",
+    "tests/acceptance/task-status-ownership/session-no-status-change.test.ts",
+    "tests/acceptance/workspace/intent-context.test.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "24bcb727f9eb",
+  "token_usage": {
+    "input_tokens": 209,
+    "cache_creation_tokens": 468450,
+    "cache_read_tokens": 12512427,
+    "output_tokens": 40020,
+    "api_call_count": 122
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-10T16:03:07.343537Z",
+    "agent_lines": 94,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 94,
+    "agent_percentage": 100
+  }
+}
