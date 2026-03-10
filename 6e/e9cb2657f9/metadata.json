@@ -3,7 +3,7 @@
   "checkpoint_id": "6ee9cb2657f9",
   "strategy": "manual-commit",
   "branch": "marcus-sa/oauth-rar-dpop-server",
-  "checkpoints_count": 2,
+  "checkpoints_count": 3,
   "files_touched": [
     "docs/feature/oauth-rar-dpop/execution-log.yaml"
   ],
@@ -14,13 +14,20 @@
       "context": "/6e/e9cb2657f9/0/context.md",
       "content_hash": "/6e/e9cb2657f9/0/content_hash.txt",
       "prompt": "/6e/e9cb2657f9/0/prompt.txt"
+    },
+    {
+      "metadata": "/6e/e9cb2657f9/1/metadata.json",
+      "transcript": "/6e/e9cb2657f9/1/full.jsonl",
+      "context": "/6e/e9cb2657f9/1/context.md",
+      "content_hash": "/6e/e9cb2657f9/1/content_hash.txt",
+      "prompt": "/6e/e9cb2657f9/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 14,
-    "cache_creation_tokens": 60364,
-    "cache_read_tokens": 182051,
-    "output_tokens": 932,
-    "api_call_count": 7
+    "input_tokens": 83,
+    "cache_creation_tokens": 311549,
+    "cache_read_tokens": 3016680,
+    "output_tokens": 35046,
+    "api_call_count": 37
   }
 }
