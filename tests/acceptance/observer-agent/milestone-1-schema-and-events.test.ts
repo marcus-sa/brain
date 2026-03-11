@@ -319,7 +319,7 @@ describe("Milestone 1: SurrealDB EVENT Definitions (Story 6)", () => {
   // ---------------------------------------------------------------------------
   // S6-1: task status -> completed fires observer webhook
   // ---------------------------------------------------------------------------
-  it.skip("task completion fires the observer event", async () => {
+  it("task completion fires the observer event", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace with a task in progress
@@ -377,7 +377,7 @@ describe("Milestone 1: SurrealDB EVENT Definitions (Story 6)", () => {
   // ---------------------------------------------------------------------------
   // S6-3: intent status -> completed fires observer webhook
   // ---------------------------------------------------------------------------
-  it.skip("intent completion fires the observer event", async () => {
+  it("intent completion fires the observer event", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace with an intent in authorized status
@@ -422,7 +422,7 @@ describe("Milestone 1: SurrealDB EVENT Definitions (Story 6)", () => {
   // ---------------------------------------------------------------------------
   // S6-4: commit creation fires observer webhook
   // ---------------------------------------------------------------------------
-  it.skip("new git commit fires the observer event", async () => {
+  it("new git commit fires the observer event", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace exists
@@ -444,7 +444,7 @@ describe("Milestone 1: SurrealDB EVENT Definitions (Story 6)", () => {
   // ---------------------------------------------------------------------------
   // S6-5: decision confirmed fires observer webhook
   // ---------------------------------------------------------------------------
-  it.skip("decision confirmation fires the observer event", async () => {
+  it("decision confirmation fires the observer event", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace with a proposed decision
@@ -452,6 +452,7 @@ describe("Milestone 1: SurrealDB EVENT Definitions (Story 6)", () => {
 
     const decisionId = `dec-${crypto.randomUUID()}`;
     const decisionRecord = new RecordId("decision", decisionId);
+    const wsRecord = new RecordId("workspace", workspaceId);
 
     await surreal.query(`CREATE $dec CONTENT $content;`, {
       dec: decisionRecord,
@@ -459,6 +460,7 @@ describe("Milestone 1: SurrealDB EVENT Definitions (Story 6)", () => {
         summary: "Use tRPC for all new API endpoints",
         rationale: "Consistency and type safety",
         status: "proposed",
+        workspace: wsRecord,
         created_at: new Date(),
       },
     });

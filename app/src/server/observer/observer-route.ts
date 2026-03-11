@@ -407,6 +407,8 @@ export function createGraphScanRouteHandler(deps: ServerDependencies) {
 // Workspace resolution
 // ---------------------------------------------------------------------------
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 async function resolveWorkspaceId(
   surreal: Surreal,
   table: string,
@@ -414,32 +416,41 @@ async function resolveWorkspaceId(
   body?: Record<string, unknown>,
 ): Promise<string | undefined> {
   // Try body first (SurrealDB EVENT passes the full record)
+  let wsId: string | undefined;
+
   if (body?.workspace) {
     const ws = body.workspace;
     // Could be a RecordId-like object or a string
     if (typeof ws === "string") {
       // Handle "workspace:uuid" format and strip backticks
       const cleaned = ws.replace(/`/g, "");
-      return cleaned.includes(":") ? cleaned.split(":")[1] : cleaned;
-    }
-    if (typeof ws === "object" && ws !== null) {
+      wsId = cleaned.includes(":") ? cleaned.split(":")[1] : cleaned;
+    } else if (typeof ws === "object" && ws !== null) {
       const wsObj = ws as { id?: string | { String?: string } };
-      if (typeof wsObj.id === "string") return wsObj.id.replace(/`/g, "");
-      if (wsObj.id && typeof (wsObj.id as { String?: string }).String === "string") {
-        return (wsObj.id as { String: string }).String.replace(/`/g, "");
+      if (typeof wsObj.id === "string") wsId = wsObj.id.replace(/`/g, "");
+      else if (wsObj.id && typeof (wsObj.id as { String?: string }).String === "string") {
+        wsId = (wsObj.id as { String: string }).String.replace(/`/g, "");
       }
     }
   }
 
   // Fallback: query the DB
-  const record = new RecordId(table, id);
-  const [rows] = await surreal.query<
-    [Array<{ workspace: RecordId<"workspace", string> }>]
-  >(
-    `SELECT workspace FROM $record;`,
-    { record },
-  );
+  if (!wsId) {
+    const record = new RecordId(table, id);
+    const [rows] = await surreal.query<
+      [Array<{ workspace: RecordId<"workspace", string> }>]
+    >(
+      `SELECT workspace FROM $record;`,
+      { record },
+    );
 
-  const wsRecord = rows?.[0]?.workspace;
-  return wsRecord ? (wsRecord.id as string) : undefined;
+    const wsRecord = rows?.[0]?.workspace;
+    wsId = wsRecord ? (wsRecord.id as string) : undefined;
+  }
+
+  if (wsId && !UUID_PATTERN.test(wsId)) {
+    throw new Error(`Invalid workspace ID format: ${wsId}`);
+  }
+
+  return wsId;
 }

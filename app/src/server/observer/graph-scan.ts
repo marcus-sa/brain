@@ -183,11 +183,17 @@ async function queryStatusDriftTasks(
  * Used for entity-level dedup -- if the observer already has an open observation
  * on this entity, we skip creating another.
  */
+const ALLOWED_OBSERVER_TABLES = ["project", "feature", "task", "decision", "question", "intent", "git_commit", "observation"];
+
 async function queryExistingObserverObservationsForEntity(
   surreal: Surreal,
   workspaceRecord: RecordId<"workspace", string>,
   entityRecord: RecordId<string, string>,
 ): Promise<Array<{ text: string; severity: string; status: string }>> {
+  if (!ALLOWED_OBSERVER_TABLES.includes(entityRecord.table.name)) {
+    throw new Error(`Invalid entity table for observer dedup query: ${entityRecord.table.name}`);
+  }
+
   const [rows] = await surreal.query<[Array<{ text: string; severity: string; status: string }>]>(
     `SELECT text, severity, status FROM observation
      WHERE workspace = $ws
