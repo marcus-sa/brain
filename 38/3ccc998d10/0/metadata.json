@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "383ccc998d10",
+  "session_id": "243ed31d-52ed-4ec6-9801-90ea1ea21215",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-11T08:37:32.069788Z",
+  "branch": "marcus-sa/observer-agent",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "docs/feature/observer-agent/execution-log.yaml"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "9e7fbcc7684d",
+  "token_usage": {
+    "input_tokens": 77,
+    "cache_creation_tokens": 113746,
+    "cache_read_tokens": 3450444,
+    "output_tokens": 24013,
+    "api_call_count": 45
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-11T08:37:31.621937Z",
+    "agent_lines": 5,
+    "human_added": 26,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 31,
+    "agent_percentage": 16.129032258064516
+  }
+}
