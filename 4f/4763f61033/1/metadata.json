@@ -1,0 +1,31 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "4f4763f61033",
+  "session_id": "96f56e19-52b4-4358-8230-777afbcb8583",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-11T04:40:30.872196Z",
+  "branch": "marcus-sa/graph-view-policies",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "app/src/server/graph/graph-route.ts",
+    "app/src/server/graph/transform.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "d00b889f6df9",
+  "token_usage": {
+    "input_tokens": 51,
+    "cache_creation_tokens": 78113,
+    "cache_read_tokens": 1528890,
+    "output_tokens": 15818,
+    "api_call_count": 25
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-11T04:40:29.690199Z",
+    "agent_lines": 2,
+    "human_added": 132,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 134,
+    "agent_percentage": 1.4925373134328357
+  }
+}
