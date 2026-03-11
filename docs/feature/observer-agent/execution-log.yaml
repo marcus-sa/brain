@@ -230,7 +230,7 @@ events:
   s: EXECUTED
   sid: 03-04
   t: '2026-03-11T08:36:25Z'
-- d: 'PASS: both walking skeleton tests pass (2 pass, 0 fail)'
+- d: PASS
   p: RED_ACCEPTANCE
   s: EXECUTED
   sid: 03-04
@@ -245,8 +245,7 @@ events:
   s: SKIPPED
   sid: 03-04
   t: '2026-03-11T08:36:29Z'
-- d: "PASS: walking skeleton validated \u2014 full E2E path confirmed (23 pass, 0\
-    \ fail)"
+- d: PASS
   p: COMMIT
   s: EXECUTED
   sid: 03-04
