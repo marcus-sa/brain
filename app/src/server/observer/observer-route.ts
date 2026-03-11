@@ -11,8 +11,9 @@ import { RecordId } from "surrealdb";
 import { jsonResponse } from "../http/response";
 import { logError, logInfo } from "../http/observability";
 import { createObservation } from "../observation/queries";
-import { gatherTaskSignals } from "./external-signals";
-import { compareTaskCompletion } from "./verification-pipeline";
+import { gatherTaskSignals, checkCiStatus } from "./external-signals";
+import { compareTaskCompletion, compareIntentCompletion, compareCommitStatus } from "./verification-pipeline";
+import type { IntentSignals } from "./verification-pipeline";
 import type { ServerDependencies } from "../runtime/types";
 
 // ---------------------------------------------------------------------------
@@ -57,7 +58,13 @@ export function createObserverRouteHandler(deps: ServerDependencies) {
           break;
 
         case "intent":
+          await handleIntentVerification(deps, id, body);
+          break;
+
         case "git_commit":
+          await handleCommitVerification(deps, id, body);
+          break;
+
         case "decision":
         case "observation":
           // Placeholder: future milestones will implement these
@@ -127,6 +134,148 @@ async function handleTaskVerification(
 
   logInfo("observer.task.verified", "Task verification complete", {
     taskId,
+    verdict: verificationResult.verdict,
+    severity: verificationResult.severity,
+    verified: verificationResult.verified,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Intent verification pipeline (effect shell)
+// ---------------------------------------------------------------------------
+
+async function handleIntentVerification(
+  deps: ServerDependencies,
+  intentId: string,
+  body?: Record<string, unknown>,
+): Promise<void> {
+  const { surreal } = deps;
+
+  const workspaceId = await resolveWorkspaceId(surreal, "intent", intentId, body);
+  if (!workspaceId) {
+    logError("observer.intent.no_workspace", "Cannot determine workspace for intent", { intentId });
+    return;
+  }
+
+  const workspaceRecord = new RecordId("workspace", workspaceId);
+  const intentRecord = new RecordId("intent", intentId);
+
+  // Gather intent signals: status and trace presence
+  const intentSignals = await gatherIntentSignals(surreal, intentId, body);
+  const verificationResult = compareIntentCompletion(intentSignals);
+
+  const now = new Date();
+
+  const observationRecord = await createObservation({
+    surreal,
+    workspaceRecord,
+    text: verificationResult.text,
+    severity: verificationResult.severity,
+    sourceAgent: "observer_agent",
+    observationType: "validation",
+    now,
+    relatedRecord: intentRecord,
+  });
+
+  await surreal.query(
+    `UPDATE $obs SET verified = $verified, source = $source;`,
+    {
+      obs: observationRecord,
+      verified: verificationResult.verified,
+      source: verificationResult.source ?? "none",
+    },
+  );
+
+  logInfo("observer.intent.verified", "Intent verification complete", {
+    intentId,
+    verdict: verificationResult.verdict,
+    severity: verificationResult.severity,
+    verified: verificationResult.verified,
+  });
+}
+
+async function gatherIntentSignals(
+  surreal: import("surrealdb").Surreal,
+  intentId: string,
+  body?: Record<string, unknown>,
+): Promise<IntentSignals> {
+  // Prefer body (from EVENT payload) for status and goal
+  const status = (body?.status as string) ?? "unknown";
+  const goal = (body?.goal as string) ?? "Unknown intent";
+
+  // Check if a trace exists
+  const intentRecord = new RecordId("intent", intentId);
+  const [traceRows] = await surreal.query<[Array<{ trace_id?: RecordId }>]>(
+    `SELECT trace_id FROM $intent;`,
+    { intent: intentRecord },
+  );
+
+  const hasTrace = !!traceRows?.[0]?.trace_id;
+
+  return { status, goal, hasTrace };
+}
+
+// ---------------------------------------------------------------------------
+// Commit verification pipeline (effect shell)
+// ---------------------------------------------------------------------------
+
+async function handleCommitVerification(
+  deps: ServerDependencies,
+  commitId: string,
+  body?: Record<string, unknown>,
+): Promise<void> {
+  const { surreal } = deps;
+
+  const workspaceId = await resolveWorkspaceId(surreal, "git_commit", commitId, body);
+  if (!workspaceId) {
+    logError("observer.commit.no_workspace", "Cannot determine workspace for commit", { commitId });
+    return;
+  }
+
+  const workspaceRecord = new RecordId("workspace", workspaceId);
+  const commitRecord = new RecordId("git_commit", commitId);
+
+  // Gather CI signals for this commit
+  const sha = (body?.sha as string) ?? "";
+  const repository = (body?.repository as string) ?? "";
+
+  const signal = await checkCiStatus({
+    id: commitRecord,
+    sha,
+    repository,
+  });
+
+  const signalsResult = {
+    signals: [signal],
+    hasCommits: true,
+  };
+
+  const verificationResult = compareCommitStatus(signalsResult);
+
+  const now = new Date();
+
+  const observationRecord = await createObservation({
+    surreal,
+    workspaceRecord,
+    text: verificationResult.text,
+    severity: verificationResult.severity,
+    sourceAgent: "observer_agent",
+    observationType: "validation",
+    now,
+    relatedRecord: commitRecord,
+  });
+
+  await surreal.query(
+    `UPDATE $obs SET verified = $verified, source = $source;`,
+    {
+      obs: observationRecord,
+      verified: verificationResult.verified,
+      source: verificationResult.source ?? "none",
+    },
+  );
+
+  logInfo("observer.commit.verified", "Commit verification complete", {
+    commitId,
     verdict: verificationResult.verdict,
     severity: verificationResult.severity,
     verified: verificationResult.verified,

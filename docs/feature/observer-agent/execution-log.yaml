@@ -95,5 +95,30 @@ events:
   s: EXECUTED
   sid: 02-01
   t: '2026-03-11T08:08:14Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-03-11T08:08:51Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 02-02
+  t: '2026-03-11T08:10:00Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 02-02
+  t: '2026-03-11T08:11:59Z'
+- d: 'NOT_APPLICABLE: pipeline tested through acceptance tests'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 02-02
+  t: '2026-03-11T08:12:03Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 02-02
+  t: '2026-03-11T08:13:14Z'
 project_id: observer-agent
 schema_version: '3.0'

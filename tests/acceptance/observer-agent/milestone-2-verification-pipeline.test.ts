@@ -197,7 +197,7 @@ describe("Milestone 2: Intent Completion Verification (Story 2)", () => {
   // ---------------------------------------------------------------------------
   // S2-1: Intent completed -> verification observation created
   // ---------------------------------------------------------------------------
-  it.skip("completed intent produces a verification observation", async () => {
+  it("completed intent produces a verification observation", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace with an intent that has been authorized
@@ -245,7 +245,7 @@ describe("Milestone 2: Intent Completion Verification (Story 2)", () => {
   // ---------------------------------------------------------------------------
   // S2-2: Intent failed -> observation records failure
   // ---------------------------------------------------------------------------
-  it.skip("failed intent produces an observation recording the failure", async () => {
+  it("failed intent produces an observation recording the failure", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace with an intent that was executing
@@ -299,7 +299,7 @@ describe("Milestone 2: Commit Verification (Story 2b)", () => {
   // ---------------------------------------------------------------------------
   // S2b-1: Commit created -> GitHub status checked, observation created
   // ---------------------------------------------------------------------------
-  it.skip("new commit triggers status verification and creates observation", async () => {
+  it("new commit triggers status verification and creates observation", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace exists
