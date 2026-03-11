@@ -1,0 +1,28 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "64da4071d0b0",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/observer-agent",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "schema/migrations/0027_observer_schema_extensions.surql",
+    "schema/surreal-schema.surql",
+    "tests/acceptance/observer-agent/observer-test-kit.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/64/da4071d0b0/0/metadata.json",
+      "transcript": "/64/da4071d0b0/0/full.jsonl",
+      "context": "/64/da4071d0b0/0/context.md",
+      "content_hash": "/64/da4071d0b0/0/content_hash.txt",
+      "prompt": "/64/da4071d0b0/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 162,
+    "cache_creation_tokens": 367680,
+    "cache_read_tokens": 8220326,
+    "output_tokens": 38482,
+    "api_call_count": 90
+  }
+}
