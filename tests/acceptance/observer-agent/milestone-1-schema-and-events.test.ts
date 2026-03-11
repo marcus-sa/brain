@@ -217,7 +217,7 @@ describe("Milestone 1: Schema Extensions (Story 4)", () => {
   // ---------------------------------------------------------------------------
   // S4-5: observes edge accepts intent, git_commit, observation as OUT
   // ---------------------------------------------------------------------------
-  it.skip("observes edge links observation to intent, commit, and observation targets", async () => {
+  it("observes edge links observation to intent, commit, and observation targets", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace with an intent, commit, and another observation
@@ -290,23 +290,24 @@ describe("Milestone 1: Schema Extensions (Story 4)", () => {
     );
 
     // Then all three observes edges exist
+    // SurrealDB returns nested graph traversals as nested objects: {"->observes": {"->intent": [...]}}
     const intentEdge = (await surreal.query(
       `SELECT ->observes->intent FROM $obs;`,
       { obs: new RecordId("observation", obsForIntent) },
-    )) as Array<Array<Record<string, RecordId[]>>>;
-    expect(intentEdge[0]?.[0]?.["->observes->intent"]).toHaveLength(1);
+    )) as Array<Array<Record<string, Record<string, RecordId[]>>>>;
+    expect(intentEdge[0]?.[0]?.["->observes"]?.["->intent"]).toHaveLength(1);
 
     const commitEdge = (await surreal.query(
       `SELECT ->observes->git_commit FROM $obs;`,
       { obs: new RecordId("observation", obsForCommit) },
-    )) as Array<Array<Record<string, RecordId[]>>>;
-    expect(commitEdge[0]?.[0]?.["->observes->git_commit"]).toHaveLength(1);
+    )) as Array<Array<Record<string, Record<string, RecordId[]>>>>;
+    expect(commitEdge[0]?.[0]?.["->observes"]?.["->git_commit"]).toHaveLength(1);
 
     const obsEdge = (await surreal.query(
       `SELECT ->observes->observation FROM $obs;`,
       { obs: new RecordId("observation", obsForObs) },
-    )) as Array<Array<Record<string, RecordId[]>>>;
-    expect(obsEdge[0]?.[0]?.["->observes->observation"]).toHaveLength(1);
+    )) as Array<Array<Record<string, Record<string, RecordId[]>>>>;
+    expect(obsEdge[0]?.[0]?.["->observes"]?.["->observation"]).toHaveLength(1);
   }, 60_000);
 });
 

@@ -12,4 +12,8 @@ DEFINE FIELD OVERWRITE data ON observation TYPE option<object> FLEXIBLE;
 DEFINE FIELD OVERWRITE observation_type ON observation TYPE option<string>
   ASSERT $value IN ["contradiction", "duplication", "missing", "deprecated", "pattern", "anomaly", "validation", "error"] OR $value IS NONE;
 
+-- Extend observes relation OUT types to include intent, git_commit, observation
+DEFINE TABLE OVERWRITE observes TYPE RELATION IN observation OUT project | feature | task | decision | question | intent | git_commit | observation SCHEMAFULL;
+DEFINE FIELD OVERWRITE added_at ON observes TYPE option<datetime>;
+
 COMMIT TRANSACTION;
