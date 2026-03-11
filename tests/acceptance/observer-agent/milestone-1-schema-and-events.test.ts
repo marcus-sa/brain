@@ -341,7 +341,7 @@ describe("Milestone 1: SurrealDB EVENT Definitions (Story 6)", () => {
   // ---------------------------------------------------------------------------
   // S6-2: task status -> in_progress does NOT fire
   // ---------------------------------------------------------------------------
-  it.skip("task transition to in_progress does not fire the observer event", async () => {
+  it("task transition to in_progress does not fire the observer event", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace with a task in open status
@@ -498,7 +498,7 @@ describe("Milestone 1: SurrealDB EVENT Definitions (Story 6)", () => {
   // ---------------------------------------------------------------------------
   // S6-7: observation by observer_agent does NOT fire peer review (no loop)
   // ---------------------------------------------------------------------------
-  it.skip("observer's own observations do not trigger the peer review event", async () => {
+  it("observer's own observations do not trigger the peer review event", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace exists

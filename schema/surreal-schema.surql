@@ -1048,5 +1048,63 @@ DEFINE FIELD rotated_at ON as_signing_key TYPE option<datetime>;
 DEFINE INDEX as_signing_key_kid ON as_signing_key FIELDS kid UNIQUE;
 DEFINE INDEX as_signing_key_status ON as_signing_key FIELDS status;
 
+-- =============================================================================
+-- Observer Agent EVENTs
+-- =============================================================================
+-- These EVENTs fire http::post to the observer endpoint when relevant state
+-- transitions occur. In production the base URL is configured via migration.
+-- In tests, wireObserverEvents() overwrites these with the test server URL.
+-- SurrealDB silently swallows http::post failures, so a placeholder URL here
+-- is harmless until the actual observer route is deployed.
+
+-- EVENT 1: task_completed — fires when task status transitions to completed/done
+DEFINE EVENT task_completed ON task
+  ASYNC
+  RETRY 3
+  WHEN ($before.status != "completed" AND $before.status != "done")
+    AND ($after.status = "completed" OR $after.status = "done")
+  THEN {
+    http::post("http://localhost:3000/api/observe/task/" + <string> meta::id($after.id), $after)
+  };
+
+-- EVENT 2: intent_completed — fires when intent status transitions to completed/failed
+DEFINE EVENT intent_completed ON intent
+  ASYNC
+  RETRY 3
+  WHEN ($before.status != "completed" AND $before.status != "failed")
+    AND ($after.status = "completed" OR $after.status = "failed")
+  THEN {
+    http::post("http://localhost:3000/api/observe/intent/" + <string> meta::id($after.id), $after)
+  };
+
+-- EVENT 3: commit_created — fires when a new git_commit record is created
+DEFINE EVENT commit_created ON git_commit
+  ASYNC
+  RETRY 3
+  WHEN $event = "CREATE"
+  THEN {
+    http::post("http://localhost:3000/api/observe/git_commit/" + <string> meta::id($after.id), $after)
+  };
+
+-- EVENT 4: decision_confirmed — fires when decision status changes to confirmed/superseded
+DEFINE EVENT decision_confirmed ON decision
+  ASYNC
+  RETRY 3
+  WHEN $before.status != $after.status
+    AND ($after.status = "confirmed" OR $after.status = "superseded")
+  THEN {
+    http::post("http://localhost:3000/api/observe/decision/" + <string> meta::id($after.id), $after)
+  };
+
+-- EVENT 5: observation_peer_review — fires when non-observer observation is created
+-- Observer's own observations are excluded to prevent infinite recursion loops.
+DEFINE EVENT observation_peer_review ON observation
+  ASYNC
+  RETRY 3
+  WHEN $event = "CREATE" AND $after.source_agent != "observer_agent"
+  THEN {
+    http::post("http://localhost:3000/api/observe/observation/" + <string> meta::id($after.id), $after)
+  };
+
 -- Analytics agent: read-only database user
 DEFINE USER analytics ON DATABASE PASSWORD 'brain-analytics-readonly' ROLES VIEWER;
