@@ -3,7 +3,7 @@
   "checkpoint_id": "2339b34191bd",
   "strategy": "manual-commit",
   "branch": "marcus-sa/graph-view-policies",
-  "checkpoints_count": 4,
+  "checkpoints_count": 6,
   "files_touched": [
     ".nwave/des-config.json",
     "docs/analysis/root-cause-analysis-embedding-failures.md",
@@ -39,13 +39,20 @@
       "context": "/23/39b34191bd/3/context.md",
       "content_hash": "/23/39b34191bd/3/content_hash.txt",
       "prompt": "/23/39b34191bd/3/prompt.txt"
+    },
+    {
+      "metadata": "/23/39b34191bd/4/metadata.json",
+      "transcript": "/23/39b34191bd/4/full.jsonl",
+      "context": "/23/39b34191bd/4/context.md",
+      "content_hash": "/23/39b34191bd/4/content_hash.txt",
+      "prompt": "/23/39b34191bd/4/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 139,
-    "cache_creation_tokens": 282953,
-    "cache_read_tokens": 3636123,
-    "output_tokens": 25879,
-    "api_call_count": 53
+    "input_tokens": 188,
+    "cache_creation_tokens": 380639,
+    "cache_read_tokens": 5733705,
+    "output_tokens": 43297,
+    "api_call_count": 78
   }
 }
