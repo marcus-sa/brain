@@ -137,7 +137,7 @@ describe("Milestone 4: Cross-Agent Peer Review (Story 10)", () => {
   // ---------------------------------------------------------------------------
   // S10-1: PM agent observation -> observer cross-checks claim
   // ---------------------------------------------------------------------------
-  it.skip("observer cross-checks a PM agent observation against graph state", async () => {
+  it("observer cross-checks a PM agent observation against graph state", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace with project context
@@ -173,7 +173,7 @@ describe("Milestone 4: Cross-Agent Peer Review (Story 10)", () => {
   // ---------------------------------------------------------------------------
   // S10-2: Architect agent observation -> observer peer reviews
   // ---------------------------------------------------------------------------
-  it.skip("observer peer-reviews an architect agent observation", async () => {
+  it("observer peer-reviews an architect agent observation", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace with architectural context
@@ -198,7 +198,7 @@ describe("Milestone 4: Cross-Agent Peer Review (Story 10)", () => {
   // ---------------------------------------------------------------------------
   // S10-3: Observer's own observations do NOT trigger peer review
   // ---------------------------------------------------------------------------
-  it.skip("observer's own observations do not trigger recursive peer review", async () => {
+  it("observer's own observations do not trigger recursive peer review", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace exists

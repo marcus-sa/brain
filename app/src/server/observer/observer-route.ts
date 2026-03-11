@@ -12,8 +12,8 @@ import { jsonResponse } from "../http/response";
 import { logError, logInfo } from "../http/observability";
 import { createObservation } from "../observation/queries";
 import { gatherTaskSignals, checkCiStatus } from "./external-signals";
-import { compareTaskCompletion, compareIntentCompletion, compareCommitStatus, compareDecisionConfirmation } from "./verification-pipeline";
-import type { IntentSignals, DecisionSignals } from "./verification-pipeline";
+import { compareTaskCompletion, compareIntentCompletion, compareCommitStatus, compareDecisionConfirmation, compareObservationPeerReview } from "./verification-pipeline";
+import type { IntentSignals, DecisionSignals, ObservationPeerReviewSignals } from "./verification-pipeline";
 import type { ServerDependencies } from "../runtime/types";
 import { runObserverAgent } from "../agents/observer/agent";
 import { runGraphScan } from "./graph-scan";
@@ -72,11 +72,7 @@ export function createObserverRouteHandler(deps: ServerDependencies) {
           break;
 
         case "observation":
-          // Placeholder: future milestones will implement peer review
-          logInfo("observer.event.skipped", "Observer event type not yet implemented", {
-            table: supportedTable,
-            id,
-          });
+          await handleObservationPeerReview(deps, id, body);
           break;
       }
 
@@ -327,6 +323,88 @@ async function handleDecisionVerification(
     severity: verificationResult.severity,
     verified: verificationResult.verified,
   });
+}
+
+// ---------------------------------------------------------------------------
+// Observation peer review pipeline (effect shell)
+// ---------------------------------------------------------------------------
+
+async function handleObservationPeerReview(
+  deps: ServerDependencies,
+  observationId: string,
+  body?: Record<string, unknown>,
+): Promise<void> {
+  const { surreal } = deps;
+
+  const workspaceId = await resolveWorkspaceId(surreal, "observation", observationId, body);
+  if (!workspaceId) {
+    logError("observer.observation.no_workspace", "Cannot determine workspace for observation", { observationId });
+    return;
+  }
+
+  const workspaceRecord = new RecordId("workspace", workspaceId);
+  const originalObservationRecord = new RecordId("observation", observationId);
+
+  // Gather peer review signals from the original observation and workspace context
+  const peerReviewSignals = await gatherObservationPeerReviewSignals(surreal, workspaceRecord, body);
+  const verificationResult = compareObservationPeerReview(peerReviewSignals);
+
+  const now = new Date();
+
+  const observationRecord = await createObservation({
+    surreal,
+    workspaceRecord,
+    text: verificationResult.text,
+    severity: verificationResult.severity,
+    sourceAgent: "observer_agent",
+    observationType: "validation",
+    now,
+    relatedRecord: originalObservationRecord,
+  });
+
+  await surreal.query(
+    `UPDATE $obs SET verified = $verified, source = $source;`,
+    {
+      obs: observationRecord,
+      verified: verificationResult.verified,
+      source: verificationResult.source ?? "peer_review",
+    },
+  );
+
+  logInfo("observer.observation.peer_reviewed", "Observation peer review complete", {
+    observationId,
+    verdict: verificationResult.verdict,
+    severity: verificationResult.severity,
+  });
+}
+
+async function gatherObservationPeerReviewSignals(
+  surreal: import("surrealdb").Surreal,
+  workspaceRecord: RecordId<"workspace", string>,
+  body?: Record<string, unknown>,
+): Promise<ObservationPeerReviewSignals> {
+  const originalText = (body?.text as string) ?? "Unknown observation";
+  const originalSeverity = ((body?.severity as string) ?? "info") as "info" | "warning" | "conflict";
+  const sourceAgent = (body?.source_agent as string) ?? "unknown_agent";
+
+  // Count tasks and decisions in the workspace for cross-checking context
+  const [taskRows] = await surreal.query<[Array<{ count: number }>]>(
+    `SELECT count() AS count FROM task WHERE workspace = $ws GROUP ALL;`,
+    { ws: workspaceRecord },
+  );
+
+  const [decisionRows] = await surreal.query<[Array<{ count: number }>]>(
+    `SELECT count() AS count FROM decision WHERE workspace = $ws GROUP ALL;`,
+    { ws: workspaceRecord },
+  );
+
+  return {
+    originalText,
+    originalSeverity,
+    sourceAgent,
+    relatedTaskCount: taskRows?.[0]?.count ?? 0,
+    relatedDecisionCount: decisionRows?.[0]?.count ?? 0,
+  };
 }
 
 async function gatherDecisionSignals(

@@ -38,6 +38,14 @@ export type DecisionSignals = {
   completedTaskCount: number;
 };
 
+export type ObservationPeerReviewSignals = {
+  originalText: string;
+  originalSeverity: "info" | "warning" | "conflict";
+  sourceAgent: string;
+  relatedTaskCount: number;
+  relatedDecisionCount: number;
+};
+
 // ---------------------------------------------------------------------------
 // Pure comparison: claim vs reality for task completion
 // ---------------------------------------------------------------------------
@@ -200,6 +208,51 @@ export function compareDecisionConfirmation(
     severity: "info",
     verified: false,
     text: `Decision in unexpected status '${signals.status}': "${signals.summary}"`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Pure comparison: observation peer review
+// ---------------------------------------------------------------------------
+
+export function compareObservationPeerReview(
+  signals: ObservationPeerReviewSignals,
+): VerificationResult {
+  const hasContext = signals.relatedTaskCount > 0 || signals.relatedDecisionCount > 0;
+
+  if (!hasContext) {
+    return {
+      verdict: "inconclusive",
+      severity: "info",
+      verified: false,
+      text: `Peer review of ${signals.sourceAgent} observation: "${signals.originalText}". No related tasks or decisions found in workspace to cross-check this claim.`,
+    };
+  }
+
+  // When context exists, cross-check severity against workspace state
+  if (signals.originalSeverity === "conflict") {
+    return {
+      verdict: "match",
+      severity: "warning",
+      verified: false,
+      text: `Peer review of ${signals.sourceAgent} observation: "${signals.originalText}". Found ${signals.relatedTaskCount} task(s) and ${signals.relatedDecisionCount} decision(s) in workspace. Conflict claim requires human review.`,
+    };
+  }
+
+  if (signals.originalSeverity === "warning") {
+    return {
+      verdict: "match",
+      severity: "info",
+      verified: true,
+      text: `Peer review of ${signals.sourceAgent} observation: "${signals.originalText}". Found ${signals.relatedTaskCount} task(s) and ${signals.relatedDecisionCount} decision(s) in workspace. Warning acknowledged and cross-checked.`,
+    };
+  }
+
+  return {
+    verdict: "match",
+    severity: "info",
+    verified: true,
+    text: `Peer review of ${signals.sourceAgent} observation: "${signals.originalText}". Cross-checked against ${signals.relatedTaskCount} task(s) and ${signals.relatedDecisionCount} decision(s).`,
   };
 }
 

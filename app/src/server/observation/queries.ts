@@ -3,7 +3,7 @@ import { RecordId, Surreal } from "surrealdb";
 import type { EntityCategory, ObservationSeverity, ObservationStatus, ObservationSummary, ObservationType } from "../../shared/contracts";
 
 type ObservationRecord = RecordId<"observation", string>;
-type ObserveTargetRecord = RecordId<"project" | "feature" | "task" | "decision" | "question", string>;
+type ObserveTargetRecord = RecordId<"project" | "feature" | "task" | "decision" | "question" | "observation", string>;
 
 const SEVERITY_PRIORITY: Record<ObservationSeverity, number> = {
   conflict: 0,
