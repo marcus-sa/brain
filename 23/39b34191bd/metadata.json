@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "2339b34191bd",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/graph-view-policies",
+  "checkpoints_count": 0,
+  "files_touched": [
+    ".nwave/des-config.json",
+    "docs/analysis/root-cause-analysis-embedding-failures.md",
+    "docs/feature/graph-policies-intents/.develop-progress.json",
+    "docs/feature/graph-policies-intents/execution-log.yaml",
+    "docs/feature/graph-policies-intents/roadmap.yaml"
+  ],
+  "sessions": [
+    {
+      "metadata": "/23/39b34191bd/0/metadata.json",
+      "transcript": "/23/39b34191bd/0/full.jsonl",
+      "context": "/23/39b34191bd/0/context.md",
+      "content_hash": "/23/39b34191bd/0/content_hash.txt",
+      "prompt": "/23/39b34191bd/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 0,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 0,
+    "output_tokens": 0,
+    "api_call_count": 0
+  }
+}

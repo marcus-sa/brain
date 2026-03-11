@@ -1,0 +1,36 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "2339b34191bd",
+  "session_id": "0e707a23-6a6c-4050-ac4f-3652082ea53c",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-11T04:55:04.971683Z",
+  "branch": "marcus-sa/graph-view-policies",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "docs/analysis/root-cause-analysis-embedding-failures.md",
+    "docs/feature/graph-policies-intents/.develop-progress.json",
+    "docs/feature/graph-policies-intents/execution-log.yaml",
+    "docs/feature/graph-policies-intents/roadmap.yaml",
+    ".nwave/des-config.json"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "fb71601a051d",
+  "checkpoint_transcript_start": 27,
+  "transcript_lines_at_start": 27,
+  "token_usage": {
+    "input_tokens": 0,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 0,
+    "output_tokens": 0,
+    "api_call_count": 0
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-11T04:55:04.899999Z",
+    "agent_lines": 301,
+    "human_added": 245,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 546,
+    "agent_percentage": 55.12820512820513
+  }
+}
