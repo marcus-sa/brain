@@ -363,6 +363,8 @@ export async function listConversationEntities(input: {
 
   for (const row of rows) {
     const table = row.out.table.name as GraphEntityTable;
+    // Governance entities (policy, intent, agent_session) are created programmatically,
+    // not extracted from message text. They appear in graph views via workspace queries.
     if (
       table !== "workspace" &&
       table !== "project" &&

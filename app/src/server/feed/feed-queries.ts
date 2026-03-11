@@ -1013,5 +1013,15 @@ async function readEntityNameByTable(
     return row?.text;
   }
 
+  if (table === "policy") {
+    const row = await surreal.select<{ title: string }>(record);
+    return row?.title;
+  }
+
+  if (table === "intent") {
+    const row = await surreal.select<{ goal: string }>(record);
+    return row?.goal;
+  }
+
   return undefined;
 }
