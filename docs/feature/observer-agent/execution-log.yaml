@@ -300,5 +300,35 @@ events:
   s: EXECUTED
   sid: 04-02
   t: '2026-03-11T10:28:12Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 04-02
+  t: '2026-03-11T10:28:47Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 04-03
+  t: '2026-03-11T10:29:40Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 04-03
+  t: '2026-03-11T10:30:26Z'
+- d: 'NOT_APPLICABLE: integration validation step, no unit tests needed'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 04-03
+  t: '2026-03-11T10:30:28Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 04-03
+  t: '2026-03-11T10:30:29Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 04-03
+  t: '2026-03-11T10:32:30Z'
 project_id: observer-agent
 schema_version: '3.0'
