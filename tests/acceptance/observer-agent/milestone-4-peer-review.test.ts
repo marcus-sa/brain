@@ -224,7 +224,7 @@ describe("Milestone 4: Cross-Agent Peer Review (Story 10)", () => {
   // ---------------------------------------------------------------------------
   // S10-4: Multiple agents creating observations do not cause cascading reviews
   // ---------------------------------------------------------------------------
-  it.skip("peer review observations do not cascade between agents", async () => {
+  it("peer review observations do not cascade between agents", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace exists

@@ -475,7 +475,7 @@ describe("Milestone 1: SurrealDB EVENT Definitions (Story 6)", () => {
   // ---------------------------------------------------------------------------
   // S6-6: observation by pm_agent fires peer review webhook
   // ---------------------------------------------------------------------------
-  it.skip("observation from another agent fires the peer review event", async () => {
+  it("observation from another agent fires the peer review event", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace exists
