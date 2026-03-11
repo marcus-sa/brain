@@ -1,0 +1,40 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "1c71b47cec25",
+  "session_id": "0392c0eb-151c-4df7-afa8-d88c6cc72ab0",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-11T06:53:32.967074Z",
+  "branch": "marcus-sa/observer-agent",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "docs/requirements/observer-agent/acceptance-criteria.md",
+    "docs/requirements/observer-agent/dor-checklist.md",
+    "docs/requirements/observer-agent/requirements.md",
+    "docs/requirements/observer-agent/user-stories.md",
+    "docs/ux/observer-agent/journey-reality-verification-visual.md",
+    "docs/ux/observer-agent/journey-reality-verification.feature",
+    "docs/ux/observer-agent/journey-reality-verification.yaml",
+    "docs/ux/observer-agent/jtbd-four-forces.md",
+    "docs/ux/observer-agent/jtbd-job-stories.md",
+    "docs/ux/observer-agent/jtbd-opportunity-scores.md",
+    "docs/ux/observer-agent/shared-artifacts-registry.md"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "2886f41e1b05",
+  "token_usage": {
+    "input_tokens": 5926,
+    "cache_creation_tokens": 129620,
+    "cache_read_tokens": 888383,
+    "output_tokens": 14180,
+    "api_call_count": 22
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-11T06:53:32.723525Z",
+    "agent_lines": 750,
+    "human_added": 41,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 791,
+    "agent_percentage": 94.81668773704172
+  }
+}

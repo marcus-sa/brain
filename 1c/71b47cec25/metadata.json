@@ -1,0 +1,36 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "1c71b47cec25",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/observer-agent",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "docs/requirements/observer-agent/acceptance-criteria.md",
+    "docs/requirements/observer-agent/dor-checklist.md",
+    "docs/requirements/observer-agent/requirements.md",
+    "docs/requirements/observer-agent/user-stories.md",
+    "docs/ux/observer-agent/journey-reality-verification-visual.md",
+    "docs/ux/observer-agent/journey-reality-verification.feature",
+    "docs/ux/observer-agent/journey-reality-verification.yaml",
+    "docs/ux/observer-agent/jtbd-four-forces.md",
+    "docs/ux/observer-agent/jtbd-job-stories.md",
+    "docs/ux/observer-agent/jtbd-opportunity-scores.md",
+    "docs/ux/observer-agent/shared-artifacts-registry.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/1c/71b47cec25/0/metadata.json",
+      "transcript": "/1c/71b47cec25/0/full.jsonl",
+      "context": "/1c/71b47cec25/0/context.md",
+      "content_hash": "/1c/71b47cec25/0/content_hash.txt",
+      "prompt": "/1c/71b47cec25/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 5926,
+    "cache_creation_tokens": 129620,
+    "cache_read_tokens": 888383,
+    "output_tokens": 14180,
+    "api_call_count": 22
+  }
+}
