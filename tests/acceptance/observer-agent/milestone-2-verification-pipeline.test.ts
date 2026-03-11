@@ -330,7 +330,7 @@ describe("Milestone 2: Graceful Degradation (Story 3)", () => {
   // ---------------------------------------------------------------------------
   // S3-1: External API unreachable -> warning observation, task not blocked
   // ---------------------------------------------------------------------------
-  it.skip("external API failure produces warning observation without blocking task", async () => {
+  it("external API failure produces warning observation without blocking task", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace with a task linked to a commit
@@ -369,7 +369,7 @@ describe("Milestone 2: Graceful Degradation (Story 3)", () => {
   // ---------------------------------------------------------------------------
   // S3-2: EVENT RETRY handles transient failures
   // ---------------------------------------------------------------------------
-  it.skip("transient observer endpoint failure is retried by EVENT", async () => {
+  it("transient observer endpoint failure is retried by EVENT", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace with a task
