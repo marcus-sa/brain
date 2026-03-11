@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "8e4051ccac30",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/graph-view-policies",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "docs/adrs/ADR-021-graph-function-extension-for-governance-entities.md",
+    "docs/adrs/ADR-022-governance-edge-visual-distinction.md",
+    "docs/feature/graph-policies-intents/design/architecture-design.md",
+    "docs/feature/graph-policies-intents/design/component-boundaries.md",
+    "docs/feature/graph-policies-intents/design/data-models.md",
+    "docs/feature/graph-policies-intents/design/review-proof.md",
+    "docs/feature/graph-policies-intents/design/technology-stack.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/8e/4051ccac30/0/metadata.json",
+      "transcript": "/8e/4051ccac30/0/full.jsonl",
+      "context": "/8e/4051ccac30/0/context.md",
+      "content_hash": "/8e/4051ccac30/0/content_hash.txt",
+      "prompt": "/8e/4051ccac30/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 1173,
+    "cache_creation_tokens": 75951,
+    "cache_read_tokens": 288455,
+    "output_tokens": 3886,
+    "api_call_count": 9
+  }
+}

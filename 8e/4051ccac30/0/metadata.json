@@ -1,0 +1,36 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "8e4051ccac30",
+  "session_id": "66b8cebd-44d3-4073-a3c5-55fcdf6f3875",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-11T04:14:09.527788Z",
+  "branch": "marcus-sa/graph-view-policies",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "docs/adrs/ADR-021-graph-function-extension-for-governance-entities.md",
+    "docs/adrs/ADR-022-governance-edge-visual-distinction.md",
+    "docs/feature/graph-policies-intents/design/architecture-design.md",
+    "docs/feature/graph-policies-intents/design/component-boundaries.md",
+    "docs/feature/graph-policies-intents/design/data-models.md",
+    "docs/feature/graph-policies-intents/design/review-proof.md",
+    "docs/feature/graph-policies-intents/design/technology-stack.md"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "a5d86023b7f9",
+  "token_usage": {
+    "input_tokens": 1173,
+    "cache_creation_tokens": 75951,
+    "cache_read_tokens": 288455,
+    "output_tokens": 3886,
+    "api_call_count": 9
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-11T04:14:09.298598Z",
+    "agent_lines": 548,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 548,
+    "agent_percentage": 100
+  }
+}
