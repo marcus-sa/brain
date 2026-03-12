@@ -31,19 +31,19 @@ export async function seedObserverLlmTestData(surreal: Surreal): Promise<Observe
     updated_at: now,
   });
 
-  // Owner
-  const ownerRecord = new RecordId("person", nextId());
+  // Owner identity (member_of requires identity, not person)
+  const ownerRecord = new RecordId("identity", nextId());
   await surreal.create(ownerRecord).content({
     name: "Eval Owner",
+    type: "human",
+    workspace: workspaceRecord,
+    identity_status: "active",
     created_at: oneMonthAgo,
-    updated_at: now,
   });
-  await surreal
-    .relate(ownerRecord, new RecordId("member_of", nextId()), workspaceRecord, {
-      role: "owner",
-      added_at: oneMonthAgo,
-    })
-    .output("after");
+  await surreal.query(
+    `RELATE $identity->member_of->$workspace SET added_at = $added_at;`,
+    { identity: ownerRecord, workspace: workspaceRecord, added_at: oneMonthAgo },
+  );
 
   // Project
   const projectRecord = new RecordId("project", nextId()) as RecordId<"project", string>;
