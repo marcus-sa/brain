@@ -203,7 +203,7 @@ const OBSERVER_DEDUP_QUERIES: Record<string, string> = Object.fromEntries(
   ),
 );
 
-async function queryExistingObserverObservationsForEntity(
+export async function queryExistingObserverObservationsForEntity(
   surreal: Surreal,
   workspaceRecord: RecordId<"workspace", string>,
   entityRecord: RecordId<string, string>,
@@ -518,6 +518,8 @@ export async function runGraphScan(
     });
   }
   for (const task of staleBlocked) {
+    const evaluation = evaluationMap.get(`task:${task.id.id as string}`);
+    if (evaluation && !evaluation.relevant) continue; // skip LLM-filtered anomalies
     anomalies.push({
       type: "stale_blocked",
       text: `Task "${task.title}" blocked for ${task.daysBlocked} days`,
@@ -526,6 +528,8 @@ export async function runGraphScan(
     });
   }
   for (const drift of driftTasks) {
+    const evaluation = evaluationMap.get(`task:${drift.id.id as string}`);
+    if (evaluation && !evaluation.relevant) continue; // skip LLM-filtered anomalies
     anomalies.push({
       type: "status_drift",
       text: `Task "${drift.title}" completed but dependency "${drift.dependency.title}" is ${drift.dependency.status}`,

@@ -11,6 +11,7 @@
 import { RecordId, type Surreal } from "surrealdb";
 import type { LanguageModel } from "ai";
 import { createObservation, type ObserveTargetRecord } from "../../observation/queries";
+import { queryExistingObserverObservationsForEntity } from "../../observer/graph-scan";
 import { logInfo } from "../../http/observability";
 import { gatherTaskSignals } from "../../observer/external-signals";
 import { checkCiStatus } from "../../observer/external-signals";
@@ -243,6 +244,17 @@ async function verifyDecision(input: ObserverAgentInput): Promise<ObserverAgentO
 
       const finalVerdict = applyLlmVerdict(deterministicResult, llmVerdict);
       const taskRecord = new RecordId("task", taskContexts[i].taskId) as ObserveTargetRecord;
+
+      // Dedup: skip if observer already has an open observation on this task
+      const existing = await queryExistingObserverObservationsForEntity(
+        surreal, workspaceRecord, taskRecord as RecordId<string, string>,
+      );
+      if (existing.length > 0) {
+        logInfo("observer.decision.dedup", "Skipping duplicate mismatch observation", {
+          decisionId, taskId: taskContexts[i].taskId,
+        });
+        continue;
+      }
 
       await persistObservation(surreal, workspaceRecord, [decisionRecord as ObserveTargetRecord, taskRecord], finalVerdict);
       observationsCreated += 1;
