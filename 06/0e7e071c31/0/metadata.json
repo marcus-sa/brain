@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "060e7e071c31",
+  "session_id": "07d3153c-0b33-45d6-aa75-ef3ac6045c86",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-12T19:50:52.103961Z",
+  "branch": "marcus-sa/observer-agent",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "bun.lock",
+    "package.json",
+    "tests/acceptance/observer-llm-reasoning/milestone-4-peer-review.test.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "f3ee4aec2595",
+  "token_usage": {
+    "input_tokens": 2,
+    "cache_creation_tokens": 31812,
+    "cache_read_tokens": 10751,
+    "output_tokens": 121,
+    "api_call_count": 1
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-12T19:50:52.072747Z",
+    "agent_lines": 0,
+    "human_added": 4,
+    "human_modified": 6,
+    "human_removed": 0,
+    "total_committed": 4,
+    "agent_percentage": 0
+  }
+}
