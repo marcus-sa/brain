@@ -506,6 +506,7 @@ export async function startServer(): Promise<void> {
     pmAgentModel: runtime.pmAgentModel,
     analyticsAgentModel: runtime.analyticsAgentModel,
     embeddingModel: runtime.embeddingModel,
+    ...(runtime.observerModel ? { observerModel: runtime.observerModel } : {}),
     sse: createSseRegistry(),
     inflight: createInflightTracker(),
     asSigningKey: runtime.asSigningKey,

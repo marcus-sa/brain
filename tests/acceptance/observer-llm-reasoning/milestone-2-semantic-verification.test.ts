@@ -50,7 +50,7 @@ beforeAll(async () => {
 // =============================================================================
 
 describe("Milestone 2: Semantic Contradiction Detection (AC-1.1)", () => {
-  it.skip("LLM detects mismatch when task contradicts confirmed decision", async () => {
+  it("LLM detects mismatch when task contradicts confirmed decision", async () => {
     const { baseUrl, surreal } = getRuntime();
     const { workspaceId } = await setupObserverWorkspace(baseUrl, surreal, "llm-contra-1");
     const { projectId } = await createProject(surreal, workspaceId, "Contradiction Project");
@@ -87,7 +87,7 @@ describe("Milestone 2: Semantic Contradiction Detection (AC-1.1)", () => {
     expect(obs.text.length).toBeGreaterThan(30);
   }, 120_000);
 
-  it.skip("LLM creates observes edges to both task and contradicted decision", async () => {
+  it("LLM creates observes edges to both task and contradicted decision", async () => {
     const { baseUrl, surreal } = getRuntime();
     const { workspaceId } = await setupObserverWorkspace(baseUrl, surreal, "llm-edges-1");
     const { projectId } = await createProject(surreal, workspaceId, "Edge Test Project");
@@ -125,7 +125,7 @@ describe("Milestone 2: Semantic Contradiction Detection (AC-1.1)", () => {
 // =============================================================================
 
 describe("Milestone 2: Match Confirmation (AC-1.2)", () => {
-  it.skip("LLM confirms match when task aligns with decision", async () => {
+  it("LLM confirms match when task aligns with decision", async () => {
     const { baseUrl, surreal } = getRuntime();
     const { workspaceId } = await setupObserverWorkspace(baseUrl, surreal, "llm-match-1");
     const { projectId } = await createProject(surreal, workspaceId, "Match Project");
@@ -167,7 +167,7 @@ describe("Milestone 2: LLM Fallback (AC-1.4)", () => {
   // the observation source indicates the fallback path.
   // Full fallback simulation is covered by unit tests on the verdict logic.
 
-  it.skip("observation source is deterministic_fallback when LLM was unavailable", async () => {
+  it("observation source is deterministic_fallback when LLM was unavailable", async () => {
     // This scenario is inherently difficult to trigger in E2E without controlling
     // the LLM provider. Instead, verify the structural contract: observations from
     // the deterministic path have appropriate source values.
@@ -200,7 +200,7 @@ describe("Milestone 2: LLM Fallback (AC-1.4)", () => {
 // =============================================================================
 
 describe("Milestone 2: Confidence Threshold (AC-1.5)", () => {
-  it.skip("ambiguous task-decision relationship produces info severity (not conflict)", async () => {
+  it("ambiguous task-decision relationship produces info severity (not conflict)", async () => {
     const { baseUrl, surreal } = getRuntime();
     const { workspaceId } = await setupObserverWorkspace(baseUrl, surreal, "llm-ambiguous");
     const { projectId } = await createProject(surreal, workspaceId, "Ambiguous Project");
@@ -237,7 +237,7 @@ describe("Milestone 2: Confidence Threshold (AC-1.5)", () => {
 // =============================================================================
 
 describe("Milestone 2: Skip Optimization (AC-1.3)", () => {
-  it.skip("skip optimization disabled forces LLM invocation", async () => {
+  it("skip optimization disabled forces LLM invocation", async () => {
     const { baseUrl, surreal } = getRuntime();
     const { workspaceId } = await setupObserverWorkspace(baseUrl, surreal, "llm-noskip");
     const { projectId } = await createProject(surreal, workspaceId, "No-Skip Project");
@@ -271,7 +271,7 @@ describe("Milestone 2: Skip Optimization (AC-1.3)", () => {
 // =============================================================================
 
 describe("Milestone 2: Evidence Ref Validation (AC-1.6)", () => {
-  it.skip("observation is created even when LLM references non-existent entities", async () => {
+  it("observation is created even when LLM references non-existent entities", async () => {
     const { baseUrl, surreal } = getRuntime();
     const { workspaceId } = await setupObserverWorkspace(baseUrl, surreal, "llm-evref");
     const { projectId } = await createProject(surreal, workspaceId, "Evidence Ref Project");

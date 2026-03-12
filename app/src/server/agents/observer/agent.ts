@@ -105,6 +105,20 @@ async function verifyTask(input: ObserverAgentInput): Promise<ObserverAgentOutpu
       logInfo("observer.llm.skip", "LLM skipped: deterministic match + CI passing", { taskId });
     } else {
       const context = await buildEntityContext(surreal, workspaceRecord, "task", taskId, body);
+
+      // Only invoke LLM when there are decisions to check against.
+      // Without decisions, semantic verification has nothing to compare --
+      // the deterministic CI-based verdict should stand.
+      if (context.relatedDecisions.length === 0) {
+        logInfo("observer.llm.skip", "LLM skipped: no related decisions to verify against", { taskId });
+        await persistObservation(surreal, workspaceRecord, taskRecord, deterministicResult);
+        return {
+          observations_created: 1,
+          verdict: deterministicResult.verdict,
+          evidence,
+        };
+      }
+
       const llmVerdict = await generateVerificationVerdict(observerModel, context, deterministicResult);
       const finalVerdict = applyLlmVerdict(deterministicResult, llmVerdict);
 
@@ -372,7 +386,7 @@ async function queryCompletedTasks(
     title: string;
     description?: string;
   }>]>(
-    `SELECT id, title, description FROM task
+    `SELECT id, title, description, updated_at FROM task
      WHERE workspace = $ws AND status IN ["completed", "done"]
      ORDER BY updated_at DESC
      LIMIT 20;`,

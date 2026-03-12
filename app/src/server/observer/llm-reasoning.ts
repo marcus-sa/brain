@@ -61,7 +61,7 @@ Compare the entity's title and description against each decision's summary and r
 In evidence_refs, list the table:id of every entity and decision relevant to your verdict.
 In contradiction.claim, state what the entity does. In contradiction.reality, state what the decision requires. Set both to "none" when verdict is not mismatch.
 Set confidence >= 0.7 when evidence clearly supports your verdict. Use < 0.5 only when genuinely ambiguous.`,
-      abortSignal: AbortSignal.timeout(10_000),
+      abortSignal: AbortSignal.timeout(30_000),
     });
 
     const latencyMs = Date.now() - start;
@@ -133,7 +133,7 @@ ${entitiesText}
 - "unsupported" (confidence < 0.4) = claims lack evidence or contradict linked entities.
 
 If no entities are linked, the observation has no cited evidence — verdict should be "unsupported" with low confidence.`,
-      abortSignal: AbortSignal.timeout(10_000),
+      abortSignal: AbortSignal.timeout(30_000),
     });
 
     const latencyMs = Date.now() - start;
