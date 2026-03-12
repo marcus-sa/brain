@@ -1,7 +1,9 @@
 {
   "cli_version": "0.4.8",
   "checkpoint_id": "84a8605a3ed4",
+  "session_id": "37cd2d21-bed6-4e72-a623-a3f4cf8b29ab",
   "strategy": "manual-commit",
+  "created_at": "2026-03-12T18:32:43.26063Z",
   "branch": "marcus-sa/observer-agent",
   "checkpoints_count": 3,
   "files_touched": [
@@ -12,27 +14,22 @@
     "app/src/server/observer/graph-scan.ts",
     "app/src/server/webhook/github-commit-processor.ts"
   ],
-  "sessions": [
-    {
-      "metadata": "/84/a8605a3ed4/0/metadata.json",
-      "transcript": "/84/a8605a3ed4/0/full.jsonl",
-      "context": "",
-      "content_hash": "/84/a8605a3ed4/0/content_hash.txt",
-      "prompt": ""
-    },
-    {
-      "metadata": "/84/a8605a3ed4/1/metadata.json",
-      "transcript": "/84/a8605a3ed4/1/full.jsonl",
-      "context": "/84/a8605a3ed4/1/context.md",
-      "content_hash": "/84/a8605a3ed4/1/content_hash.txt",
-      "prompt": "/84/a8605a3ed4/1/prompt.txt"
-    }
-  ],
+  "agent": "Claude Code",
+  "turn_id": "33e5a7275948",
   "token_usage": {
     "input_tokens": 54,
     "cache_creation_tokens": 85600,
     "cache_read_tokens": 1784852,
     "output_tokens": 7943,
     "api_call_count": 34
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-12T18:32:43.107667Z",
+    "agent_lines": 23,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 23,
+    "agent_percentage": 100
   }
 }
