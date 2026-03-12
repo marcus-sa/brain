@@ -429,29 +429,22 @@ async function loadObservationLinkedEntities(
 
   if (!rows || rows.length === 0) return [];
 
-  const entities: Array<{ table: string; id: string; title: string; description?: string }> = [];
+  const targets = rows.map((r) => r.out);
 
-  for (const row of rows) {
-    const targetTable = row.out.table.name;
-    const targetId = row.out.id as string;
+  const [details] = await surreal.query<[Array<{
+    id: RecordId;
+    title?: string; summary?: string; text?: string; description?: string;
+  }>]>(
+    `SELECT id, title, summary, text, description FROM $records;`,
+    { records: targets },
+  );
 
-    const [details] = await surreal.query<[Array<{
-      title?: string; summary?: string; text?: string; description?: string;
-    }>]>(
-      `SELECT title, summary, text, description FROM $record;`,
-      { record: new RecordId(targetTable, targetId) },
-    );
-
-    const d = details?.[0];
-    entities.push({
-      table: targetTable,
-      id: targetId,
-      title: d?.title ?? d?.summary ?? d?.text ?? "Unknown",
-      description: d?.description,
-    });
-  }
-
-  return entities;
+  return (details ?? []).map((d) => ({
+    table: d.id.table.name,
+    id: d.id.id as string,
+    title: d.title ?? d.summary ?? d.text ?? "Unknown",
+    description: d.description,
+  }));
 }
 
 // ---------------------------------------------------------------------------
