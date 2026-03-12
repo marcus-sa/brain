@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "81a0c368bd22",
+  "session_id": "c180bd28-718a-4149-b3cb-534990ecc8c0",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-12T18:37:09.784649Z",
+  "branch": "marcus-sa/observer-agent",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "tests/acceptance/observer-agent/milestone-2-verification-pipeline.test.ts",
+    "tests/acceptance/observer-agent/observer-test-kit.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "0e3a267c5e9f",
+  "checkpoint_transcript_start": 128,
+  "transcript_lines_at_start": 128,
+  "token_usage": {
+    "input_tokens": 21,
+    "cache_creation_tokens": 19521,
+    "cache_read_tokens": 1141490,
+    "output_tokens": 6925,
+    "api_call_count": 11
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-12T18:37:09.581776Z",
+    "agent_lines": 0,
+    "human_added": 0,
+    "human_modified": 66,
+    "human_removed": 11,
+    "total_committed": 0,
+    "agent_percentage": 0
+  }
+}
