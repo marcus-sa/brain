@@ -292,8 +292,8 @@ async function peerReviewObservation(input: ObserverAgentInput): Promise<Observe
       );
 
       if (llmVerdict) {
-        const severity = llmVerdict.verdict === "unsupported" ? "warning" as const
-          : "info" as const;
+        const severity = llmVerdict.verdict === "sound" ? "info" as const
+          : "warning" as const;
 
         const reviewResult: VerificationResult = {
           verdict: llmVerdict.verdict === "sound" ? "match" : llmVerdict.verdict === "unsupported" ? "mismatch" : "inconclusive",

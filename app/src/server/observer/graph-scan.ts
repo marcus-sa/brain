@@ -516,6 +516,12 @@ export async function runGraphScan(
       entityId: decision.id.id as string,
       entityTable: "decision",
     });
+    anomalies.push({
+      type: "contradiction",
+      text: `Task "${task.title}" contradicts decision "${decision.summary}"`,
+      entityId: task.id.id as string,
+      entityTable: "task",
+    });
   }
   for (const task of staleBlocked) {
     const evaluation = evaluationMap.get(`task:${task.id.id as string}`);
