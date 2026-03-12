@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "1ee83f36e4b6",
+  "session_id": "fdd20aff-905b-4eac-83b0-97c05c3b4bcc",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-12T16:36:35.405904Z",
+  "branch": "marcus-sa/observer-agent",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "tests/acceptance/observer-llm-reasoning/milestone-1-schema-and-config.test.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "0acee7cfba49",
+  "token_usage": {
+    "input_tokens": 23,
+    "cache_creation_tokens": 54286,
+    "cache_read_tokens": 691452,
+    "output_tokens": 4164,
+    "api_call_count": 13
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-12T16:36:35.352162Z",
+    "agent_lines": 0,
+    "human_added": 0,
+    "human_modified": 5,
+    "human_removed": 0,
+    "total_committed": 0,
+    "agent_percentage": 0
+  }
+}
