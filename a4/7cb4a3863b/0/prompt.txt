@@ -1,0 +1,74 @@
+<system_instruction>
+You are working inside Conductor, a Mac app that lets the user run many coding agents in parallel.
+Your work should take place in the /Users/marcus/conductor/workspaces/brain-v1/houston-v1 directory (unless otherwise directed), which has been set up for you to work in.
+Each workspace has a .context directory (gitignored) where you can save files to collaborate with other agents.
+The target branch for this workspace is main. Use this for actions like creating new PRs, bisecting, etc., unless you're told otherwise.
+
+If the user asks you to work on several unrelated tasks in parallel, you can suggest they start new workspaces.
+If the user asks for help with Conductor, ask them to email [humans@conductor.build](mailto:humans@conductor.build) or
+click on the comment icon in the bottom left to send feedback.
+</system_instruction>
+
+marcus@Marcuss-MacBook-Pro houston-v1 % bunx evalite run evals/observer-llm-reasoning.eval.ts
+
+ EVALITE running...
+
+ ⏳ evals/observer-llm-reasoning.eval.ts  (8 evals)
+stderr | evals/observer-llm-reasoning.eval.ts
+beforeAll setup failed: ResponseError: The query was not executed due to a failed transaction
+    at Query.collect (file:///Users/marcus/conductor/workspaces/brain-v1/houston-v1/node_modules/surrealdb/dist/surrealdb.mjs:2968:27)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at setupEvalRuntime (/Users/marcus/conductor/workspaces/brain-v1/houston-v1/evals/eval-test-kit.ts:75:5)
+    at /Users/marcus/conductor/workspaces/brain-v1/houston-v1/evals/observer-llm-reasoning.eval.ts:48:15 {
+  code: 0
+}
+
+ - evals/observer-llm-reasoning.eval.ts  (8 evals)
+
+      Score  -
+ Eval Files  1
+      Evals  8
+   Duration  0ms
+marcus@Marcuss-MacBook-Pro houston-v1 %
+
+---
+
+add this learning to AGENTS.md
+
+---
+
+✗ Failed: 0025_policy_condition_union_type.surql
+6377 |  handleRpcResponse({ id: id$1,...res }) {
+6378 |          if (typeof id$1 === "string") {
+6379 |                  try {
+6380 |                          const response = res;
+6381 |                          const { resolve, reject } = this.#calls.get(id$1) ?? {};
+6382 |                          if (response.error) reject?.(new ResponseError(response.error));
+                                        ^
+ResponseError: Parse error: FLEXIBLE must be specified after TYPE
+ --> [4:53]
+  |
+4 | ...ON policy FLEXIBLE TYPE object | array;
+  |              ^^^^^^^^
+
+ code: -32000,
+
+---
+
+✗ Failed: 0025_policy_condition_union_type.surql
+6377 |  handleRpcResponse({ id: id$1,...res }) {
+6378 |          if (typeof id$1 === "string") {
+6379 |                  try {
+6380 |                          const response = res;
+6381 |                          const { resolve, reject } = this.#calls.get(id$1) ?? {};
+6382 |                          if (response.error) reject?.(new ResponseError(response.error));
+                                        ^
+ResponseError: Parse error: FLEXIBLE can only be used with types containing object
+ --> [7:61]
+  |
+7 | ... TYPE any FLEXIBLE;
+  |              ^^^^^^^^
+
+---
+
+commit
