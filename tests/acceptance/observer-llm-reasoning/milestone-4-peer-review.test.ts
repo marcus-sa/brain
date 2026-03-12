@@ -46,7 +46,7 @@ beforeAll(async () => {
 // =============================================================================
 
 describe("Milestone 4: LLM Peer Review (AC-3.1)", () => {
-  it.skip("LLM evaluates PM agent observation with evidence edges", async () => {
+  it("LLM evaluates PM agent observation with evidence edges", async () => {
     const { baseUrl, surreal } = getRuntime();
     const { workspaceId } = await setupObserverWorkspace(baseUrl, surreal, "llm-peer-1");
     const { projectId } = await createProject(surreal, workspaceId, "Peer Review Project");
@@ -102,7 +102,7 @@ describe("Milestone 4: LLM Peer Review (AC-3.1)", () => {
     expect(review.text.length).toBeGreaterThan(20);
   }, 120_000);
 
-  it.skip("LLM peer review evaluates evidence quality and returns structured verdict", async () => {
+  it("LLM peer review evaluates evidence quality and returns structured verdict", async () => {
     const { baseUrl, surreal } = getRuntime();
     const { workspaceId } = await setupObserverWorkspace(baseUrl, surreal, "llm-peer-2");
     const { projectId } = await createProject(surreal, workspaceId, "Verdict Project");
@@ -143,7 +143,7 @@ describe("Milestone 4: LLM Peer Review (AC-3.1)", () => {
 // =============================================================================
 
 describe("Milestone 4: Original Observation Integrity (AC-3.3)", () => {
-  it.skip("peer review does not modify the original observation", async () => {
+  it("peer review does not modify the original observation", async () => {
     const { baseUrl, surreal } = getRuntime();
     const { workspaceId } = await setupObserverWorkspace(baseUrl, surreal, "llm-peer-immut");
     const { projectId } = await createProject(surreal, workspaceId, "Immutability Project");
@@ -197,7 +197,7 @@ describe("Milestone 4: Original Observation Integrity (AC-3.3)", () => {
 // =============================================================================
 
 describe("Milestone 4: Cascade Prevention", () => {
-  it.skip("observer's own observations do not trigger LLM peer review", async () => {
+  it("observer's own observations do not trigger LLM peer review", async () => {
     const { baseUrl, surreal } = getRuntime();
     const { workspaceId } = await setupObserverWorkspace(baseUrl, surreal, "llm-peer-noloop");
 
@@ -215,7 +215,7 @@ describe("Milestone 4: Cascade Prevention", () => {
     expect(observerObs).toHaveLength(1);
   }, 30_000);
 
-  it.skip("observations without evidence edges skip LLM review", async () => {
+  it("observations without evidence edges skip LLM review", async () => {
     const { baseUrl, surreal } = getRuntime();
     const { workspaceId } = await setupObserverWorkspace(baseUrl, surreal, "llm-peer-noedge");
 
