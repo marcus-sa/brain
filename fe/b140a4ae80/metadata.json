@@ -23,6 +23,13 @@
       "context": "/fe/b140a4ae80/1/context.md",
       "content_hash": "/fe/b140a4ae80/1/content_hash.txt",
       "prompt": "/fe/b140a4ae80/1/prompt.txt"
+    },
+    {
+      "metadata": "/fe/b140a4ae80/2/metadata.json",
+      "transcript": "/fe/b140a4ae80/2/full.jsonl",
+      "context": "/fe/b140a4ae80/2/context.md",
+      "content_hash": "/fe/b140a4ae80/2/content_hash.txt",
+      "prompt": "/fe/b140a4ae80/2/prompt.txt"
     }
   ],
   "token_usage": {
