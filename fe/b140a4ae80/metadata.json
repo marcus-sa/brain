@@ -1,0 +1,28 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "feb140a4ae80",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/observer-agent",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "app/src/server/agents/observer/prompt.ts",
+    "app/src/server/observer/context-loader.ts",
+    "app/src/server/observer/llm-reasoning.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/fe/b140a4ae80/0/metadata.json",
+      "transcript": "/fe/b140a4ae80/0/full.jsonl",
+      "context": "/fe/b140a4ae80/0/context.md",
+      "content_hash": "/fe/b140a4ae80/0/content_hash.txt",
+      "prompt": "/fe/b140a4ae80/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 78,
+    "cache_creation_tokens": 488893,
+    "cache_read_tokens": 4058281,
+    "output_tokens": 17127,
+    "api_call_count": 36
+  }
+}
