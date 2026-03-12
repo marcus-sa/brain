@@ -80,3 +80,11 @@ but the whole point of the observer-llm-reasoning feature was to incorporate thi
 
 commit and then refactor agent.ts to own the full verification pipeline (deterministic + LLM) as the design intended
 
+### Prompt 14
+
+This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.
+
+Summary:
+1. Primary Request and Intent:
+   The user invoked `/nw:deliver observer-llm-reasoning` to audit the feature implementation against its roadmap, check what's missing, review acceptance tests, and fix issues. This evolved into discovering and fixing three critical bugs preventing LLM reasoning from working, then a major architectural ...
+

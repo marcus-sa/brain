@@ -360,3 +360,177 @@ but the whole point of the observer-llm-reasoning feature was to incorporate thi
 ---
 
 commit and then refactor agent.ts to own the full verification pipeline (deterministic + LLM) as the design intended
+
+---
+
+This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.
+
+Summary:
+1. Primary Request and Intent:
+   The user invoked `/nw:deliver observer-llm-reasoning` to audit the feature implementation against its roadmap, check what's missing, review acceptance tests, and fix issues. This evolved into discovering and fixing three critical bugs preventing LLM reasoning from working, then a major architectural refactor to move LLM reasoning into the observer agent where the design doc intended it to live.
+
+2. Key Technical Concepts:
+   - SurrealDB graph traversal direction: `->belongs_to->` (forward, IN→OUT) vs `<-belongs_to<-` (backward, OUT→IN)
+   - `RELATE decision->belongs_to->project` creates edge where decision is IN, project is OUT
+   - Vercel AI SDK `generateObject` with `system` and `prompt` parameters
+   - Observer agent pattern: deterministic verification + optional LLM reasoning
+   - Brain knowledge graph domain: decisions, tasks, observations, `belongs_to` edges, `observes` edges
+   - Eval scoring with evalite: verdict-accuracy, confidence-calibration, reasoning-quality, no-hallucination, factuality
+   - Component boundaries: pure core (verification-pipeline.ts) vs effect boundary (llm-reasoning.ts, context-loader.ts)
+   - Design doc at `docs/feature/observer-llm-reasoning/design/component-boundaries.md` specifies agent.ts and prompt.ts should be MODIFIED to wire LLM reasoning
+
+3. Files and Code Sections:
+
+   - `app/src/server/observer/context-loader.ts`
+     - Critical fix: graph traversal was inverted, causing related decisions to never be found
+     - Added `loadEntityBody()` to fetch entity from DB when `entityBody` not provided
+     - Changes: `<-belongs_to<-project` → `->belongs_to->project` in both `loadRelatedDecisions` and `resolveEntityProject`
+     ```typescript
+     // FIXED: was <-belongs_to<-project (wrong direction)
+     `SELECT id, summary, status, rationale, updated_at FROM decision
+      WHERE workspace = $ws
+        AND status IN ["confirmed", "provisional"]
+        AND ->belongs_to->project CONTAINS $project
+      ORDER BY updated_at DESC
+      LIMIT 20;`
+     
+     // FIXED: was <-belongs_to<-project (wrong direction)  
+     `SELECT ->belongs_to->project AS project FROM $entity;`
+     
+     // NEW: loads entity from DB when entityBody not provided
+     async function loadEntityBody(surreal, entityTable, entityId) {
+       const entityRecord = new RecordId(entityTable, entityId);
+       const [rows] = await surreal.query(
+         `SELECT title, summary, description, status FROM $entity;`,
+         { entity: entityRecord },
+       );
+       return rows?.[0];
+     }
+     
+     // CHANGED: falls back to DB query
+     const body = entityBody ?? await loadEntityBody(surreal, entityTable, entityId);
+     ```
+
+   - `app/src/server/agents/observer/prompt.ts`
+     - Was orphaned (never imported anywhere). Now exports `OBSERVER_IDENTITY` constant with Brain domain knowledge
+     - `buildObserverSystemPrompt` composes identity + dynamic workspace observations
+     ```typescript
+     export const OBSERVER_IDENTITY = `You are the Observer agent in Brain, the operating system for autonomous organizations.
+     
+     Brain is a knowledge graph where projects, decisions, tasks, features, observations, and questions are nodes...
+     
+     ## Key Domain Concepts
+     - **Decision**: A confirmed organizational choice...
+     - **Task**: A unit of work...
+     - **Observation**: A signal you create...
+     
+     ## Verification Principles
+     - A task that does something a confirmed decision explicitly forbids is a "mismatch"...
+     - Be decisive: if the text clearly shows a contradiction, say mismatch with high confidence...`;
+     
+     export async function buildObserverSystemPrompt(input) {
+       const observations = await listWorkspaceOpenObservations({...});
+       return [OBSERVER_IDENTITY, "", "## Existing Workspace Observations", formatObservations(observations)].join("\n");
+     }
+     ```
+
+   - `app/src/server/observer/llm-reasoning.ts`
+     - Now imports `OBSERVER_IDENTITY` from prompt.ts instead of inline constant
+     - Both `generateVerificationVerdict` and `generatePeerReviewVerdict` use `system: OBSERVER_IDENTITY` in `generateObject` calls
+     ```typescript
+     import { OBSERVER_IDENTITY } from "../agents/observer/prompt";
+     
+     const result = await generateObject({
+       model,
+       system: OBSERVER_IDENTITY,
+       schema: llmVerdictSchema,
+       prompt: `Verify whether this entity aligns with or contradicts...`,
+       abortSignal: AbortSignal.timeout(10_000),
+     });
+     ```
+
+   - `app/src/server/agents/observer/agent.ts`
+     - **FULL REWRITE**: Was deterministic-only, tasks-only. Now owns full pipeline for all entity types
+     - Accepts optional `observerModel: LanguageModel` in input
+     - Handles: task (deterministic+LLM), intent, commit, decision (deterministic+LLM), observation peer review (deterministic+LLM)
+     - Moved all signal gathering, DB helpers, and observation persistence from route
+     ```typescript
+     export type ObserverAgentInput = {
+       surreal: Surreal;
+       workspaceRecord: RecordId<"workspace", string>;
+       entityTable: string;
+       entityId: string;
+       entityBody?: Record<string, unknown>;
+       observerModel?: LanguageModel;  // NEW: optional LLM model
+     };
+     
+     export async function runObserverAgent(input: ObserverAgentInput): Promise<ObserverAgentOutput> {
+       switch (input.entityTable) {
+         case "task": return verifyTask(input);
+         case "intent": return verifyIntent(input);
+         case "git_commit": return verifyCommit(input);
+         case "decision": return verifyDecision(input);
+         case "observation": return peerReviewObservation(input);
+         default: return { observations_created: 0, verdict: "inconclusive", evidence: [...] };
+       }
+     }
+     ```
+
+   - `app/src/server/observer/observer-route.ts`
+     - **FULL REWRITE**: Slimmed from ~678 lines to ~140 lines
+     - Now just: parse request → resolve workspace → delegate to `runObserverAgent()` → return response
+     - Kept: `createObserverRouteHandler`, `createGraphScanRouteHandler`, `resolveWorkspaceId`
+     - Removed: all verification logic, signal gathering, LLM helpers, observation persistence
+
+   - `docs/feature/observer-llm-reasoning/execution-log.yaml`
+     - Updated from 1 step (01-01) to all 12 steps (01-01 through 04-02) with descriptions
+
+   - `docs/feature/observer-llm-reasoning/design/component-boundaries.md`
+     - Read-only: confirms design intent that agent.ts and prompt.ts should be MODIFIED
+     
+   - `evals/observer-llm-reasoning.eval.ts` and `evals/observer-llm-reasoning-seed-data.ts`
+     - Read-only: eval suite with 8 test cases, seed data creates workspace with decisions+tasks linked via belongs_to edges
+
+   - `app/src/server/observer/schemas.ts`
+     - Read-only: Zod schemas (llmVerdictSchema, synthesisPatternSchema, peerReviewVerdictSchema) are solid
+
+4. Errors and fixes:
+   - **Inverted graph traversal** (root cause of 54% eval score): `<-belongs_to<-project` should be `->belongs_to->project`. RELATE creates decision as IN, project as OUT. Forward traversal `->` follows IN→OUT. Fixed in both `loadRelatedDecisions` and `resolveEntityProject`.
+   - **Missing entity body in LLM context**: `buildEntityContext` showed "Title: Unknown" when `entityBody` not provided (eval doesn't pass it). Fixed by adding `loadEntityBody()` DB fallback.
+   - **No system prompt with domain knowledge**: `generateObject` calls had no `system` parameter. LLM (gpt-4.1-mini) didn't understand Brain's domain model. Fixed by adding `OBSERVER_IDENTITY` to prompt.ts and using it as `system` in generateObject calls.
+   - **User feedback: "but what is the buildObserverSystemPrompt used for then?"** — Pointed out prompt.ts existed but was orphaned. Led to consolidating domain knowledge there.
+   - **User feedback: "i don't understand. read the docs"** — User directed me to read the design docs which explicitly stated agent.ts and prompt.ts should be modified. I had been rationalizing instead of following the design.
+   - **User feedback: "but the whole point of the observer-llm-reasoning feature was to incorporate this???"** — Called out that LLM reasoning was bolted onto observer-route.ts instead of being wired through agent.ts as designed. Led to the full agent refactor.
+
+5. Problem Solving:
+   - Diagnosed why evals scored 54%: three compounding bugs meant the LLM received no entity title, no related decisions, and no domain context
+   - Refactored architecture to match design intent: agent owns all verification, route is thin HTTP adapter
+   - All 34 acceptance tests pass after refactor (verified twice)
+   - Commits: `f0aabc2f` (execution log), `cb15e810` (three bug fixes), pending commit for agent refactor
+
+6. All user messages:
+   - `/nw:deliver observer-llm-reasoning - go through roadmap, check what is missing based on the code that has already been implemented, and then also go through acceptance tests`
+   - `so none of the tests are skipped?`
+   - `Update the execution log to reflect all completed steps`
+   - `clean up des/ and commit`
+   - (Shared eval results showing 54% score with detailed table)
+   - `but does the observer agent actually have any knowledge about how brain works ? isn't it missing prompt refinement?`
+   - `but what is the buildObserverSystemPrompt used for then?`
+   - `shouldnt prompt.ts be removed then?`
+   - `"I'd say keep prompt.ts for when..." i don't understand. read the docs in observer-llm-reasoning/ and observer-agent/ dirs`
+   - `"Now I see the full picture..." but the whole point of the observer-llm-reasoning feature was to incorporate this???`
+   - `commit and then refactor agent.ts to own the full verification pipeline (deterministic + LLM) as the design intended`
+
+7. Pending Tasks:
+   - Commit the agent.ts/observer-route.ts refactor (tests pass, not yet committed)
+   - User needs to re-run evals (`bun run eval`) to verify the three fixes improve the 54% score
+   - The `llm-synthesis.ts` also uses inline prompts and may benefit from OBSERVER_IDENTITY (not yet addressed)
+
+8. Current Work:
+   Completed the refactor of `agent.ts` to own the full verification pipeline (all 5 entity types with deterministic + LLM) and slimmed `observer-route.ts` to a thin HTTP adapter. Acceptance tests pass (34/34). The refactor has NOT been committed yet.
+
+9. Optional Next Step:
+   Commit the agent refactor. The user explicitly said "commit and then refactor agent.ts to own the full verification pipeline (deterministic + LLM) as the design intended" — the refactor is done and tests pass, so the commit is the immediate next step.
+
+If you need specific details from before compaction (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/marcus/.claude/projects/-Users-marcus-conductor-workspaces-brain-v1-houston-v1/1f30ef84-ecd9-4d10-9305-741a75c0a1b1.jsonl
+Continue the conversation from where it left off without asking the user any further questions. Resume directly — do not acknowledge the summary, do not recap what was happening, do not preface with "I'll continue" or similar. Pick up the last task as if the break never happened.
