@@ -1,17 +1,35 @@
 /**
  * Observer agent: verifies entity state changes and surfaces observations.
  *
- * Follows the same structural pattern as agents/pm/agent.ts.
- * Currently operates deterministically using the verification pipeline.
- * Future milestones may introduce LLM-based reasoning via ToolLoopAgent.
+ * Owns the full verification pipeline: deterministic + LLM reasoning.
+ * Called by observer-route.ts (HTTP adapter) for each entity event.
  *
- * Pipeline: receive event -> load workspace context -> verify claim vs reality -> create observation
+ * Pipeline: receive event -> gather signals -> deterministic verdict
+ *           -> (optional) LLM reasoning -> persist observation
  */
 
 import { RecordId, type Surreal } from "surrealdb";
-import { createObservation } from "../../observation/queries";
+import type { LanguageModel } from "ai";
+import { createObservation, type ObserveTargetRecord } from "../../observation/queries";
+import { logInfo } from "../../http/observability";
 import { gatherTaskSignals } from "../../observer/external-signals";
-import { compareTaskCompletion, type VerificationResult } from "../../observer/verification-pipeline";
+import { checkCiStatus } from "../../observer/external-signals";
+import {
+  compareTaskCompletion,
+  compareIntentCompletion,
+  compareCommitStatus,
+  compareDecisionConfirmation,
+  compareObservationPeerReview,
+  shouldSkipLlm,
+  applyLlmVerdict,
+  type VerificationResult,
+  type IntentSignals,
+  type DecisionSignals,
+  type ObservationPeerReviewSignals,
+} from "../../observer/verification-pipeline";
+import { buildEntityContext } from "../../observer/context-loader";
+import { generateVerificationVerdict, generatePeerReviewVerdict } from "../../observer/llm-reasoning";
+import { parseEntityRef } from "../../observer/evidence-validator";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -31,6 +49,7 @@ export type ObserverAgentInput = {
   entityTable: string;
   entityId: string;
   entityBody?: Record<string, unknown>;
+  observerModel?: LanguageModel;
 };
 
 // ---------------------------------------------------------------------------
@@ -38,12 +57,19 @@ export type ObserverAgentInput = {
 // ---------------------------------------------------------------------------
 
 export async function runObserverAgent(input: ObserverAgentInput): Promise<ObserverAgentOutput> {
-  const { surreal, workspaceRecord, entityTable, entityId } = input;
+  const { entityTable } = input;
 
-  // Dispatch to entity-specific verification
   switch (entityTable) {
     case "task":
-      return verifyTaskCompletion(surreal, workspaceRecord, entityId);
+      return verifyTask(input);
+    case "intent":
+      return verifyIntent(input);
+    case "git_commit":
+      return verifyCommit(input);
+    case "decision":
+      return verifyDecision(input);
+    case "observation":
+      return peerReviewObservation(input);
     default:
       return {
         observations_created: 0,
@@ -54,72 +80,398 @@ export async function runObserverAgent(input: ObserverAgentInput): Promise<Obser
 }
 
 // ---------------------------------------------------------------------------
-// Task verification
+// Task verification (deterministic + LLM)
 // ---------------------------------------------------------------------------
 
-async function verifyTaskCompletion(
-  surreal: Surreal,
-  workspaceRecord: RecordId<"workspace", string>,
-  taskId: string,
-): Promise<ObserverAgentOutput> {
+async function verifyTask(input: ObserverAgentInput): Promise<ObserverAgentOutput> {
+  const { surreal, workspaceRecord, entityId: taskId, entityBody: body, observerModel } = input;
   const taskRecord = new RecordId("task", taskId);
   const evidence: string[] = [];
 
-  // Gather external signals (commits, CI)
+  // Deterministic: gather external signals (commits, CI)
   const signalsResult = await gatherTaskSignals(surreal, taskId);
   evidence.push(`Commits found: ${signalsResult.hasCommits}`);
   evidence.push(`Signal count: ${signalsResult.signals.length}`);
 
-  // Run pure comparison
-  const verificationResult = compareTaskCompletion(signalsResult);
-  evidence.push(`Verdict: ${verificationResult.verdict}`);
-  evidence.push(verificationResult.text);
+  const deterministicResult = compareTaskCompletion(signalsResult);
+  evidence.push(`Verdict: ${deterministicResult.verdict}`);
+  evidence.push(deterministicResult.text);
 
-  // Persist observation with observes edge
-  await persistVerificationObservation(
-    surreal,
-    workspaceRecord,
-    taskRecord,
-    verificationResult,
-  );
+  // LLM reasoning path
+  if (observerModel) {
+    const skipDeterministic = await loadWorkspaceSkipSetting(surreal, workspaceRecord);
+
+    if (shouldSkipLlm(deterministicResult, skipDeterministic)) {
+      logInfo("observer.llm.skip", "LLM skipped: deterministic match + CI passing", { taskId });
+    } else {
+      const context = await buildEntityContext(surreal, workspaceRecord, "task", taskId, body);
+      const llmVerdict = await generateVerificationVerdict(observerModel, context, deterministicResult);
+      const finalVerdict = applyLlmVerdict(deterministicResult, llmVerdict);
+
+      // Link contradicted decisions via observes edges
+      const additionalRecords = extractDecisionRecords(llmVerdict?.evidence_refs);
+
+      await persistObservation(surreal, workspaceRecord, taskRecord, finalVerdict, "none", additionalRecords);
+
+      return {
+        observations_created: 1,
+        verdict: finalVerdict.verdict,
+        evidence,
+      };
+    }
+  }
+
+  // Deterministic-only path
+  await persistObservation(surreal, workspaceRecord, taskRecord, deterministicResult);
 
   return {
     observations_created: 1,
-    verdict: verificationResult.verdict,
+    verdict: deterministicResult.verdict,
     evidence,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Intent verification (deterministic only)
+// ---------------------------------------------------------------------------
+
+async function verifyIntent(input: ObserverAgentInput): Promise<ObserverAgentOutput> {
+  const { surreal, workspaceRecord, entityId: intentId, entityBody: body } = input;
+  const intentRecord = new RecordId("intent", intentId);
+
+  const intentSignals = await gatherIntentSignals(surreal, intentId, body);
+  const result = compareIntentCompletion(intentSignals);
+
+  await persistObservation(surreal, workspaceRecord, intentRecord, result);
+
+  return {
+    observations_created: 1,
+    verdict: result.verdict,
+    evidence: [result.text],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Commit verification (deterministic only)
+// ---------------------------------------------------------------------------
+
+async function verifyCommit(input: ObserverAgentInput): Promise<ObserverAgentOutput> {
+  const { surreal, workspaceRecord, entityId: commitId, entityBody: body } = input;
+  const commitRecord = new RecordId("git_commit", commitId);
+
+  const sha = (body?.sha as string) ?? "";
+  const repository = (body?.repository as string) ?? "";
+
+  const signal = await checkCiStatus({ id: commitRecord, sha, repository });
+  const result = compareCommitStatus({ signals: [signal], hasCommits: true });
+
+  await persistObservation(surreal, workspaceRecord, commitRecord, result);
+
+  return {
+    observations_created: 1,
+    verdict: result.verdict,
+    evidence: [result.text],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Decision verification (deterministic + LLM check against completed tasks)
+// ---------------------------------------------------------------------------
+
+async function verifyDecision(input: ObserverAgentInput): Promise<ObserverAgentOutput> {
+  const { surreal, workspaceRecord, entityId: decisionId, entityBody: body, observerModel } = input;
+  const decisionRecord = new RecordId("decision", decisionId);
+
+  // Skip initial CREATE events — only verify status transitions
+  if (!body?.updated_at) {
+    logInfo("observer.decision.skipped_create", "Skipping decision CREATE event", { decisionId });
+    return { observations_created: 0, verdict: "inconclusive", evidence: ["Skipped: CREATE event"] };
+  }
+
+  const decisionSignals = await gatherDecisionSignals(surreal, workspaceRecord, body);
+  const deterministicResult = compareDecisionConfirmation(decisionSignals);
+
+  await persistObservation(surreal, workspaceRecord, decisionRecord, deterministicResult);
+  let observationsCreated = 1;
+
+  // LLM: when decision confirmed, check completed tasks against it
+  if (observerModel && body?.status === "confirmed" && decisionSignals.completedTaskCount > 0) {
+    const completedTasks = await queryCompletedTasks(surreal, workspaceRecord);
+
+    for (const task of completedTasks) {
+      const taskId = task.id.id as string;
+      const taskBody = { title: task.title, description: task.description, status: "completed" };
+      const context = await buildEntityContext(surreal, workspaceRecord, "task", taskId, taskBody);
+      const llmVerdict = await generateVerificationVerdict(observerModel, context, deterministicResult);
+
+      if (!llmVerdict || llmVerdict.verdict !== "mismatch") continue;
+
+      const finalVerdict = applyLlmVerdict(deterministicResult, llmVerdict);
+      const taskRecord = new RecordId("task", taskId) as ObserveTargetRecord;
+
+      await persistObservation(surreal, workspaceRecord, decisionRecord, finalVerdict, "none", [taskRecord]);
+      observationsCreated += 1;
+    }
+  }
+
+  return {
+    observations_created: observationsCreated,
+    verdict: deterministicResult.verdict,
+    evidence: [deterministicResult.text],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Observation peer review (deterministic + LLM)
+// ---------------------------------------------------------------------------
+
+async function peerReviewObservation(input: ObserverAgentInput): Promise<ObserverAgentOutput> {
+  const { surreal, workspaceRecord, entityId: observationId, entityBody: body, observerModel } = input;
+  const observationRecord = new RecordId("observation", observationId);
+
+  const peerReviewSignals = await gatherPeerReviewSignals(surreal, workspaceRecord, body);
+  const deterministicResult = compareObservationPeerReview(peerReviewSignals);
+
+  // LLM peer review when model available and observation has linked entities
+  if (observerModel) {
+    const linkedEntities = await loadObservationLinkedEntities(surreal, observationId);
+
+    if (linkedEntities.length > 0) {
+      const llmVerdict = await generatePeerReviewVerdict(
+        observerModel,
+        peerReviewSignals.originalText,
+        peerReviewSignals.originalSeverity,
+        peerReviewSignals.sourceAgent,
+        linkedEntities,
+      );
+
+      if (llmVerdict) {
+        const severity = llmVerdict.verdict === "unsupported" ? "warning" as const
+          : "info" as const;
+
+        const reviewResult: VerificationResult = {
+          verdict: llmVerdict.verdict === "sound" ? "match" : llmVerdict.verdict === "unsupported" ? "mismatch" : "inconclusive",
+          severity,
+          verified: llmVerdict.verdict === "sound",
+          text: llmVerdict.reasoning,
+          source: "llm",
+          confidence: llmVerdict.confidence,
+          observationType: "validation",
+        };
+
+        await persistObservation(surreal, workspaceRecord, observationRecord, reviewResult, "llm");
+
+        return {
+          observations_created: 1,
+          verdict: reviewResult.verdict,
+          evidence: [reviewResult.text],
+        };
+      }
+
+      logInfo("observer.llm.fallback", "LLM peer review failed, using deterministic", { observationId });
+    } else {
+      logInfo("observer.llm.skip", "LLM peer review skipped: no linked entities", { observationId });
+    }
+  }
+
+  // Deterministic fallback
+  await persistObservation(surreal, workspaceRecord, observationRecord, deterministicResult, "peer_review");
+
+  return {
+    observations_created: 1,
+    verdict: deterministicResult.verdict,
+    evidence: [deterministicResult.text],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Signal gathering
+// ---------------------------------------------------------------------------
+
+async function gatherIntentSignals(
+  surreal: Surreal,
+  intentId: string,
+  body?: Record<string, unknown>,
+): Promise<IntentSignals> {
+  const status = (body?.status as string) ?? "unknown";
+  const goal = (body?.goal as string) ?? "Unknown intent";
+
+  const intentRecord = new RecordId("intent", intentId);
+  const [traceRows] = await surreal.query<[Array<{ trace_id?: RecordId }>]>(
+    `SELECT trace_id FROM $intent;`,
+    { intent: intentRecord },
+  );
+
+  return { status, goal, hasTrace: !!traceRows?.[0]?.trace_id };
+}
+
+async function gatherDecisionSignals(
+  surreal: Surreal,
+  workspaceRecord: RecordId<"workspace", string>,
+  body?: Record<string, unknown>,
+): Promise<DecisionSignals> {
+  const status = (body?.status as string) ?? "unknown";
+  const summary = (body?.summary as string) ?? "Unknown decision";
+
+  const [taskRows] = await surreal.query<[Array<{ count: number }>]>(
+    `SELECT count() AS count FROM task WHERE workspace = $ws AND (status = "completed" OR status = "done") GROUP ALL;`,
+    { ws: workspaceRecord },
+  );
+
+  return { status, summary, completedTaskCount: taskRows?.[0]?.count ?? 0 };
+}
+
+async function gatherPeerReviewSignals(
+  surreal: Surreal,
+  workspaceRecord: RecordId<"workspace", string>,
+  body?: Record<string, unknown>,
+): Promise<ObservationPeerReviewSignals> {
+  const originalText = (body?.text as string) ?? "Unknown observation";
+  const originalSeverity = ((body?.severity as string) ?? "info") as "info" | "warning" | "conflict";
+  const sourceAgent = (body?.source_agent as string) ?? "unknown_agent";
+
+  const [taskRows] = await surreal.query<[Array<{ count: number }>]>(
+    `SELECT count() AS count FROM task WHERE workspace = $ws GROUP ALL;`,
+    { ws: workspaceRecord },
+  );
+  const [decisionRows] = await surreal.query<[Array<{ count: number }>]>(
+    `SELECT count() AS count FROM decision WHERE workspace = $ws GROUP ALL;`,
+    { ws: workspaceRecord },
+  );
+
+  return {
+    originalText,
+    originalSeverity,
+    sourceAgent,
+    relatedTaskCount: taskRows?.[0]?.count ?? 0,
+    relatedDecisionCount: decisionRows?.[0]?.count ?? 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// DB helpers
+// ---------------------------------------------------------------------------
+
+async function loadWorkspaceSkipSetting(
+  surreal: Surreal,
+  workspaceRecord: RecordId<"workspace", string>,
+): Promise<boolean | undefined> {
+  const [rows] = await surreal.query<[Array<{ settings?: { observer_skip_deterministic?: boolean } }>]>(
+    `SELECT settings FROM $ws;`,
+    { ws: workspaceRecord },
+  );
+  return rows?.[0]?.settings?.observer_skip_deterministic;
+}
+
+async function queryCompletedTasks(
+  surreal: Surreal,
+  workspaceRecord: RecordId<"workspace", string>,
+): Promise<Array<{ id: RecordId<"task">; title: string; description?: string }>> {
+  const [rows] = await surreal.query<[Array<{
+    id: RecordId<"task">;
+    title: string;
+    description?: string;
+  }>]>(
+    `SELECT id, title, description FROM task
+     WHERE workspace = $ws AND status IN ["completed", "done"]
+     ORDER BY updated_at DESC
+     LIMIT 20;`,
+    { ws: workspaceRecord },
+  );
+  return rows ?? [];
+}
+
+async function loadObservationLinkedEntities(
+  surreal: Surreal,
+  observationId: string,
+): Promise<Array<{ table: string; id: string; title: string; description?: string }>> {
+  const observationRecord = new RecordId("observation", observationId);
+
+  const [rows] = await surreal.query<[Array<{ out: RecordId }>]>(
+    `SELECT out FROM observes WHERE in = $obs;`,
+    { obs: observationRecord },
+  );
+
+  if (!rows || rows.length === 0) return [];
+
+  const entities: Array<{ table: string; id: string; title: string; description?: string }> = [];
+
+  for (const row of rows) {
+    const targetTable = row.out.table.name;
+    const targetId = row.out.id as string;
+
+    const [details] = await surreal.query<[Array<{
+      title?: string; summary?: string; text?: string; description?: string;
+    }>]>(
+      `SELECT title, summary, text, description FROM $record;`,
+      { record: new RecordId(targetTable, targetId) },
+    );
+
+    const d = details?.[0];
+    entities.push({
+      table: targetTable,
+      id: targetId,
+      title: d?.title ?? d?.summary ?? d?.text ?? "Unknown",
+      description: d?.description,
+    });
+  }
+
+  return entities;
 }
 
 // ---------------------------------------------------------------------------
 // Observation persistence
 // ---------------------------------------------------------------------------
 
-async function persistVerificationObservation(
+function extractDecisionRecords(evidenceRefs?: string[]): ObserveTargetRecord[] {
+  if (!evidenceRefs) return [];
+  const records: ObserveTargetRecord[] = [];
+  for (const ref of evidenceRefs) {
+    const parsed = parseEntityRef(ref);
+    if (parsed && parsed.table === "decision") {
+      records.push(new RecordId("decision", parsed.id) as ObserveTargetRecord);
+    }
+  }
+  return records;
+}
+
+async function persistObservation(
   surreal: Surreal,
   workspaceRecord: RecordId<"workspace", string>,
   relatedRecord: RecordId,
-  verificationResult: VerificationResult,
+  result: VerificationResult,
+  defaultSource = "none",
+  additionalRelatedRecords?: ObserveTargetRecord[],
 ): Promise<void> {
   const now = new Date();
+
+  // Convert evidence_refs strings to RecordId objects
+  const evidenceRefRecords: RecordId[] = [];
+  for (const ref of result.evidenceRefs ?? []) {
+    const parsed = parseEntityRef(ref);
+    if (parsed) evidenceRefRecords.push(new RecordId(parsed.table, parsed.id));
+  }
 
   const observationRecord = await createObservation({
     surreal,
     workspaceRecord,
-    text: verificationResult.text,
-    severity: verificationResult.severity,
+    text: result.text,
+    severity: result.severity,
     sourceAgent: "observer_agent",
-    observationType: "validation",
+    observationType: result.observationType ?? "validation",
     now,
-    relatedRecord: relatedRecord as RecordId<"project" | "feature" | "task" | "decision" | "question", string>,
+    relatedRecord: relatedRecord as ObserveTargetRecord,
+    relatedRecords: additionalRelatedRecords,
+    confidence: result.confidence,
+    evidenceRefs: evidenceRefRecords.length > 0 ? evidenceRefRecords : undefined,
   });
 
-  // Set verified and source fields
   await surreal.query(
     `UPDATE $obs SET verified = $verified, source = $source;`,
     {
       obs: observationRecord,
-      verified: verificationResult.verified,
-      source: verificationResult.source ?? "none",
+      verified: result.verified,
+      source: result.source ?? defaultSource,
     },
   );
 }

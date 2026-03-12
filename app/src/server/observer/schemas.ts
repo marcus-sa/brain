@@ -24,14 +24,24 @@ export const llmVerdictSchema = z.object({
     "Entity references in table:id format (e.g. decision:uuid, task:uuid) that support the verdict. Only include entities you were given in context.",
   ),
   contradiction: z.object({
-    claim: z.string().describe("What the entity claims or implements"),
-    reality: z.string().describe("What the decision or constraint requires"),
-  }).optional().describe(
-    "Present only when verdict is mismatch. Describes the specific contradiction.",
+    claim: z.string().describe("What the entity claims or implements. Use 'none' when verdict is not mismatch."),
+    reality: z.string().describe("What the decision or constraint requires. Use 'none' when verdict is not mismatch."),
+  }).describe(
+    "Describes the specific contradiction. Set both fields to 'none' when verdict is not mismatch.",
   ),
 });
 
-export type LlmVerdict = z.infer<typeof llmVerdictSchema>;
+/** Parsed verdict with contradiction normalized to undefined when not a mismatch. */
+export type LlmVerdict = Omit<z.infer<typeof llmVerdictSchema>, "contradiction"> & {
+  contradiction?: { claim: string; reality: string };
+};
+
+/** Strip "none" sentinel from contradiction field after parsing. */
+export function parseLlmVerdict(raw: z.infer<typeof llmVerdictSchema>): LlmVerdict {
+  const { contradiction, ...rest } = raw;
+  const isNone = contradiction.claim === "none" && contradiction.reality === "none";
+  return isNone ? rest : { ...rest, contradiction };
+}
 
 // ---------------------------------------------------------------------------
 // Synthesis pattern (pattern synthesis pipeline)
