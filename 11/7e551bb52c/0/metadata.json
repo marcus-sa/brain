@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "117e551bb52c",
+  "session_id": "c3637448-e813-4f3e-b24f-74c42376cca3",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-12T14:08:38.204271Z",
+  "branch": "marcus-sa/observer-agent",
+  "checkpoints_count": 4,
+  "files_touched": [
+    ".nwave/des-config.json",
+    "docs/adrs/ADR-023-observer-llm-reasoning-via-generate-object.md",
+    "docs/adrs/ADR-024-observer-deterministic-skip-optimization.md",
+    "docs/adrs/ADR-025-observer-model-optional-graceful-degradation.md",
+    "docs/feature/observer-llm-reasoning/design/architecture-design.md",
+    "docs/feature/observer-llm-reasoning/design/component-boundaries.md",
+    "docs/feature/observer-llm-reasoning/design/data-models.md",
+    "docs/feature/observer-llm-reasoning/design/roadmap.yaml",
+    "docs/feature/observer-llm-reasoning/design/technology-stack.md"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "eba37687202f",
+  "token_usage": {
+    "input_tokens": 52,
+    "cache_creation_tokens": 82864,
+    "cache_read_tokens": 1841580,
+    "output_tokens": 9825,
+    "api_call_count": 30
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-12T14:08:37.956155Z",
+    "agent_lines": 911,
+    "human_added": 0,
+    "human_modified": 1,
+    "human_removed": 0,
+    "total_committed": 912,
+    "agent_percentage": 99.89035087719299
+  }
+}

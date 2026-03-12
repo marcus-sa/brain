@@ -1,0 +1,34 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "117e551bb52c",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/observer-agent",
+  "checkpoints_count": 4,
+  "files_touched": [
+    ".nwave/des-config.json",
+    "docs/adrs/ADR-023-observer-llm-reasoning-via-generate-object.md",
+    "docs/adrs/ADR-024-observer-deterministic-skip-optimization.md",
+    "docs/adrs/ADR-025-observer-model-optional-graceful-degradation.md",
+    "docs/feature/observer-llm-reasoning/design/architecture-design.md",
+    "docs/feature/observer-llm-reasoning/design/component-boundaries.md",
+    "docs/feature/observer-llm-reasoning/design/data-models.md",
+    "docs/feature/observer-llm-reasoning/design/roadmap.yaml",
+    "docs/feature/observer-llm-reasoning/design/technology-stack.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/11/7e551bb52c/0/metadata.json",
+      "transcript": "/11/7e551bb52c/0/full.jsonl",
+      "context": "/11/7e551bb52c/0/context.md",
+      "content_hash": "/11/7e551bb52c/0/content_hash.txt",
+      "prompt": "/11/7e551bb52c/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 52,
+    "cache_creation_tokens": 82864,
+    "cache_read_tokens": 1841580,
+    "output_tokens": 9825,
+    "api_call_count": 30
+  }
+}
