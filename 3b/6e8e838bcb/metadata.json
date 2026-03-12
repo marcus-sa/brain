@@ -7,6 +7,12 @@
   "files_touched": [
     "docs/feature/observer-llm-reasoning/distill/test-scenarios.md",
     "docs/feature/observer-llm-reasoning/distill/walking-skeleton.md",
+    "evals/observer-llm-reasoning-seed-data.ts",
+    "evals/observer-llm-reasoning.eval.ts",
+    "evals/scorers/confidence-calibration.ts",
+    "evals/scorers/reasoning-quality.ts",
+    "evals/scorers/verdict-accuracy.ts",
+    "evals/types.ts",
     "tests/acceptance/observer-llm-reasoning/llm-reasoning-test-kit.ts",
     "tests/acceptance/observer-llm-reasoning/milestone-1-schema-and-config.test.ts",
     "tests/acceptance/observer-llm-reasoning/milestone-2-semantic-verification.test.ts",
@@ -21,13 +27,20 @@
       "context": "/3b/6e8e838bcb/0/context.md",
       "content_hash": "/3b/6e8e838bcb/0/content_hash.txt",
       "prompt": "/3b/6e8e838bcb/0/prompt.txt"
+    },
+    {
+      "metadata": "/3b/6e8e838bcb/1/metadata.json",
+      "transcript": "/3b/6e8e838bcb/1/full.jsonl",
+      "context": "/3b/6e8e838bcb/1/context.md",
+      "content_hash": "/3b/6e8e838bcb/1/content_hash.txt",
+      "prompt": "/3b/6e8e838bcb/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 72,
-    "cache_creation_tokens": 378409,
-    "cache_read_tokens": 3201087,
-    "output_tokens": 35379,
-    "api_call_count": 39
+    "input_tokens": 75,
+    "cache_creation_tokens": 410083,
+    "cache_read_tokens": 3211838,
+    "output_tokens": 35517,
+    "api_call_count": 40
   }
 }
