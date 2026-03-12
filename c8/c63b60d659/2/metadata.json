@@ -1,0 +1,35 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "c8c63b60d659",
+  "session_id": "e53cf474-7277-418e-a987-0e2c94af4105",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-12T17:22:13.418472Z",
+  "branch": "marcus-sa/observer-agent",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "docs/adrs/ADR-023-observer-llm-reasoning-via-generate-object.md",
+    "docs/adrs/ADR-024-observer-deterministic-skip-optimization.md",
+    "docs/adrs/ADR-025-observer-model-optional-graceful-degradation.md",
+    "docs/evolution/2026-03-12-observer-llm-reasoning.md"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "7b7294a840a0",
+  "checkpoint_transcript_start": 19,
+  "transcript_lines_at_start": 19,
+  "token_usage": {
+    "input_tokens": 0,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 0,
+    "output_tokens": 0,
+    "api_call_count": 0
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-12T17:22:13.413799Z",
+    "agent_lines": 0,
+    "human_added": 128,
+    "human_modified": 3,
+    "human_removed": 0,
+    "total_committed": 128,
+    "agent_percentage": 0
+  }
+}
