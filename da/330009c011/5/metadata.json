@@ -1,0 +1,37 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "da330009c011",
+  "session_id": "f7420114-3f04-4bf4-a2dc-fb0684e72be5",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-12T18:09:31.812128Z",
+  "branch": "marcus-sa/observer-agent",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "app/src/server/observer/schemas.ts",
+    "app/src/server/observer/llm-synthesis.ts",
+    "app/src/server/observer/graph-scan.ts",
+    "tests/acceptance/observer-llm-reasoning/milestone-5-anomaly-evaluation.test.ts",
+    "evals/types.ts",
+    "evals/observer-llm-reasoning.eval.ts",
+    "tests/unit/observer/anomaly-evaluation-schema.test.ts",
+    "tests/acceptance/observer-agent/milestone-3-agent-and-scan.test.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "0776b45ed772",
+  "token_usage": {
+    "input_tokens": 116,
+    "cache_creation_tokens": 202291,
+    "cache_read_tokens": 5041961,
+    "output_tokens": 25035,
+    "api_call_count": 48
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-12T18:09:31.439944Z",
+    "agent_lines": 726,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 726,
+    "agent_percentage": 100
+  }
+}
