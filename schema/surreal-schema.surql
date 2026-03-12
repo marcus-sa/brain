@@ -53,6 +53,8 @@ DEFINE FIELD onboarding_completed_at ON workspace TYPE option<datetime>;
 DEFINE FIELD created_at ON workspace TYPE datetime;
 DEFINE FIELD updated_at ON workspace TYPE option<datetime>;
 DEFINE FIELD repo_path ON workspace TYPE option<string>;
+DEFINE FIELD settings ON workspace TYPE option<object>;
+DEFINE FIELD settings.observer_skip_deterministic ON workspace TYPE option<bool>;
 DEFINE INDEX workspace_name ON workspace FIELDS name;
 
 DEFINE TABLE project SCHEMAFULL;
