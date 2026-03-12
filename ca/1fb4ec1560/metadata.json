@@ -5,6 +5,8 @@
   "branch": "marcus-sa/observer-agent",
   "checkpoints_count": 2,
   "files_touched": [
+    "app/src/server/agents/observer/agent.ts",
+    "app/src/server/observer/observer-route.ts",
     "app/src/server/observer/schemas.ts"
   ],
   "sessions": [
@@ -21,6 +23,13 @@
       "context": "/ca/1fb4ec1560/1/context.md",
       "content_hash": "/ca/1fb4ec1560/1/content_hash.txt",
       "prompt": "/ca/1fb4ec1560/1/prompt.txt"
+    },
+    {
+      "metadata": "/ca/1fb4ec1560/2/metadata.json",
+      "transcript": "/ca/1fb4ec1560/2/full.jsonl",
+      "context": "/ca/1fb4ec1560/2/context.md",
+      "content_hash": "/ca/1fb4ec1560/2/content_hash.txt",
+      "prompt": "/ca/1fb4ec1560/2/prompt.txt"
     }
   ],
   "token_usage": {
