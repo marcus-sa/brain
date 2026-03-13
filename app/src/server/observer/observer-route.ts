@@ -90,7 +90,13 @@ export function createGraphScanRouteHandler(deps: ServerDependencies) {
       logInfo("observer.scan.started", "Graph scan triggered", { workspaceId });
 
       const workspaceRecord = new RecordId("workspace", workspaceId);
-      const result = await runGraphScan(deps.surreal, workspaceRecord, observerModel);
+      const result = await runGraphScan(
+        deps.surreal,
+        workspaceRecord,
+        observerModel,
+        deps.embeddingModel,
+        deps.config.embeddingDimension,
+      );
 
       return jsonResponse({ status: "ok", ...result }, 200);
     } catch (error) {

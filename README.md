@@ -26,7 +26,7 @@ Why a graph, not a message bus. Most platforms try "agent swarms" — agents mes
 
 ```text
 Human Layer
-  → Web Chat / Feed / Graph View / Terminal
+  → Web Chat / Feed / Graph View / Learning Library / Terminal
 
 Agent Layer
   → Architect / Strategist / Management / Coding (MCP) / Design Partner / Observer
@@ -63,7 +63,7 @@ Each agent has a role, a domain, and authority scopes. They coordinate through t
 - **Management** — Task tracking, priority management, execution velocity. Flags blocked work, stale decisions, and resource conflicts.
 - **Coding Agents (via MCP)** — Your existing tools (Cursor, Aider, Codex, Claude Code) connected to the graph. Context injected on session start. Decisions, observations, and questions flow back automatically.
 - **Design Partner** — Brainstorms product ideas, asks probing questions, identifies gaps. Shapes vague ideas into structured projects, features, and decisions.
-- **Observer** — Scans the graph for patterns nobody asked about. Stale decisions, cross-project conflicts, missing coverage, priority drift.
+- **Observer** — Continuously scans the graph for contradictions between decisions, stale tasks, status drift, and cross-project conflicts. Findings are verified through LLM reasoning pipelines with confidence scoring and evidence tracking. A peer review layer cross-validates observations to prevent false positives. Synthesizes recurring patterns into actionable suggestions. Proposes learnings from root cause analysis so the system self-corrects.
 
 ## How Coordination Works
 
@@ -85,7 +85,7 @@ No agent messages another agent. They write structured signals to the knowledge 
 - **Commits** — Code is linked to the decisions and tasks it implements. Contradictions are caught before they land.
 - **Intents** — Every agent action starts as an intent — a structured request in the graph. Intents carry the full authorization context and are evaluated against authority scopes before execution.
 - **Authority Scopes** — Control what each agent can do without asking. Start restrictive. Expand trust over time.
-- **Learnings** — Behavioral rules injected into agent prompts at runtime. The system gets smarter as it works, not dumber.
+- **Learnings** — Behavioral rules injected into agent prompts at runtime via JIT loading with token budgets. Learnings follow a lifecycle (`proposed` → `active` → `deactivated`) and can be created by humans, suggested by agents, or proposed by the Observer from root cause analysis. Three-layer collision detection prevents duplicates. Pattern detection identifies recurring issues and suggests learnings automatically. The Learning Library UI lets you browse, filter, approve, edit, and deactivate learnings across all agents.
 - **Identity** — One person across all tools. Your Slack, GitHub, and terminal sessions all resolve to the same identity.
 - **Agent Sessions** — Every session is remembered. The next agent knows what the last one did.
 - **Traces** — Every agent execution is a graph-native call tree. Subagent spawns, tool calls, and decisions form a hierarchical trace you can traverse, query, and audit. Forensic debugging is a graph query, not grep.
@@ -95,9 +95,9 @@ No agent messages another agent. They write structured signals to the knowledge 
 
 Autonomous systems don't fail from lack of intelligence. They fail from drift — slow divergence between what the system believes and what's actually true.
 
-- **Context Drift** — Decisions made in v1.0 become poison for v2.0. Brain uses temporal decay — nodes that aren't referenced lose weight over time. The Observer agent runs conflict resolution loops, flagging stale decisions that contradict recent commits.
+- **Context Drift** — Decisions made in v1.0 become poison for v2.0. Brain uses temporal decay — nodes that aren't referenced lose weight over time. The Observer continuously scans for contradictions between decisions, verifies them with LLM reasoning, and synthesizes patterns into learnings that prevent repeat mistakes.
 - **Authority Drift** — Too autonomous = dangerous. Too locked down = a dashboard. Brain uses tiered authority scopes — from zero-human atomic actions to multi-model consensus for high-stakes moves. Agents operate within risk budgets, not permission checkboxes.
-- **Reality Drift** — If the Brain only reads its own graph, it's a delusion engine. Observer agents perform truth audits — checking claims against actual state via webhooks and integrations. When reality diverges from the graph, the system triggers a desync alert.
+- **Reality Drift** — If the Brain only reads its own graph, it's a delusion engine. The Observer performs truth audits — verifying claims against actual state through LLM verification pipelines with confidence scoring. Peer review cross-validates findings. When reality diverges from the graph, the system triggers a desync alert.
 
 ## Verifiable Autonomy
 
@@ -180,6 +180,7 @@ CHAT_AGENT_MODEL=<chat-model-id>
 EXTRACTION_MODEL=<extraction-model-id>
 ANALYTICS_MODEL=<analytics-model-id>
 PM_AGENT_MODEL=<pm-model-id>
+OBSERVER_MODEL=<observer-model-id>
 OPENROUTER_EMBEDDING_MODEL=<embedding-model-id>
 EMBEDDING_DIMENSION=1536
 EXTRACTION_STORE_THRESHOLD=0.6
@@ -201,6 +202,7 @@ CHAT_AGENT_MODEL=<ollama-chat-model>
 EXTRACTION_MODEL=<ollama-extraction-model>
 ANALYTICS_MODEL=<ollama-analytics-model>
 PM_AGENT_MODEL=<ollama-pm-model>
+OBSERVER_MODEL=<ollama-observer-model>
 EMBEDDING_MODEL=<ollama-embedding-model>
 EMBEDDING_DIMENSION=1536
 EXTRACTION_STORE_THRESHOLD=0.6
@@ -236,6 +238,14 @@ Open `http://localhost:3000`.
 - `GET /api/graph/:workspaceId` graph views
 - `GET /api/entities/search` full-text entity search
 - `POST /api/mcp/:workspaceId/context` intent-based MCP context resolution
+- `POST /api/workspaces/:workspaceId/observer/scan` trigger Observer graph scan
+- `GET /api/workspaces/:workspaceId/observer/observations` list Observer findings
+- `GET /api/workspaces/:workspaceId/learnings` list learnings (filterable by status, type, agent)
+- `POST /api/workspaces/:workspaceId/learnings` create a learning
+- `PUT /api/workspaces/:workspaceId/learnings/:id` edit a learning
+- `POST /api/workspaces/:workspaceId/learnings/:id/approve` approve a proposed learning
+- `POST /api/workspaces/:workspaceId/learnings/:id/dismiss` dismiss a proposed learning
+- `POST /api/workspaces/:workspaceId/learnings/:id/deactivate` deactivate an active learning
 
 ## MCP + CLI
 
@@ -285,8 +295,13 @@ bun migrate
 ```text
 app/
   server.ts                     # Bun entrypoint
-  src/client/                   # chat/feed/graph UI
-  src/server/                   # runtime, routes, agents, tools, graph/extraction domains
+  src/client/                   # chat/feed/graph/learning-library UI
+  src/server/
+    observer/                   # graph scanning, LLM verification, peer review, synthesis
+    agents/observer/            # observer agent orchestration + prompt
+    learning/                   # learning CRUD, collision detection, pattern detection
+    chat/                       # chat agent, tools, context
+    extraction/                 # extraction pipeline
 cli/                            # brain CLI + MCP server
 schema/
   surreal-schema.surql          # base schema
@@ -294,7 +309,7 @@ schema/
 tests/
   unit/                         # deterministic unit tests
   acceptance/                   # acceptance tests (in-process server + isolated DB)
-evals/                          # model eval suites + scorers
+evals/                          # model eval suites + scorers (incl. observer evals)
 ```
 
 ## Status

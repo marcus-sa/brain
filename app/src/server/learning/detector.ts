@@ -6,6 +6,8 @@
  */
 import { RecordId, type Surreal } from "surrealdb";
 import { countRecentSuggestionsByAgent, createLearning } from "./queries";
+import { cosineSimilarity } from "../graph/embeddings";
+import { logInfo } from "../http/observability";
 import type { CreateLearningInput, LearningRecord } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -63,8 +65,9 @@ export async function checkDismissedSimilarity(input: {
 }): Promise<DismissedSimilarityResult> {
   // Step 1: KNN candidates (HNSW index only)
   // Step 2: Filter by workspace + dismissed status + similarity threshold
-  const [matches] = await input.surreal
-    .query<[Array<{ text: string; similarity: number }>]>(
+  // Two-step KNN pattern: LET is index 0 (undefined), SELECT is index 1
+  const results = await input.surreal
+    .query<[undefined, Array<{ text: string; similarity: number }>]>(
       [
         "LET $candidates = SELECT id, text, workspace, status,",
         "vector::similarity::cosine(embedding, $embedding) AS similarity",
@@ -77,13 +80,35 @@ export async function checkDismissedSimilarity(input: {
         embedding: input.proposedEmbedding,
         ws: input.workspaceRecord,
       },
-    )
-    .collect<[Array<{ text: string; similarity: number }>]>();
+    );
 
+  const matches = results[1] ?? [];
   const match = matches[0];
   if (match) {
     return { blocked: true, matchedText: match.text };
   }
+
+  // Fallback: brute-force scan when HNSW index hasn't indexed recent inserts.
+  const [dismissedLearnings] = await input.surreal.query<[Array<{ text: string; embedding: number[] }>]>(
+    `SELECT text, embedding FROM learning
+     WHERE workspace = $ws
+       AND status = "dismissed"
+       AND embedding IS NOT NONE;`,
+    { ws: input.workspaceRecord },
+  );
+
+  for (const learning of dismissedLearnings ?? []) {
+    const similarity = cosineSimilarity(input.proposedEmbedding, learning.embedding);
+    logInfo("learning.dismissed.similarity_check", "Dismissed similarity check", {
+      similarity,
+      threshold: DISMISSED_SIMILARITY_THRESHOLD,
+      dismissedText: learning.text.slice(0, 80),
+    });
+    if (similarity > DISMISSED_SIMILARITY_THRESHOLD) {
+      return { blocked: true, matchedText: learning.text };
+    }
+  }
+
   return { blocked: false };
 }
 

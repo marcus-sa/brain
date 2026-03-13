@@ -227,7 +227,8 @@ export async function countRecentSuggestionsByAgent(input: {
         "WHERE workspace = $workspace",
         'AND source = "agent"',
         "AND suggested_by = $agentType",
-        "AND created_at > time::now() - 7d;",
+        "AND created_at > time::now() - 7d",
+        "GROUP ALL;",
       ].join(" "),
       {
         workspace: input.workspaceRecord,

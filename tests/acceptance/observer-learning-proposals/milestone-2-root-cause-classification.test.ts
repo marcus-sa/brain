@@ -89,6 +89,7 @@ describe("Milestone 2: Root Cause Classification", () => {
   // Dual gate: low confidence creates observation instead of learning
   // -------------------------------------------------------------------------
 
+  // TODO: Move to evals — requires controlling LLM output to produce low confidence scores
   it.skip("pipeline creates an observation when classification confidence is below threshold", async () => {
     const { baseUrl, surreal } = getRuntime();
 
@@ -157,38 +158,4 @@ describe("Milestone 2: Root Cause Classification", () => {
     expect(result.observations_created).toBeGreaterThanOrEqual(0);
   }, 120_000);
 
-  // -------------------------------------------------------------------------
-  // Model unavailable: diagnostic step skipped entirely
-  // -------------------------------------------------------------------------
-
-  it.skip("diagnostic pipeline is skipped when observer model is not configured", async () => {
-    // NOTE: This test requires a server instance without OBSERVER_MODEL configured.
-    // In practice, the acceptance suite boots with whatever env is set.
-    // This scenario is validated by the implementation: if observerModel is undefined,
-    // the diagnostic pipeline returns early. We verify the scan still succeeds.
-
-    const { baseUrl, surreal } = getRuntime();
-
-    // Given a workspace with observations (model availability depends on env)
-    const { user, workspaceId } = await setupObserverWorkspace(
-      baseUrl,
-      surreal,
-      `m2-nomodel-${crypto.randomUUID()}`,
-    );
-
-    await createObservationCluster(surreal, workspaceId, 3, {
-      topic: "Agents are not logging structured metadata with their actions",
-      severity: "info",
-    });
-
-    // When the graph scan runs
-    const response = await triggerDiagnosticPipeline(
-      baseUrl,
-      workspaceId,
-      user.headers,
-    );
-
-    // Then the scan completes regardless of model availability
-    expect(response.ok).toBe(true);
-  }, 120_000);
 });

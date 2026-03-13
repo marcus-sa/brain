@@ -89,7 +89,7 @@ export async function queryRecentObservationsWithEmbeddings(
     text: string;
     severity: string;
     embedding: number[];
-    entity_refs: string[];
+    entity_refs: Array<RecordId | string>;
     created_at: string;
   }>]>(
     `SELECT id, text, severity, embedding, created_at,
@@ -594,9 +594,9 @@ async function processUncoveredCluster(
 export async function runDiagnosticClustering(
   surreal: Surreal,
   workspaceRecord: RecordId<"workspace", string>,
-  observerModel?: LanguageModel,
-  embeddingModel?: EmbeddingModel,
-  embeddingDimension?: number,
+  observerModel: LanguageModel,
+  embeddingModel: EmbeddingModel,
+  embeddingDimension: number,
 ): Promise<{
   clusters: ObservationCluster[];
   uncoveredClusters: ObservationCluster[];
@@ -680,8 +680,8 @@ export async function runDiagnosticClustering(
     }
   }
 
-  // Step 4: Root cause classification for uncovered clusters (requires observer model)
-  if (observerModel && uncoveredClusters.length > 0) {
+  // Step 4: Root cause classification for uncovered clusters
+  if (uncoveredClusters.length > 0) {
     const existingLearnings = await queryActiveLearningTexts(surreal, workspaceRecord);
 
     for (const cluster of uncoveredClusters) {

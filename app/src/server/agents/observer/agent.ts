@@ -94,7 +94,8 @@ export async function runObserverAgent(input: ObserverAgentInput): Promise<Obser
   // Event-driven escalation: check if this entity now has enough
   // observations to trigger the diagnostic learning pipeline.
   // Skip for observation peer reviews (avoid recursive escalation).
-  if (result.observations_created > 0 && entityTable !== "observation") {
+  if (result.observations_created > 0 && entityTable !== "observation"
+    && input.observerModel && input.embeddingModel && input.embeddingDimension) {
     await checkAndEscalate(
       input.surreal,
       input.workspaceRecord,
@@ -566,7 +567,6 @@ async function countEntityObserverObservations(
  * pipeline on workspace observations (entity-scoped cluster will emerge
  * naturally from the clustering algorithm).
  *
- * Gracefully skips when observer model is unavailable.
  * Deduplicates against pending learnings from observer in last 24h.
  */
 export async function checkAndEscalate(
@@ -574,9 +574,9 @@ export async function checkAndEscalate(
   workspaceRecord: RecordId<"workspace", string>,
   entityTable: string,
   entityId: string,
-  observerModel?: LanguageModel,
-  embeddingModel?: EmbeddingModel,
-  embeddingDimension?: number,
+  observerModel: LanguageModel,
+  embeddingModel: EmbeddingModel,
+  embeddingDimension: number,
 ): Promise<void> {
   try {
     // Count observer observations for this entity
@@ -593,15 +593,6 @@ export async function checkAndEscalate(
       entityId,
       observationCount,
     });
-
-    // Graceful skip when observer model unavailable
-    if (!observerModel) {
-      logInfo("observer.escalation.skip", "Observer model unavailable, skipping diagnostic pipeline", {
-        entityTable,
-        entityId,
-      });
-      return;
-    }
 
     // Dedup: skip if observer already has a pending learning proposal from last 24h.
     // Graph scan may have already proposed a learning for this pattern.

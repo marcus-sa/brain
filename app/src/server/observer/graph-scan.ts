@@ -270,8 +270,8 @@ export async function runGraphScan(
   surreal: Surreal,
   workspaceRecord: RecordId<"workspace", string>,
   observerModel: LanguageModel,
-  embeddingModel?: EmbeddingModel,
-  embeddingDimension?: number,
+  embeddingModel: EmbeddingModel,
+  embeddingDimension: number,
 ): Promise<GraphScanResult> {
   const result: GraphScanResult = {
     contradictions_found: 0,
