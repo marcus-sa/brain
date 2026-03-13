@@ -42,12 +42,12 @@ describe("Walking Skeleton: User manages learning library end-to-end", () => {
 
     // Given: the user creates three learnings with different types, agents, and statuses
 
-    // Learning 1: active constraint for coding agents
+    // Learning 1: active constraint for MCP agents
     const createRes1 = await createLearningViaHttp(baseUrl, user, workspaceId, {
       text: "Never use null for domain data values.",
       learning_type: "constraint",
       priority: "high",
-      target_agents: ["coding_agent"],
+      target_agents: ["mcp"],
     });
     expect(createRes1.status).toBe(201);
     const { learningId: learningId1 } = (await createRes1.json()) as { learningId: string };
@@ -89,36 +89,35 @@ describe("Walking Skeleton: User manages learning library end-to-end", () => {
     expect(activeBody.learnings.length).toBe(2);
     expect(activeBody.learnings.every((l) => l.status === "active")).toBe(true);
 
-    // When: user filters by agent "coding_agent"
-    const agentRes = await listLearningsViaHttp(baseUrl, user, workspaceId, { agent: "coding_agent" });
+    // When: user filters by agent "mcp"
+    const agentRes = await listLearningsViaHttp(baseUrl, user, workspaceId, { agent: "mcp" });
     expect(agentRes.status).toBe(200);
     const agentBody = (await agentRes.json()) as { learnings: Array<{ text: string }> };
 
-    // Then: learnings targeted to coding_agent OR all agents appear
-    // Learning 1 (coding_agent) and Learning 2 (all agents) should match
+    // Then: learnings targeted to mcp OR all agents appear
+    // Learning 1 (mcp) and Learning 2 (all agents) should match
     const agentTexts = agentBody.learnings.map((l) => l.text);
     expect(agentTexts).toContain("Never use null for domain data values.");
     expect(agentTexts).toContain("Use structured logging with severity levels.");
 
-    // BLOCKED: requires PUT /api/workspaces/:workspaceId/learnings/:learningId endpoint
     // When: user edits the text of active learning 1
-    // const editRes = await fetchRaw(
-    //   `${baseUrl}/api/workspaces/${workspaceId}/learnings/${learningId1}`,
-    //   {
-    //     method: "PUT",
-    //     headers: { "Content-Type": "application/json", ...user.headers },
-    //     body: JSON.stringify({
-    //       text: "Never use null for domain data values. Use undefined via optional properties instead.",
-    //     }),
-    //   },
-    // );
-    // expect(editRes.status).toBe(200);
-    //
+    const editRes = await fetchRaw(
+      `${baseUrl}/api/workspaces/${workspaceId}/learnings/${learningId1}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...user.headers },
+        body: JSON.stringify({
+          text: "Never use null for domain data values. Use undefined via optional properties instead.",
+        }),
+      },
+    );
+    expect(editRes.status).toBe(200);
+
     // Then: the learning text is updated
-    // const edited = await getLearningById(surreal, learningId1);
-    // expect(edited!.text).toBe(
-    //   "Never use null for domain data values. Use undefined via optional properties instead.",
-    // );
+    const edited = await getLearningById(surreal, learningId1);
+    expect(edited!.text).toBe(
+      "Never use null for domain data values. Use undefined via optional properties instead.",
+    );
 
     // When: user deactivates learning 2
     const deactivateRes = await performLearningAction(

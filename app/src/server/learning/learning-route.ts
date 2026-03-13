@@ -131,13 +131,13 @@ async function handleCreateLearning(
         deps.config.embeddingDimension,
       );
     } catch (error) {
-      logWarn("learning.create.embedding_failed", "Embedding generation failed, persisting without", {
+      logWarn("learning.create.embedding_failed", "Embedding generation failed — collision detection will be skipped", {
         workspaceId,
         error: error instanceof Error ? error.message : String(error),
       });
     }
 
-    // Run collision detection before creating the learning
+    // Run collision detection before creating the learning (skipped when embedding unavailable)
     const collisionResult = await checkCollisions({
       surreal: deps.surreal,
       model: deps.extractionModel,
