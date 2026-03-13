@@ -6,6 +6,7 @@
  */
 import { RecordId, type Surreal } from "surrealdb";
 import type { EntityPriority, LearningSource, LearningType } from "../../shared/contracts";
+import { logWarn } from "../http/observability";
 import { estimateTokens } from "./formatter";
 
 // ---------------------------------------------------------------------------
@@ -81,6 +82,13 @@ export function applyTokenBudget(
   // Constraints always included
   let usedTokens = constraints.reduce((sum, c) => sum + estimateTokens(c.text), 0);
   const constraintBudgetExceeded = usedTokens > tokenBudget;
+  if (constraintBudgetExceeded) {
+    logWarn("learning.budget.constraints_exceeded", "Constraints alone exceed token budget", {
+      constraintTokens: usedTokens,
+      tokenBudget,
+      constraintCount: constraints.length,
+    });
+  }
 
   // Instructions fill remaining budget; skip oversized, try next
   const includedInstructions: LoadedLearning[] = [];

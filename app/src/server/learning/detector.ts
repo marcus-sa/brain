@@ -51,6 +51,11 @@ export async function checkRateLimit(input: {
 // Dismissed similarity check (KNN two-step pattern)
 // ---------------------------------------------------------------------------
 
+// Higher than collision thresholds (0.75 learning, 0.40 policy, 0.55 decision)
+// because dismissed re-suggestion must be near-identical to the original --
+// a slightly different learning on the same topic should still be allowed.
+const DISMISSED_SIMILARITY_THRESHOLD = 0.85;
+
 export async function checkDismissedSimilarity(input: {
   surreal: Surreal;
   workspaceRecord: RecordId<"workspace", string>;
@@ -65,7 +70,7 @@ export async function checkDismissedSimilarity(input: {
         "vector::similarity::cosine(embedding, $embedding) AS similarity",
         "FROM learning WHERE embedding <|10, COSINE|> $embedding;",
         "SELECT text, similarity FROM $candidates",
-        'WHERE workspace = $ws AND status = "dismissed" AND similarity > 0.85',
+        `WHERE workspace = $ws AND status = "dismissed" AND similarity > ${DISMISSED_SIMILARITY_THRESHOLD}`,
         "ORDER BY similarity DESC LIMIT 1;",
       ].join("\n"),
       {

@@ -231,7 +231,7 @@ async function findSimilarLearnings(
   });
   const rows = results[1] ?? [];
   return rows.map((row) => ({
-    id: (row.id.id ?? row.id) as string,
+    id: row.id.id as string,
     text: row.text,
     similarity: row.similarity,
   }));
@@ -255,7 +255,7 @@ async function findSimilarPolicies(
   });
   const rows = results[1] ?? [];
   return rows.map((row) => ({
-    id: (row.id.id ?? row.id) as string,
+    id: row.id.id as string,
     text: row.description ?? row.title,
     similarity: row.similarity,
   }));
@@ -279,7 +279,7 @@ async function findSimilarDecisions(
   });
   const rows = results[1] ?? [];
   return rows.map((row) => ({
-    id: (row.id.id ?? row.id) as string,
+    id: row.id.id as string,
     text: row.summary,
     similarity: row.similarity,
   }));
