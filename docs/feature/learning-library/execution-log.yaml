@@ -20,5 +20,31 @@ events:
   s: EXECUTED
   sid: 01-01
   t: '2026-03-13T10:56:07Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-03-13T10:56:50Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-03-13T11:02:07Z'
+- d: 'NOT_APPLICABLE: client-only UI change with no server-side driving port; pure
+    logic tested at unit level'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 01-02
+  t: '2026-03-13T11:02:16Z'
+- d: PASS
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-03-13T11:04:17Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-03-13T11:05:35Z'
 project_id: learning-library
 schema_version: '3.0'
