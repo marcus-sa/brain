@@ -5,6 +5,8 @@ import { LearningList } from "../components/learning/LearningList";
 import { CreateDialog } from "../components/learning/CreateDialog";
 import { ApproveDialog } from "../components/learning/ApproveDialog";
 import { DismissDialog } from "../components/learning/DismissDialog";
+import { EditDialog } from "../components/learning/EditDialog";
+import { DeactivateDialog } from "../components/learning/DeactivateDialog";
 import { filterLearningsByStatus } from "../components/learning/learning-card-logic";
 import {
   type DialogState,
@@ -18,7 +20,7 @@ import type { LearningStatus, LearningType } from "../../shared/contracts";
 
 export function LearningsPage() {
   const { learnings, isLoading, error, filters, setFilters, refresh } = useLearnings();
-  const { approve, dismiss, create, isSubmitting } = useLearningActions();
+  const { approve, dismiss, create, edit, deactivate, isSubmitting } = useLearningActions();
   const [dialogState, setDialogState] = useState<DialogState | undefined>();
 
   const activeStatus: LearningStatus = filters.status ?? "active";
@@ -69,6 +71,28 @@ export function LearningsPage() {
       return result;
     },
     [create, handleCloseDialog, refresh],
+  );
+
+  const handleEditConfirm = useCallback(
+    async (learningId: string, data: Parameters<typeof edit>[1]) => {
+      const success = await edit(learningId, data);
+      if (success) {
+        handleCloseDialog();
+        refresh();
+      }
+    },
+    [edit, handleCloseDialog, refresh],
+  );
+
+  const handleDeactivateConfirm = useCallback(
+    async (learningId: string) => {
+      const success = await deactivate(learningId);
+      if (success) {
+        handleCloseDialog();
+        refresh();
+      }
+    },
+    [deactivate, handleCloseDialog, refresh],
   );
 
   const handleStatusChange = useCallback(
@@ -143,6 +167,24 @@ export function LearningsPage() {
         <DismissDialog
           learning={dialogState.learning}
           onConfirm={handleDismissConfirm}
+          onCancel={handleCloseDialog}
+          isSubmitting={isSubmitting}
+        />
+      )}
+
+      {dialogState?.type === "edit" && (
+        <EditDialog
+          learning={dialogState.learning}
+          onConfirm={handleEditConfirm}
+          onCancel={handleCloseDialog}
+          isSubmitting={isSubmitting}
+        />
+      )}
+
+      {dialogState?.type === "deactivate" && (
+        <DeactivateDialog
+          learning={dialogState.learning}
+          onConfirm={handleDeactivateConfirm}
           onCancel={handleCloseDialog}
           isSubmitting={isSubmitting}
         />

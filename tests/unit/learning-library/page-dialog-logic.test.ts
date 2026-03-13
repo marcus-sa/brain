@@ -45,10 +45,28 @@ describe("resolveDialogFromCardAction", () => {
     expect(result).toBeUndefined();
   });
 
+  test("edit action opens edit dialog with learning", () => {
+    const learning = makeLearning({ status: "active" });
+    const result = resolveDialogFromCardAction(
+      { action: "edit", learningId: learning.id },
+      [learning],
+    );
+    expect(result).toEqual({ type: "edit", learning });
+  });
+
+  test("deactivate action opens deactivate dialog with learning", () => {
+    const learning = makeLearning({ status: "active" });
+    const result = resolveDialogFromCardAction(
+      { action: "deactivate", learningId: learning.id },
+      [learning],
+    );
+    expect(result).toEqual({ type: "deactivate", learning });
+  });
+
   test("returns undefined for unknown action", () => {
     const learning = makeLearning();
     const result = resolveDialogFromCardAction(
-      { action: "edit", learningId: learning.id },
+      { action: "unknown_action", learningId: learning.id },
       [learning],
     );
     expect(result).toBeUndefined();

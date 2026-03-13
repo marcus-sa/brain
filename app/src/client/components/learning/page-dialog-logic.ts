@@ -10,9 +10,11 @@ import type { LearningCardAction } from "./LearningCard";
 export type DialogState =
   | { type: "create" }
   | { type: "approve"; learning: LearningSummary }
-  | { type: "dismiss"; learning: LearningSummary };
+  | { type: "dismiss"; learning: LearningSummary }
+  | { type: "edit"; learning: LearningSummary }
+  | { type: "deactivate"; learning: LearningSummary };
 
-const DIALOG_ACTIONS = new Set(["approve", "dismiss"]);
+const DIALOG_ACTIONS = new Set(["approve", "dismiss", "edit", "deactivate"]);
 
 /** Resolve a card action into the appropriate dialog state, or undefined if not applicable. */
 export function resolveDialogFromCardAction(
@@ -24,7 +26,7 @@ export function resolveDialogFromCardAction(
   const learning = learnings.find((l) => l.id === cardAction.learningId);
   if (!learning) return undefined;
 
-  return { type: cardAction.action as "approve" | "dismiss", learning };
+  return { type: cardAction.action as "approve" | "dismiss" | "edit" | "deactivate", learning };
 }
 
 /** Close any open dialog. Always returns undefined. */
