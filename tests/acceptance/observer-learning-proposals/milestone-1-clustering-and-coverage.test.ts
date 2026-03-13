@@ -44,7 +44,7 @@ describe("Milestone 1: Observation Clustering and Coverage Check", () => {
   // Cluster formation: 3+ similar observations form a cluster
   // -------------------------------------------------------------------------
 
-  it.skip("three similar observations about the same pattern form a cluster and trigger diagnosis", async () => {
+  it("three similar observations about the same pattern form a cluster and trigger diagnosis", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace with three observations about agents ignoring error responses
@@ -79,7 +79,7 @@ describe("Milestone 1: Observation Clustering and Coverage Check", () => {
   // Below threshold: 2 observations do not form a cluster
   // -------------------------------------------------------------------------
 
-  it.skip("two similar observations do not trigger a learning proposal", async () => {
+  it("two similar observations do not trigger a learning proposal", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace with only two observations about the same pattern
@@ -111,7 +111,7 @@ describe("Milestone 1: Observation Clustering and Coverage Check", () => {
   // Unrelated topics: observations on different subjects do not cluster
   // -------------------------------------------------------------------------
 
-  it.skip("observations on unrelated topics do not form a cluster together", async () => {
+  it("observations on unrelated topics do not form a cluster together", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace with observations spread across different unrelated topics
@@ -179,7 +179,7 @@ describe("Milestone 1: Observation Clustering and Coverage Check", () => {
   // Time window: observations older than 14 days are excluded
   // -------------------------------------------------------------------------
 
-  it.skip("observations older than fourteen days are excluded from clustering", async () => {
+  it("observations older than fourteen days are excluded from clustering", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace with three similar observations that are all 20 days old
@@ -214,7 +214,7 @@ describe("Milestone 1: Observation Clustering and Coverage Check", () => {
   // Coverage check: active learning with high similarity skips the cluster
   // -------------------------------------------------------------------------
 
-  it.skip("cluster is skipped when an active learning already covers the same pattern", async () => {
+  it("cluster is skipped when an active learning already covers the same pattern", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace with an active learning about input validation
@@ -253,7 +253,7 @@ describe("Milestone 1: Observation Clustering and Coverage Check", () => {
   // Coverage check: no matching active learning allows cluster to proceed
   // -------------------------------------------------------------------------
 
-  it.skip("cluster proceeds to diagnosis when no active learning covers the pattern", async () => {
+  it("cluster proceeds to diagnosis when no active learning covers the pattern", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace with an active learning about a completely different topic

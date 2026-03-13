@@ -1,0 +1,24 @@
+events:
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-03-13T13:49:45Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-03-13T13:51:02Z'
+- d: 'NOT_APPLICABLE: acceptance tests cover all clustering and coverage check behaviors
+    through driving port'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 01-01
+  t: '2026-03-13T13:51:08Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-03-13T13:56:23Z'
+project_id: observer-learning-proposals
+schema_version: '3.0'

@@ -15,6 +15,7 @@ import { createObservation, listWorkspaceOpenObservations, type ObserveTargetRec
 import { logInfo } from "../http/observability";
 import { detectContradictions, evaluateAnomalies, synthesizePatterns, type Anomaly, type AnomalyCandidate } from "./llm-synthesis";
 import { parseEntityRef } from "./evidence-validator";
+import { runDiagnosticClustering } from "./learning-diagnosis";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -57,6 +58,9 @@ export type GraphScanResult = {
   status_drift_found: number;
   observations_created: number;
   llm_filtered_count: number;
+  learning_proposals_created: number;
+  clusters_found: number;
+  coverage_skips: number;
 };
 
 // ---------------------------------------------------------------------------
@@ -271,6 +275,9 @@ export async function runGraphScan(
     status_drift_found: 0,
     observations_created: 0,
     llm_filtered_count: 0,
+    learning_proposals_created: 0,
+    clusters_found: 0,
+    coverage_skips: 0,
   };
 
   // Load existing observations for deduplication
@@ -590,6 +597,29 @@ export async function runGraphScan(
         anomalyCount: anomalies.length,
       });
     }
+  }
+
+  // 6. Diagnostic learning proposals: cluster observations and check coverage
+  try {
+    const diagnostic = await runDiagnosticClustering(surreal, workspaceRecord);
+    result.clusters_found = diagnostic.result.clusters_found;
+    result.coverage_skips = diagnostic.result.coverage_skips;
+    result.learning_proposals_created = diagnostic.result.learning_proposals_created;
+
+    // Future steps (02-03) will add root cause classification and learning proposer
+    // for diagnostic.uncoveredClusters
+
+    logInfo("observer.scan.diagnostic", "Diagnostic clustering completed", {
+      workspaceId: workspaceRecord.id,
+      clustersFound: diagnostic.result.clusters_found,
+      coverageSkips: diagnostic.result.coverage_skips,
+      uncoveredClusters: diagnostic.uncoveredClusters.length,
+    });
+  } catch (error) {
+    logInfo("observer.scan.diagnostic_error", "Diagnostic clustering failed, continuing scan", {
+      workspaceId: workspaceRecord.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 
   logInfo("observer.scan.completed", "Graph scan completed", {
