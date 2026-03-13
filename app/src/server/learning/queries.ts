@@ -16,8 +16,9 @@ export async function createLearning(input: {
 }): Promise<LearningRecord> {
   const learningRecord = new RecordId("learning", randomUUID());
 
-  const isActive = input.learning.source === "human";
-  const status: LearningStatus = isActive ? "active" : "pending_approval";
+  const defaultStatus: LearningStatus = input.learning.source === "human" ? "active" : "pending_approval";
+  const status: LearningStatus = input.learning.forceStatus ?? defaultStatus;
+  const isActive = status === "active";
 
   await input.surreal.create(learningRecord).content({
     text: input.learning.text,

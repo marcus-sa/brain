@@ -40,7 +40,7 @@ describe("Milestone 6: Collision Detection", () => {
   // US-AL-006: Learning-vs-learning near-duplicate detection (>0.90)
   // -------------------------------------------------------------------------
 
-  it.skip("near-duplicate learning detected when texts are semantically identical", async () => {
+  it("near-duplicate learning detected when texts are semantically identical", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace with an active learning about null usage
@@ -73,7 +73,7 @@ describe("Milestone 6: Collision Detection", () => {
   // US-AL-006: Learning-vs-learning contradiction via LLM (0.75-0.90)
   // -------------------------------------------------------------------------
 
-  it.skip("LLM classifies contradicting learnings in the ambiguous similarity zone", async () => {
+  it("LLM classifies contradicting learnings in the ambiguous similarity zone", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given an active learning recommending one approach
@@ -105,7 +105,7 @@ describe("Milestone 6: Collision Detection", () => {
     expect(contradictions[0].reasoning).toBeTruthy();
   }, 120_000);
 
-  it.skip("LLM classifies reinforcing learnings as non-blocking", async () => {
+  it("LLM classifies reinforcing learnings as non-blocking", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given an active learning about TypeScript
@@ -141,7 +141,7 @@ describe("Milestone 6: Collision Detection", () => {
     expect(response.status).toBeLessThan(400);
   }, 120_000);
 
-  it.skip("unrelated topics below 0.75 similarity produce no collision", async () => {
+  it("unrelated topics below 0.75 similarity produce no collision", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given an active learning about database conventions
@@ -170,7 +170,7 @@ describe("Milestone 6: Collision Detection", () => {
   // US-AL-006: Learning-vs-policy collision (hard block)
   // -------------------------------------------------------------------------
 
-  it.skip("policy collision is a hard block — learning cannot be activated", async () => {
+  it("policy collision is a hard block — learning cannot be activated", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace with an active policy requiring code review
@@ -207,7 +207,7 @@ describe("Milestone 6: Collision Detection", () => {
   // US-AL-006: Learning-vs-decision collision (informational)
   // -------------------------------------------------------------------------
 
-  it.skip("decision collision is informational — learning reinforces confirmed decision", async () => {
+  it("decision collision is informational — learning reinforces confirmed decision", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace with a confirmed decision about PostgreSQL
@@ -240,7 +240,7 @@ describe("Milestone 6: Collision Detection", () => {
     }
   }, 120_000);
 
-  it.skip("decision contradiction produces warning but does not block", async () => {
+  it("decision contradiction produces warning but does not block", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a confirmed decision to standardize on PostgreSQL
@@ -277,7 +277,7 @@ describe("Milestone 6: Collision Detection", () => {
   // US-AL-006: Fail-open for human-created learnings
   // -------------------------------------------------------------------------
 
-  it.skip("human-created learning activates even when embedding is unavailable", async () => {
+  it("human-created learning activates even when embedding is unavailable", async () => {
     const { surreal } = getRuntime();
 
     // Given a workspace
@@ -301,7 +301,7 @@ describe("Milestone 6: Collision Detection", () => {
     expect(learning!.embedding).toBeUndefined();
   }, 120_000);
 
-  it.skip("agent-suggested learning stays pending when embedding is unavailable", async () => {
+  it("agent-suggested learning stays pending when embedding is unavailable", async () => {
     const { surreal } = getRuntime();
 
     // Given a workspace
@@ -327,7 +327,7 @@ describe("Milestone 6: Collision Detection", () => {
   // US-AL-006: Workspace boundary isolation
   // -------------------------------------------------------------------------
 
-  it.skip("collision detection respects workspace boundaries", async () => {
+  it("collision detection respects workspace boundaries", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given workspace A with a learning about REST APIs
@@ -359,7 +359,7 @@ describe("Milestone 6: Collision Detection", () => {
   // US-AL-006: Priority weighting
   // -------------------------------------------------------------------------
 
-  it.skip("human learning takes precedence over agent-suggested learning on collision", async () => {
+  it("human learning takes precedence over agent-suggested learning on collision", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given an active agent-suggested learning about semicolons

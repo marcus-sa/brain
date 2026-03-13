@@ -12,6 +12,7 @@ import {
   updateLearningStatus,
   updateLearningText,
 } from "./queries";
+import { checkCollisions, type CollisionResult } from "./collision";
 import type { LearningRecord } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -109,6 +110,18 @@ async function handleCreateLearning(
       });
     }
 
+    // Run collision detection before creating the learning
+    const collisionResult = await checkCollisions({
+      surreal: deps.surreal,
+      model: deps.extractionModel,
+      workspaceRecord,
+      learningText: body.text.trim(),
+      learningEmbedding: embedding,
+      source: "human",
+    });
+
+    // Determine status: blocked learnings stay pending, otherwise human-created = active
+    const shouldBlock = collisionResult.hasBlockingCollision;
     const learningRecord = await createLearning({
       surreal: deps.surreal,
       workspaceRecord,
@@ -118,6 +131,7 @@ async function handleCreateLearning(
         priority: (body.priority as "low" | "medium" | "high") ?? "medium",
         targetAgents: body.target_agents ?? [],
         source: "human",
+        ...(shouldBlock ? { forceStatus: "pending_approval" as const } : {}),
       },
       now,
       embedding,
@@ -130,9 +144,17 @@ async function handleCreateLearning(
       learningId,
       learningType: body.learning_type,
       hasEmbedding: embedding !== undefined,
+      collisions: collisionResult.collisions.length,
+      blocked: shouldBlock,
     });
 
-    return jsonResponse({ learningId }, 201);
+    const responseCollisions: CollisionResult[] = collisionResult.collisions;
+
+    return jsonResponse({
+      learningId,
+      learning: { id: learningId },
+      collisions: responseCollisions,
+    }, 201);
   } catch (error) {
     logError("learning.create.failed", "Failed to create learning", error, { workspaceId });
     return jsonError("failed to create learning", 500);

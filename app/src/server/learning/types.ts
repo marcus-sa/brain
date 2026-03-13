@@ -21,4 +21,6 @@ export type CreateLearningInput = {
   patternConfidence?: number;
   createdBy?: string;
   evidenceIds?: Array<{ table: "message" | "trace" | "observation" | "agent_session"; id: string }>;
+  /** Override default status (e.g. force pending_approval when collision blocks activation) */
+  forceStatus?: "active" | "pending_approval";
 };

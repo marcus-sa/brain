@@ -152,5 +152,25 @@ events:
   s: EXECUTED
   sid: 03-01
   t: '2026-03-13T06:57:28Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 03-02
+  t: '2026-03-13T07:01:12Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 03-02
+  t: '2026-03-13T07:01:13Z'
+- d: 'NOT_APPLICABLE: collision detection requires DB + LLM, tested via acceptance'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 03-02
+  t: '2026-03-13T07:01:18Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 03-02
+  t: '2026-03-13T07:16:28Z'
 project_id: agent-learnings
 schema_version: '3.0'

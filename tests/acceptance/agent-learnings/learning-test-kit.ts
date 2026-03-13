@@ -276,13 +276,30 @@ export async function createTestPolicy(
   const policyRecord = new RecordId("policy", policyId);
   const workspaceRecord = new RecordId("workspace", workspaceId);
 
+  const identityId = `id-${crypto.randomUUID()}`;
+  const identityRecord = new RecordId("identity", identityId);
+  await surreal.query(`CREATE $identity CONTENT $content;`, {
+    identity: identityRecord,
+    content: {
+      name: "Policy Creator",
+      type: "human",
+      identity_status: "active",
+      workspace: workspaceRecord,
+      created_at: new Date(),
+    },
+  });
+
   await surreal.query(`CREATE $policy CONTENT $content;`, {
     policy: policyRecord,
     content: {
-      name: overrides.name ?? "Test Policy",
+      title: overrides.name ?? "Test Policy",
       description: overrides.description ?? "A test policy for collision detection",
+      version: 1,
       status: "active",
+      selector: {},
       rules: overrides.rules ?? [],
+      human_veto_required: false,
+      created_by: identityRecord,
       workspace: workspaceRecord,
       created_at: new Date(),
       ...(overrides.embedding ? { embedding: overrides.embedding } : {}),

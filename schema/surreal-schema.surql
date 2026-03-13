@@ -599,9 +599,11 @@ DEFINE FIELD workspace ON policy TYPE record<workspace>;
 DEFINE FIELD supersedes ON policy TYPE option<record<policy>>;
 DEFINE FIELD created_at ON policy TYPE datetime;
 DEFINE FIELD updated_at ON policy TYPE option<datetime>;
+DEFINE FIELD embedding ON policy TYPE option<array<float>>;
 DEFINE INDEX policy_status ON policy FIELDS status;
 DEFINE INDEX policy_workspace ON policy FIELDS workspace;
 DEFINE INDEX policy_workspace_status ON policy FIELDS workspace, status;
+DEFINE INDEX idx_policy_embedding ON policy FIELDS embedding HNSW DIMENSION 1536 DIST COSINE;
 
 -- Graph relation: identity -governing-> policy
 DEFINE TABLE governing TYPE RELATION IN identity OUT policy SCHEMAFULL;
