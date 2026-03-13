@@ -159,26 +159,20 @@ export async function listWorkspaceActiveLearnings(input: {
   workspaceRecord: RecordId<"workspace", string>;
   agentType?: string;
 }): Promise<LearningSummary[]> {
-  const query = input.agentType
-    ? [
-        "SELECT id, text, learning_type, status, source, priority, target_agents,",
-        "suggested_by, pattern_confidence, created_at, approved_at, dismissed_at,",
-        "dismissed_reason, deactivated_at",
-        "FROM learning",
-        "WHERE workspace = $workspace",
-        'AND status = "active"',
-        "AND (array::len(target_agents) = 0 OR $agentType IN target_agents)",
-        "ORDER BY created_at DESC;",
-      ].join(" ")
-    : [
-        "SELECT id, text, learning_type, status, source, priority, target_agents,",
-        "suggested_by, pattern_confidence, created_at, approved_at, dismissed_at,",
-        "dismissed_reason, deactivated_at",
-        "FROM learning",
-        "WHERE workspace = $workspace",
-        'AND status = "active"',
-        "ORDER BY created_at DESC;",
-      ].join(" ");
+  const agentClause = input.agentType
+    ? "AND (array::len(target_agents) = 0 OR $agentType IN target_agents)"
+    : "";
+
+  const query = [
+    "SELECT id, text, learning_type, status, source, priority, target_agents,",
+    "suggested_by, pattern_confidence, created_at, approved_at, dismissed_at,",
+    "dismissed_reason, deactivated_at",
+    "FROM learning",
+    "WHERE workspace = $workspace",
+    'AND status = "active"',
+    agentClause,
+    "ORDER BY created_at DESC;",
+  ].filter(Boolean).join(" ");
 
   const [rows] = await input.surreal
     .query<[LearningRow[]]>(query, {
