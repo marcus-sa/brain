@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "f78ff3082f27",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/agent-learnings",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "app/src/server/feed/feed-route.ts",
+    "app/src/server/learning/learning-route.ts",
+    "app/src/server/learning/queries.ts",
+    "app/src/server/runtime/start-server.ts",
+    "tests/acceptance/agent-learnings/milestone-4-http-and-feed.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/f7/8ff3082f27/0/metadata.json",
+      "transcript": "/f7/8ff3082f27/0/full.jsonl",
+      "context": "/f7/8ff3082f27/0/context.md",
+      "content_hash": "/f7/8ff3082f27/0/content_hash.txt",
+      "prompt": "/f7/8ff3082f27/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 90,
+    "cache_creation_tokens": 136626,
+    "cache_read_tokens": 4000559,
+    "output_tokens": 25720,
+    "api_call_count": 50
+  }
+}
