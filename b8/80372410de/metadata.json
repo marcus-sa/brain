@@ -1,0 +1,34 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "b880372410de",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/agent-learnings",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "docs/adrs/ADR-026-word-count-heuristic-for-learning-token-budget.md",
+    "docs/adrs/ADR-027-dedicated-learning-table-over-suggestion-extension.md",
+    "docs/adrs/ADR-028-three-layer-collision-detection-for-learnings.md",
+    "docs/adrs/ADR-029-workspace-scoped-learnings-not-project-scoped.md",
+    "docs/adrs/ADR-030-jit-learning-injection-at-session-start.md",
+    "docs/feature/agent-learnings/design/architecture-design.md",
+    "docs/feature/agent-learnings/design/component-boundaries.md",
+    "docs/feature/agent-learnings/design/data-models.md",
+    "docs/feature/agent-learnings/design/technology-stack.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/b8/80372410de/0/metadata.json",
+      "transcript": "/b8/80372410de/0/full.jsonl",
+      "context": "/b8/80372410de/0/context.md",
+      "content_hash": "/b8/80372410de/0/content_hash.txt",
+      "prompt": "/b8/80372410de/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 55,
+    "cache_creation_tokens": 292172,
+    "cache_read_tokens": 1986616,
+    "output_tokens": 15818,
+    "api_call_count": 26
+  }
+}

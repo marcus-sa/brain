@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "b880372410de",
+  "session_id": "f8ab9b4c-c93f-4dac-b340-9c7b7c7b04c7",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-13T05:26:52.700941Z",
+  "branch": "marcus-sa/agent-learnings",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "docs/adrs/ADR-026-word-count-heuristic-for-learning-token-budget.md",
+    "docs/adrs/ADR-027-dedicated-learning-table-over-suggestion-extension.md",
+    "docs/adrs/ADR-028-three-layer-collision-detection-for-learnings.md",
+    "docs/adrs/ADR-029-workspace-scoped-learnings-not-project-scoped.md",
+    "docs/adrs/ADR-030-jit-learning-injection-at-session-start.md",
+    "docs/feature/agent-learnings/design/architecture-design.md",
+    "docs/feature/agent-learnings/design/component-boundaries.md",
+    "docs/feature/agent-learnings/design/data-models.md",
+    "docs/feature/agent-learnings/design/technology-stack.md"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "77831f5799b7",
+  "token_usage": {
+    "input_tokens": 55,
+    "cache_creation_tokens": 292172,
+    "cache_read_tokens": 1986616,
+    "output_tokens": 15818,
+    "api_call_count": 26
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-13T05:26:52.094879Z",
+    "agent_lines": 1161,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 1161,
+    "agent_percentage": 100
+  }
+}
