@@ -5,7 +5,10 @@
   "branch": "marcus-sa/agent-learnings",
   "checkpoints_count": 5,
   "files_touched": [
-    "docs/feature/learning-library/execution-log.yaml"
+    "app/src/client/components/layout/WorkspaceSidebar.tsx",
+    "app/src/client/hooks/use-pending-learning-count.ts",
+    "docs/feature/learning-library/execution-log.yaml",
+    "tests/unit/learning-library/use-pending-learning-count.test.ts"
   ],
   "sessions": [
     {
@@ -14,6 +17,13 @@
       "context": "/f0/27fa65a415/0/context.md",
       "content_hash": "/f0/27fa65a415/0/content_hash.txt",
       "prompt": "/f0/27fa65a415/0/prompt.txt"
+    },
+    {
+      "metadata": "/f0/27fa65a415/1/metadata.json",
+      "transcript": "/f0/27fa65a415/1/full.jsonl",
+      "context": "",
+      "content_hash": "/f0/27fa65a415/1/content_hash.txt",
+      "prompt": ""
     }
   ],
   "token_usage": {
