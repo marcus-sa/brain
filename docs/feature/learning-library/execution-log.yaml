@@ -150,5 +150,31 @@ events:
   s: EXECUTED
   sid: 02-03
   t: '2026-03-13T11:24:11Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 02-03
+  t: '2026-03-13T11:24:47Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 03-01
+  t: '2026-03-13T11:26:34Z'
+- d: 'NOT_APPLICABLE: UI dialog components tested via pure logic unit tests - no E2E
+    test harness available'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 03-01
+  t: '2026-03-13T11:26:51Z'
+- d: PASS
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 03-01
+  t: '2026-03-13T11:27:26Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 03-01
+  t: '2026-03-13T11:28:08Z'
 project_id: learning-library
 schema_version: '3.0'
