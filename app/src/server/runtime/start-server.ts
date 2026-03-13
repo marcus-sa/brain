@@ -35,6 +35,7 @@ import { createNonceCache } from "../oauth/nonce-cache";
 import { createBridgeExchangeHandler } from "../oauth/bridge";
 import { RecordId } from "surrealdb";
 import { createObserverRouteHandler, createGraphScanRouteHandler } from "../observer/observer-route";
+import { createLearningRouteHandlers } from "../learning/learning-route";
 
 export function createBrainServer(deps: ServerDependencies): ReturnType<typeof Bun.serve> {
   const config = deps.config;
@@ -68,6 +69,7 @@ export function createBrainServer(deps: ServerDependencies): ReturnType<typeof B
   const bridgeExchangeHandler = createBridgeExchangeHandler(deps);
   const observerHandler = createObserverRouteHandler(deps);
   const graphScanHandler = createGraphScanRouteHandler(deps);
+  const learningHandlers = createLearningRouteHandlers(deps);
 
   // Orchestrator wiring
   const orchestratorHandlers = wireOrchestratorRoutes({
@@ -167,6 +169,29 @@ export function createBrainServer(deps: ServerDependencies): ReturnType<typeof B
           "POST /api/workspaces/:workspaceId/work-items/accept",
           "POST",
           (request) => workItemAcceptHandler(request.params.workspaceId, request),
+        ),
+      },
+      "/api/workspaces/:workspaceId/learnings": {
+        POST: withRequestLogging(
+          "POST /api/workspaces/:workspaceId/learnings",
+          "POST",
+          (request) => learningHandlers.handleCreate(request.params.workspaceId, request),
+        ),
+        GET: withRequestLogging(
+          "GET /api/workspaces/:workspaceId/learnings",
+          "GET",
+          (request) => learningHandlers.handleList(request.params.workspaceId, request),
+        ),
+      },
+      "/api/workspaces/:workspaceId/learnings/:learningId/actions": {
+        POST: withRequestLogging(
+          "POST /api/workspaces/:workspaceId/learnings/:learningId/actions",
+          "POST",
+          (request) => learningHandlers.handleAction(
+            request.params.workspaceId,
+            request.params.learningId,
+            request,
+          ),
         ),
       },
       "/api/workspaces/:workspaceId/feed": {

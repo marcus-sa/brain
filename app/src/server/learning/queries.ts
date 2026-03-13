@@ -284,6 +284,70 @@ function toLearnings(row: LearningRow): LearningSummary {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Filtered list (for HTTP GET endpoint)
+// ---------------------------------------------------------------------------
+
+export async function listWorkspaceLearnings(input: {
+  surreal: Surreal;
+  workspaceRecord: RecordId<"workspace", string>;
+  status?: LearningStatus;
+  learningType?: LearningType;
+  agentType?: string;
+  limit?: number;
+}): Promise<LearningSummary[]> {
+  const clauses = ["WHERE workspace = $workspace"];
+  const vars: Record<string, unknown> = {
+    workspace: input.workspaceRecord,
+    limit: input.limit ?? 100,
+  };
+
+  if (input.status) {
+    clauses.push("AND status = $status");
+    vars.status = input.status;
+  }
+  if (input.learningType) {
+    clauses.push("AND learning_type = $learningType");
+    vars.learningType = input.learningType;
+  }
+  if (input.agentType) {
+    clauses.push("AND (array::len(target_agents) = 0 OR $agentType IN target_agents)");
+    vars.agentType = input.agentType;
+  }
+
+  const sql = [
+    "SELECT id, text, learning_type, status, source, priority, target_agents,",
+    "suggested_by, pattern_confidence, created_at, approved_at, dismissed_at,",
+    "dismissed_reason, deactivated_at",
+    "FROM learning",
+    ...clauses,
+    "ORDER BY created_at DESC",
+    "LIMIT $limit;",
+  ].join(" ");
+
+  const [rows] = await input.surreal
+    .query<[LearningRow[]]>(sql, vars)
+    .collect<[LearningRow[]]>();
+
+  return rows.map(toLearnings);
+}
+
+// ---------------------------------------------------------------------------
+// Update text (for edit-and-approve)
+// ---------------------------------------------------------------------------
+
+export async function updateLearningText(input: {
+  surreal: Surreal;
+  learningRecord: LearningRecord;
+  newText: string;
+  now: Date;
+}): Promise<void> {
+  await input.surreal.update(input.learningRecord).merge({
+    text: input.newText,
+    updated_at: input.now,
+  });
+}
+
 function toISOString(value: string | Date): string {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }

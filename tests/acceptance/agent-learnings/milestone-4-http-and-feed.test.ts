@@ -39,7 +39,7 @@ describe("Milestone 4: HTTP Endpoints and Governance Feed", () => {
   // US-AL-001: Create learning via HTTP
   // -------------------------------------------------------------------------
 
-  it.skip("human creates a constraint learning via HTTP and it is immediately active", async () => {
+  it("human creates a constraint learning via HTTP and it is immediately active", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given an authenticated user with a workspace
@@ -65,7 +65,7 @@ describe("Milestone 4: HTTP Endpoints and Governance Feed", () => {
     expect(persisted!.source).toBe("human");
   }, 120_000);
 
-  it.skip("human creates an instruction learning with specific target agents", async () => {
+  it("human creates an instruction learning with specific target agents", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     const user = await createTestUser(baseUrl, `http-target-${crypto.randomUUID()}`);
@@ -91,7 +91,7 @@ describe("Milestone 4: HTTP Endpoints and Governance Feed", () => {
   // US-AL-001: Create validation errors
   // -------------------------------------------------------------------------
 
-  it.skip("creating a learning without required text field is rejected", async () => {
+  it("creating a learning without required text field is rejected", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     const user = await createTestUser(baseUrl, `http-missing-text-${crypto.randomUUID()}`);
@@ -115,7 +115,7 @@ describe("Milestone 4: HTTP Endpoints and Governance Feed", () => {
     expect(response.status).toBeLessThan(500);
   }, 120_000);
 
-  it.skip("creating a learning with invalid learning_type is rejected", async () => {
+  it("creating a learning with invalid learning_type is rejected", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     const user = await createTestUser(baseUrl, `http-invalid-type-${crypto.randomUUID()}`);
@@ -144,7 +144,7 @@ describe("Milestone 4: HTTP Endpoints and Governance Feed", () => {
   // US-AL-004: List learnings with filters
   // -------------------------------------------------------------------------
 
-  it.skip("list learnings filtered by status returns only matching records", async () => {
+  it("list learnings filtered by status returns only matching records", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     const user = await createTestUser(baseUrl, `http-list-status-${crypto.randomUUID()}`);
@@ -175,7 +175,7 @@ describe("Milestone 4: HTTP Endpoints and Governance Feed", () => {
     expect(body.learnings[0].status).toBe("active");
   }, 120_000);
 
-  it.skip("list learnings filtered by type returns only matching records", async () => {
+  it("list learnings filtered by type returns only matching records", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     const user = await createTestUser(baseUrl, `http-list-type-${crypto.randomUUID()}`);
@@ -209,7 +209,7 @@ describe("Milestone 4: HTTP Endpoints and Governance Feed", () => {
   // US-AL-004: Approve action
   // -------------------------------------------------------------------------
 
-  it.skip("approving a pending learning transitions it to active with audit trail", async () => {
+  it("approving a pending learning transitions it to active with audit trail", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     const user = await createTestUser(baseUrl, `http-approve-${crypto.randomUUID()}`);
@@ -247,7 +247,7 @@ describe("Milestone 4: HTTP Endpoints and Governance Feed", () => {
   // US-AL-004: Dismiss action
   // -------------------------------------------------------------------------
 
-  it.skip("dismissing a pending learning records the reason", async () => {
+  it("dismissing a pending learning records the reason", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     const user = await createTestUser(baseUrl, `http-dismiss-${crypto.randomUUID()}`);
@@ -290,7 +290,7 @@ describe("Milestone 4: HTTP Endpoints and Governance Feed", () => {
   // US-AL-004: Deactivate action
   // -------------------------------------------------------------------------
 
-  it.skip("deactivating an active learning records audit trail", async () => {
+  it("deactivating an active learning records audit trail", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     const user = await createTestUser(baseUrl, `http-deactivate-${crypto.randomUUID()}`);
@@ -325,7 +325,7 @@ describe("Milestone 4: HTTP Endpoints and Governance Feed", () => {
   // US-AL-004: Invalid actions
   // -------------------------------------------------------------------------
 
-  it.skip("approving an already-active learning is rejected", async () => {
+  it("approving an already-active learning is rejected", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     const user = await createTestUser(baseUrl, `http-double-approve-${crypto.randomUUID()}`);
@@ -352,7 +352,7 @@ describe("Milestone 4: HTTP Endpoints and Governance Feed", () => {
     expect(response.status).toBeLessThan(500);
   }, 120_000);
 
-  it.skip("dismissing an active learning is rejected (must deactivate instead)", async () => {
+  it("dismissing an active learning is rejected (must deactivate instead)", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     const user = await createTestUser(baseUrl, `http-dismiss-active-${crypto.randomUUID()}`);
@@ -379,7 +379,7 @@ describe("Milestone 4: HTTP Endpoints and Governance Feed", () => {
     expect(response.status).toBeLessThan(500);
   }, 120_000);
 
-  it.skip("action on non-existent learning returns not found", async () => {
+  it("action on non-existent learning returns not found", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     const user = await createTestUser(baseUrl, `http-not-found-${crypto.randomUUID()}`);
@@ -402,7 +402,7 @@ describe("Milestone 4: HTTP Endpoints and Governance Feed", () => {
   // US-AL-004: Governance feed
   // -------------------------------------------------------------------------
 
-  it.skip("pending learnings appear in the governance feed", async () => {
+  it("pending learnings appear in the governance feed", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     const user = await createTestUser(baseUrl, `feed-pending-${crypto.randomUUID()}`);
@@ -424,20 +424,23 @@ describe("Milestone 4: HTTP Endpoints and Governance Feed", () => {
       { headers: user.headers },
     );
 
-    // Then the feed includes the pending learning
+    // Then the feed includes the pending learning in the review tier
     expect(response.status).toBe(200);
-    const feed = (await response.json()) as { items: Array<{ type: string; text?: string }> };
+    const feed = (await response.json()) as {
+      review: Array<{ entityKind: string; entityName: string }>;
+    };
 
-    // The pending learning should appear as a feed card
-    // (exact field names depend on feed implementation)
-    expect(feed.items).toBeDefined();
+    // The pending learning should appear as a review-tier feed card
+    const learningCards = feed.review.filter((item) => item.entityKind === "learning");
+    expect(learningCards.length).toBeGreaterThanOrEqual(1);
+    expect(learningCards[0].entityName).toContain("structured logging");
   }, 120_000);
 
   // -------------------------------------------------------------------------
   // US-AL-004: Edit and approve
   // -------------------------------------------------------------------------
 
-  it.skip("editing and approving a pending learning saves modified text as active", async () => {
+  it("editing and approving a pending learning saves modified text as active", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     const user = await createTestUser(baseUrl, `http-edit-approve-${crypto.randomUUID()}`);
