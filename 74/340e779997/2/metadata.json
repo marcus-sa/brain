@@ -1,0 +1,36 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "74340e779997",
+  "session_id": "ed3df8ec-7d75-4b86-86f5-4ec8d01c8102",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-13T14:10:47.607005Z",
+  "branch": "marcus-sa/agent-learnings",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "app/src/server/observer/graph-scan.ts",
+    "app/src/server/observer/learning-diagnosis.ts",
+    "app/src/server/observer/schemas.ts",
+    "docs/feature/observer-learning-proposals/execution-log.yaml",
+    "tests/acceptance/observer-learning-proposals/milestone-2-root-cause-classification.test.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "cbe1a01b1b18",
+  "checkpoint_transcript_start": 27,
+  "transcript_lines_at_start": 27,
+  "token_usage": {
+    "input_tokens": 32,
+    "cache_creation_tokens": 35095,
+    "cache_read_tokens": 1193107,
+    "output_tokens": 11165,
+    "api_call_count": 18
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-13T14:10:47.516831Z",
+    "agent_lines": 747,
+    "human_added": 11,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 758,
+    "agent_percentage": 98.54881266490764
+  }
+}
