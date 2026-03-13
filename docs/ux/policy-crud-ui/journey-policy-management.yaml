@@ -1,0 +1,306 @@
+journey:
+  name: policy-management
+  version: "1.0"
+  goal: "Enable org admins to create, manage, and audit governance policies through a web UI; enable reviewers to see policy traces on flagged intents"
+  personas:
+    - reiko_tanaka (org_admin)
+    - marcus_oliveira (reviewer)
+    - ayumi_sato (auditor)
+  jobs:
+    - job_1_define_governance_rules_via_ui
+    - job_2_manage_policy_lifecycle
+    - job_3_understand_intent_evaluation
+    - job_4_verify_policy_compliance
+
+  emotional_arc:
+    start: "Curious -- what policies exist in this workspace?"
+    middle: "Focused and deliberate -- building structured rules, confirming before activation"
+    end: "Assured -- every agent action governed, every decision traceable"
+
+actors:
+  org_admin:
+    type: human
+    role: Creates, activates, versions, and deprecates policies through web UI
+    persona: Reiko Tanaka
+  reviewer:
+    type: human
+    role: Reviews flagged intents with policy evaluation trace
+    persona: Marcus Oliveira
+  auditor:
+    type: human
+    role: Browses policy version history and diffs for compliance reporting
+    persona: Ayumi Sato
+
+steps:
+  - id: 1
+    name: "Policy List View"
+    phase: list
+    actor: org_admin
+    action: "Navigate to /workspace/:workspaceId/policies"
+    route: "GET /api/workspaces/:workspaceId/policies"
+
+    shared_artifacts:
+      - name: policy_list
+        source: "GET /api/workspaces/:workspaceId/policies"
+        displayed_as: "${policies[]}"
+        consumers: ["policy list table", "status filter counts", "empty state"]
+      - name: workspace_id
+        source: "URL path parameter / workspace context"
+        displayed_as: "${workspaceId}"
+        consumers: ["all API calls", "policy creation", "sidebar navigation"]
+
+    emotional_state:
+      entry: "Curious -- arriving to check on governance posture"
+      exit: "Oriented -- understands what policies exist and their statuses"
+
+    integration_checkpoint: |
+      Policy list API returns all policies for workspace.
+      Status filter counts match total.
+      Empty state renders when no policies exist.
+
+    gherkin: |
+      Scenario: Org admin views policy list
+        Given Reiko Tanaka has 3 active and 2 draft policies in workspace "acme-corp"
+        When she navigates to the policies page
+        Then she sees a table with 5 policy rows
+        And each row shows title, status, version, created_by, and updated_at
+        And the status filter shows "Active (3)" and "Draft (2)"
+
+      Scenario: Empty state for new workspace
+        Given workspace "new-startup" has no policies
+        When Reiko navigates to the policies page
+        Then she sees an empty state explaining what policies are
+        And a "Create your first policy" call to action
+
+  - id: 2
+    name: "Create Policy Form"
+    phase: create
+    actor: org_admin
+    action: "Click '+ New Policy', fill form, save as draft"
+    route: "POST /api/workspaces/:workspaceId/policies"
+
+    inputs:
+      - title (required, string)
+      - description (optional, string)
+      - selector.agent_role (optional, dropdown)
+      - selector.resource (optional, dropdown)
+      - rules[] (at least 1 required)
+      - rules[].condition.field (string, dot-path)
+      - rules[].condition.operator (enum dropdown)
+      - rules[].condition.value (typed by operator)
+      - rules[].effect (allow | deny)
+      - rules[].priority (number)
+      - human_veto_required (boolean checkbox)
+      - max_ttl (optional, duration string)
+
+    shared_artifacts:
+      - name: policy_id
+        source: "POST /api/workspaces/:workspaceId/policies response"
+        displayed_as: "${policyId}"
+        consumers: ["redirect to detail view", "activation", "version creation"]
+      - name: known_fields
+        source: "IntentEvaluationContext type definition"
+        displayed_as: "field autocomplete dropdown"
+        consumers: ["rule builder field input", "validation"]
+
+    emotional_state:
+      entry: "Focused -- creating something precise"
+      exit: "Satisfied -- draft saved successfully"
+
+    integration_checkpoint: |
+      Form validates all predicates before submission.
+      Rule preview shows human-readable rendering.
+      Server rejects invalid predicate structures.
+      Redirect to policy detail view on success.
+
+    gherkin: |
+      Scenario: Create a spending limit policy
+        Given Reiko is on the "Create Policy" form in workspace "acme-corp"
+        When she enters title "Finance Controls"
+        And adds a rule with field "budget_limit.amount", operator "gt", value "500", effect "deny", priority "100"
+        And checks "Require human veto window"
+        And clicks "Save as Draft"
+        Then a policy is created with status "draft" and version 1
+        And she is redirected to the policy detail view
+        And a success toast confirms "Policy created as draft"
+
+      Scenario: Validation rejects unknown field path
+        Given Reiko is building a rule on the "Create Policy" form
+        When she enters field path "budgetlimit.amoun"
+        And tabs to the next field
+        Then an inline error appears: "Unknown field. Did you mean 'budget_limit.amount'?"
+        And the "Save as Draft" button is disabled
+
+  - id: 3
+    name: "Policy Detail View"
+    phase: detail
+    actor: org_admin
+    action: "Click a policy row in the list"
+    route: "GET /api/workspaces/:workspaceId/policies/:policyId"
+
+    shared_artifacts:
+      - name: policy_record
+        source: "GET /api/workspaces/:workspaceId/policies/:policyId"
+        displayed_as: "${policy}"
+        consumers: ["detail header", "rules section", "options section", "graph edges", "version history"]
+      - name: version_history
+        source: "GET /api/workspaces/:workspaceId/policies/:policyId response (includes supersedes chain)"
+        displayed_as: "${versions[]}"
+        consumers: ["version timeline", "diff view trigger"]
+
+    emotional_state:
+      entry: "Investigating -- looking at a specific policy"
+      exit: "Informed -- understands the policy's scope, rules, edges, and history"
+
+    integration_checkpoint: |
+      Policy detail includes all fields from PolicyRecord type.
+      Graph edges (governing, protects) displayed.
+      Version history shows supersedes chain.
+      Action buttons conditional on status (activate for draft, deprecate for active, new version for active).
+
+    gherkin: |
+      Scenario: View active policy detail
+        Given "Finance Controls" is an active policy at version 3 in workspace "acme-corp"
+        When Reiko clicks on "Finance Controls" in the policy list
+        Then she sees the policy title, description, status "active", and version "v3"
+        And the rules section shows 2 rules with human-readable predicate rendering
+        And the graph edges section shows governing and protects relationships
+        And the version history shows v1, v2 (superseded), and v3 (active)
+        And action buttons show "Deprecate" and "Create New Version"
+
+  - id: 4
+    name: "Activate Policy"
+    phase: lifecycle
+    actor: org_admin
+    action: "Click 'Activate' on a draft policy, confirm in dialog"
+    route: "PATCH /api/workspaces/:workspaceId/policies/:policyId/activate"
+
+    shared_artifacts:
+      - name: policy_id
+        source: "Policy detail view context"
+        displayed_as: "${policyId}"
+        consumers: ["activation API call", "audit event"]
+
+    emotional_state:
+      entry: "Cautious -- about to make rules enforceable"
+      exit: "Confident -- policy is active and protecting the workspace"
+
+    integration_checkpoint: |
+      Confirmation dialog shows impact summary.
+      Activation creates governing and protects edges.
+      Policy status transitions from draft to active.
+      Audit event recorded.
+
+    gherkin: |
+      Scenario: Activate a draft policy
+        Given "API Rate Policy" is a draft policy with 1 rule in workspace "acme-corp"
+        When Reiko clicks "Activate" on the policy detail page
+        Then a confirmation dialog explains the activation impact
+        And when she confirms, the policy status changes to "active"
+        And governing and protects graph edges are created
+        And the detail page refreshes to show status "active"
+
+  - id: 5
+    name: "Policy Trace in Intent Review"
+    phase: review
+    actor: reviewer
+    action: "Open a flagged intent in the veto queue"
+    route: "GET /api/workspaces/:workspaceId/intents/:intentId/consent (enhanced with policy trace)"
+
+    shared_artifacts:
+      - name: policy_trace
+        source: "intent.evaluation.policy_trace (persisted by authorizer pipeline)"
+        displayed_as: "${policyTrace[]}"
+        consumers: ["expandable policy trace section", "policy link navigation"]
+      - name: intent_id
+        source: "Pending intents list"
+        displayed_as: "${intentId}"
+        consumers: ["review screen", "approve/veto API calls"]
+
+    emotional_state:
+      entry: "Uncertain -- why was this intent flagged?"
+      exit: "Informed and decisive -- ready to approve or veto with confidence"
+
+    integration_checkpoint: |
+      Policy trace section renders all PolicyTraceEntry items.
+      Each entry shows policy title, rule ID, condition, match status, effect.
+      "View Policy" link navigates to policy detail.
+      Human-readable predicate rendering (not raw JSON).
+
+    gherkin: |
+      Scenario: Reviewer sees policy trace on flagged intent
+        Given an intent to "Purchase DataDog license for $800" was flagged by "Finance Controls" rule "max_spend"
+        And Marcus Oliveira opens the intent in the veto queue
+        When the intent review screen loads
+        Then the policy evaluation section shows "2 policies evaluated, 1 rule matched"
+        And expanding it reveals that "Finance Controls v3" rule #1 matched (budget 800 > 500, effect: deny)
+        And a "View Policy" link navigates to the Finance Controls detail page
+
+  - id: 6
+    name: "Version Diff View"
+    phase: audit
+    actor: auditor
+    action: "Click 'View Diff' between two adjacent versions"
+    route: "GET /api/workspaces/:workspaceId/policies/:policyId/versions (includes previous versions)"
+
+    shared_artifacts:
+      - name: version_pair
+        source: "Version history in policy detail"
+        displayed_as: "${oldVersion} -> ${newVersion}"
+        consumers: ["diff view header", "rule comparison", "options comparison"]
+
+    emotional_state:
+      entry: "Analytical -- comparing what changed"
+      exit: "Assured -- understands exactly what was modified between versions"
+
+    integration_checkpoint: |
+      Diff shows added/removed/changed rules.
+      Diff shows changed options (human_veto_required, max_ttl).
+      Diff shows changed selector scope.
+      Unchanged items labeled as "unchanged".
+
+    gherkin: |
+      Scenario: Auditor views version diff
+        Given "Finance Controls" has version 2 (1 rule) and version 3 (2 rules)
+        When Ayumi Sato clicks "View Diff" between v2 and v3
+        Then she sees "Rule #1 (max_spend): unchanged"
+        And "Rule #2 (allow_reads): ADDED" with the full condition displayed
+        And options section shows "human_veto_required: unchanged"
+
+shared_artifacts_summary:
+  workspace_id:
+    source: "URL path / workspace context"
+    consumers: ["all API endpoints", "all UI routes"]
+    integration_risk: "LOW -- standard workspace scoping"
+  policy_id:
+    source: "POST create response / URL path"
+    consumers: ["detail view", "activate", "deprecate", "version", "diff"]
+    integration_risk: "MEDIUM -- must be consistent across create->detail->lifecycle flows"
+  policy_list:
+    source: "GET list endpoint"
+    consumers: ["list table", "status counts", "empty state"]
+    integration_risk: "LOW"
+  policy_record:
+    source: "GET detail endpoint"
+    consumers: ["detail header", "rules", "edges", "version history", "action buttons"]
+    integration_risk: "MEDIUM -- must include all PolicyRecord fields plus version chain"
+  policy_trace:
+    source: "intent.evaluation.policy_trace (authorizer pipeline)"
+    consumers: ["intent review screen policy trace section"]
+    integration_risk: "HIGH -- data written by authorizer, read by review UI; schema must match"
+  known_fields:
+    source: "IntentEvaluationContext type definition"
+    consumers: ["rule builder field autocomplete/validation"]
+    integration_risk: "HIGH -- must stay in sync with actual evaluation context shape"
+
+integration_validation:
+  shared_artifact_consistency:
+    - artifact: policy_trace
+      must_match_across: [authorizer pipeline output, intent review UI rendering]
+      failure_message: "PolicyTraceEntry schema in authorizer must match what the review UI expects to render"
+    - artifact: known_fields
+      must_match_across: [IntentEvaluationContext type, rule builder field autocomplete]
+      failure_message: "Rule builder must offer exactly the fields the predicate evaluator can resolve"
+    - artifact: policy_record
+      must_match_across: [create API response, detail API response, list API response]
+      failure_message: "Policy shape must be consistent across all endpoints"
