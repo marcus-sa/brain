@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "f763c5cacdd2",
+  "session_id": "8bfab1bd-6ee7-4dc7-b9ce-80003dd6e9c1",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-13T12:42:51.51824Z",
+  "branch": "marcus-sa/agent-learnings",
+  "checkpoints_count": 7,
+  "files_touched": [
+    ".nwave/des-config.json",
+    "docs/evolution/2026-03-13-learning-library.md",
+    "docs/feature/learning-library/execution-log.yaml",
+    "tests/acceptance/learning-library/milestone-3-full-lifecycle.test.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "b0c6f042448f",
+  "token_usage": {
+    "input_tokens": 64,
+    "cache_creation_tokens": 216608,
+    "cache_read_tokens": 1892414,
+    "output_tokens": 8832,
+    "api_call_count": 32
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-13T12:42:51.275965Z",
+    "agent_lines": 10,
+    "human_added": 231,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 241,
+    "agent_percentage": 4.149377593360995
+  }
+}

@@ -3,10 +3,13 @@
   "checkpoint_id": "f763c5cacdd2",
   "strategy": "manual-commit",
   "branch": "marcus-sa/agent-learnings",
-  "checkpoints_count": 4,
+  "checkpoints_count": 11,
   "files_touched": [
+    ".nwave/des-config.json",
+    "docs/evolution/2026-03-13-learning-library.md",
     "docs/feature/learning-library/execution-log.yaml",
     "docs/feature/learning-library/roadmap.yaml",
+    "tests/acceptance/learning-library/milestone-3-full-lifecycle.test.ts",
     "tests/unit/learning-library/test-factories.ts"
   ],
   "sessions": [
@@ -16,13 +19,20 @@
       "context": "/f7/63c5cacdd2/0/context.md",
       "content_hash": "/f7/63c5cacdd2/0/content_hash.txt",
       "prompt": "/f7/63c5cacdd2/0/prompt.txt"
+    },
+    {
+      "metadata": "/f7/63c5cacdd2/1/metadata.json",
+      "transcript": "/f7/63c5cacdd2/1/full.jsonl",
+      "context": "/f7/63c5cacdd2/1/context.md",
+      "content_hash": "/f7/63c5cacdd2/1/content_hash.txt",
+      "prompt": "/f7/63c5cacdd2/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 4483,
-    "cache_creation_tokens": 435272,
-    "cache_read_tokens": 10663842,
-    "output_tokens": 52920,
-    "api_call_count": 118
+    "input_tokens": 4547,
+    "cache_creation_tokens": 651880,
+    "cache_read_tokens": 12556256,
+    "output_tokens": 61752,
+    "api_call_count": 150
   }
 }
