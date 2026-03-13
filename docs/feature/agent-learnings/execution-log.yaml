@@ -19,5 +19,32 @@ events:
   s: EXECUTED
   sid: 01-01
   t: '2026-03-13T06:16:30Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-03-13T06:16:54Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-03-13T06:18:43Z'
+- d: 'NOT_APPLICABLE: acceptance tests already exist and pass from step 01-01; queries.ts
+    validated via HTTP routes in step 02-02'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 01-02
+  t: '2026-03-13T06:18:50Z'
+- d: 'NOT_APPLICABLE: all functions are SurrealDB adapter queries with no pure domain
+    logic'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 01-02
+  t: '2026-03-13T06:18:58Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-03-13T06:20:55Z'
 project_id: agent-learnings
 schema_version: '3.0'
