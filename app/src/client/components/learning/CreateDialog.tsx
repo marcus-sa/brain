@@ -11,6 +11,7 @@ import {
   INITIAL_CREATE_FORM,
   type CreateFormState,
 } from "./create-dialog-logic";
+import { capitalize } from "./learning-card-logic";
 
 type CollisionResult = {
   id: string;
@@ -122,7 +123,7 @@ export function CreateDialog({ onConfirm, onCancel, isSubmitting }: CreateDialog
               <option value="">Select type...</option>
               {LEARNING_TYPES.map((t) => (
                 <option key={t} value={t}>
-                  {t.charAt(0).toUpperCase() + t.slice(1)}
+                  {capitalize(t)}
                 </option>
               ))}
             </select>
@@ -139,7 +140,7 @@ export function CreateDialog({ onConfirm, onCancel, isSubmitting }: CreateDialog
             >
               {ENTITY_PRIORITIES.map((p) => (
                 <option key={p} value={p}>
-                  {p.charAt(0).toUpperCase() + p.slice(1)}
+                  {capitalize(p)}
                 </option>
               ))}
             </select>

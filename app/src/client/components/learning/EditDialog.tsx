@@ -11,6 +11,7 @@ import {
   buildEditPayload,
   type EditFormState,
 } from "./edit-dialog-logic";
+import { capitalize } from "./learning-card-logic";
 
 type EditDialogProps = {
   learning: LearningSummary;
@@ -78,7 +79,7 @@ export function EditDialog({ learning, onConfirm, onCancel, isSubmitting }: Edit
         >
           {ENTITY_PRIORITIES.map((p) => (
             <option key={p} value={p}>
-              {p.charAt(0).toUpperCase() + p.slice(1)}
+              {capitalize(p)}
             </option>
           ))}
         </select>

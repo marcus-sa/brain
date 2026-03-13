@@ -1,15 +1,11 @@
 import { LEARNING_TYPES, KNOWN_LEARNING_TARGET_AGENTS } from "../../../shared/contracts";
 import type { LearningType } from "../../../shared/contracts";
+import { capitalize } from "./learning-card-logic";
 
 export type FilterOption = {
   value: string;
   label: string;
 };
-
-/** Capitalize first letter of a string. */
-function capitalize(text: string): string {
-  return text.charAt(0).toUpperCase() + text.slice(1);
-}
 
 /** Dropdown options for filtering by learning type. */
 export const TYPE_FILTER_OPTIONS: readonly FilterOption[] = [

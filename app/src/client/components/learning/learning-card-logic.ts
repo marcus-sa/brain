@@ -7,6 +7,11 @@
 import { KNOWN_LEARNING_TARGET_AGENTS } from "../../../shared/contracts";
 import type { LearningSummary, LearningStatus } from "../../../shared/contracts";
 
+/** Capitalize the first character of a string. */
+export function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 /** Number of characters before text gets truncated on a card. */
 export const TRUNCATION_THRESHOLD = 200;
 

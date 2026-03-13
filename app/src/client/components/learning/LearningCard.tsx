@@ -1,6 +1,6 @@
 import type { LearningSummary } from "../../../shared/contracts";
 import { AgentChips } from "./AgentChips";
-import { computeCardActions, truncateText } from "./learning-card-logic";
+import { capitalize, computeCardActions, truncateText, TRUNCATION_THRESHOLD } from "./learning-card-logic";
 
 export type LearningCardAction = {
   action: string;
@@ -23,15 +23,10 @@ function formatDate(iso: string): string {
   });
 }
 
-/** Capitalize first character. */
-function capitalize(text: string): string {
-  return text.charAt(0).toUpperCase() + text.slice(1);
-}
-
 export function LearningCard({ learning, isExpanded, onToggle, onAction }: LearningCardProps) {
   const actions = computeCardActions(learning.status);
   const displayText = isExpanded ? learning.text : truncateText(learning.text);
-  const isTruncated = learning.text.length > 200;
+  const isTruncated = learning.text.length > TRUNCATION_THRESHOLD;
 
   return (
     <div className={`learning-card learning-card--${learning.status}`}>
