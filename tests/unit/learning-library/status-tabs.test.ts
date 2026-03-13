@@ -10,7 +10,7 @@ import {
   computeStatusCounts,
   type StatusTabDefinition,
 } from "../../../app/src/client/components/learning/StatusTabs";
-import type { LearningSummary } from "../../../app/src/shared/contracts";
+import { makeLearning } from "./test-factories";
 
 describe("STATUS_TAB_DEFINITIONS", () => {
   it("defines exactly four tabs", () => {
@@ -34,17 +34,6 @@ describe("STATUS_TAB_DEFINITIONS", () => {
 });
 
 describe("computeStatusCounts", () => {
-  const makeLearning = (status: LearningSummary["status"]): LearningSummary => ({
-    id: crypto.randomUUID(),
-    text: "test learning",
-    learningType: "instruction",
-    status,
-    source: "human",
-    priority: "medium",
-    targetAgents: ["chat_agent"],
-    createdAt: new Date().toISOString(),
-  });
-
   it("returns zero counts for all statuses when learnings list is empty", () => {
     const counts = computeStatusCounts([]);
     expect(counts.active).toBe(0);
@@ -55,10 +44,10 @@ describe("computeStatusCounts", () => {
 
   it("counts learnings by their status", () => {
     const learnings = [
-      makeLearning("active"),
-      makeLearning("active"),
-      makeLearning("pending_approval"),
-      makeLearning("dismissed"),
+      makeLearning({ status: "active" }),
+      makeLearning({ status: "active" }),
+      makeLearning({ status: "pending_approval" }),
+      makeLearning({ status: "dismissed" }),
     ];
     const counts = computeStatusCounts(learnings);
     expect(counts.active).toBe(2);
@@ -69,8 +58,8 @@ describe("computeStatusCounts", () => {
 
   it("ignores superseded status (not a tab)", () => {
     const learnings = [
-      makeLearning("active"),
-      makeLearning("superseded"),
+      makeLearning({ status: "active" }),
+      makeLearning({ status: "superseded" as any }),
     ];
     const counts = computeStatusCounts(learnings);
     expect(counts.active).toBe(1);
