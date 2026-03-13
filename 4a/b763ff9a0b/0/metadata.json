@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "4ab763ff9a0b",
+  "session_id": "1edd90b0-2d8c-4727-b842-43d39b691d9c",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-13T11:18:57.289653Z",
+  "branch": "marcus-sa/agent-learnings",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "docs/feature/learning-library/execution-log.yaml"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "1f693408646c",
+  "token_usage": {
+    "input_tokens": 4398,
+    "cache_creation_tokens": 274065,
+    "cache_read_tokens": 6268353,
+    "output_tokens": 37098,
+    "api_call_count": 68
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-13T11:18:56.426483Z",
+    "agent_lines": 32,
+    "human_added": 412,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 444,
+    "agent_percentage": 7.207207207207207
+  }
+}
