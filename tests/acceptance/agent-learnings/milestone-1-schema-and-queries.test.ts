@@ -33,7 +33,7 @@ describe("Milestone 1: Learning Schema and Queries", () => {
   // US-AL-005: Learning table schema validation
   // -------------------------------------------------------------------------
 
-  it.skip("learning record stores all required fields with correct types", async () => {
+  it("learning record stores all required fields with correct types", async () => {
     const { surreal } = getRuntime();
 
     // Given a workspace
@@ -62,7 +62,7 @@ describe("Milestone 1: Learning Schema and Queries", () => {
     expect(record!.created_at).toBeTruthy();
   }, 120_000);
 
-  it.skip("learning type must be one of constraint, instruction, or precedent", async () => {
+  it("learning type must be one of constraint, instruction, or precedent", async () => {
     const { surreal } = getRuntime();
     const { workspaceId } = await createTestWorkspace(surreal, "schema-type-assert");
     const workspaceRecord = new RecordId("workspace", workspaceId);
@@ -94,7 +94,7 @@ describe("Milestone 1: Learning Schema and Queries", () => {
     }
   }, 120_000);
 
-  it.skip("learning status must be one of the valid lifecycle states", async () => {
+  it("learning status must be one of the valid lifecycle states", async () => {
     const { surreal } = getRuntime();
     const { workspaceId } = await createTestWorkspace(surreal, "schema-status-assert");
     const workspaceRecord = new RecordId("workspace", workspaceId);
@@ -129,7 +129,7 @@ describe("Milestone 1: Learning Schema and Queries", () => {
   // US-AL-005 + US-AL-001: CRUD operations
   // -------------------------------------------------------------------------
 
-  it.skip("active learnings are listed for a workspace", async () => {
+  it("active learnings are listed for a workspace", async () => {
     const { surreal } = getRuntime();
 
     // Given a workspace with two active and one dismissed learning
@@ -164,7 +164,7 @@ describe("Milestone 1: Learning Schema and Queries", () => {
     expect(texts).not.toContain("This learning was dismissed.");
   }, 120_000);
 
-  it.skip("status transition from active to deactivated records audit trail", async () => {
+  it("status transition from active to deactivated records audit trail", async () => {
     const { surreal } = getRuntime();
 
     // Given an active learning
@@ -197,7 +197,7 @@ describe("Milestone 1: Learning Schema and Queries", () => {
     expect(deactivated!.deactivated_at).toBeTruthy();
   }, 120_000);
 
-  it.skip("pending approval learning is not returned as active", async () => {
+  it("pending approval learning is not returned as active", async () => {
     const { surreal } = getRuntime();
 
     // Given an agent-suggested learning awaiting approval
@@ -226,7 +226,7 @@ describe("Milestone 1: Learning Schema and Queries", () => {
   // US-AL-005: Supersession
   // -------------------------------------------------------------------------
 
-  it.skip("superseding a learning marks the old one as superseded and creates an edge", async () => {
+  it("superseding a learning marks the old one as superseded and creates an edge", async () => {
     const { surreal } = getRuntime();
 
     // Given a workspace with an active learning about database choice
@@ -276,7 +276,7 @@ describe("Milestone 1: Learning Schema and Queries", () => {
   // US-AL-005: Evidence edges
   // -------------------------------------------------------------------------
 
-  it.skip("evidence edges link a learning to its source entities", async () => {
+  it("evidence edges link a learning to its source entities", async () => {
     const { surreal } = getRuntime();
 
     // Given a workspace with a learning
@@ -320,7 +320,7 @@ describe("Milestone 1: Learning Schema and Queries", () => {
   // US-AL-005: Workspace isolation
   // -------------------------------------------------------------------------
 
-  it.skip("learnings from one workspace are not visible in another", async () => {
+  it("learnings from one workspace are not visible in another", async () => {
     const { surreal } = getRuntime();
 
     // Given workspace A with a learning
@@ -349,7 +349,7 @@ describe("Milestone 1: Learning Schema and Queries", () => {
   // Error paths
   // -------------------------------------------------------------------------
 
-  it.skip("learning source must be human or agent", async () => {
+  it("learning source must be human or agent", async () => {
     const { surreal } = getRuntime();
     const { workspaceId } = await createTestWorkspace(surreal, "invalid-source");
     const workspaceRecord = new RecordId("workspace", workspaceId);
@@ -379,7 +379,7 @@ describe("Milestone 1: Learning Schema and Queries", () => {
     }
   }, 120_000);
 
-  it.skip("learning priority defaults to medium when not specified", async () => {
+  it("learning priority defaults to medium when not specified", async () => {
     const { surreal } = getRuntime();
     const { workspaceId } = await createTestWorkspace(surreal, "default-priority");
     const workspaceRecord = new RecordId("workspace", workspaceId);
