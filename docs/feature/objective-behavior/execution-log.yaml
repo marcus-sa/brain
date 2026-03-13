@@ -1,0 +1,24 @@
+events:
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-03-13T19:23:14Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-03-13T19:23:35Z'
+- d: 'NOT_APPLICABLE: CRUD queries are adapter-boundary code tested through acceptance
+    tests. No pure domain logic requiring unit/property tests.'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 01-01
+  t: '2026-03-13T19:23:42Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-03-13T19:25:56Z'
+project_id: objective-behavior
+schema_version: '3.0'

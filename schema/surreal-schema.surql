@@ -426,7 +426,7 @@ DEFINE FIELD added_at ON decided_in TYPE option<datetime>;
 DEFINE TABLE belongs_to TYPE RELATION IN task | decision | question OUT feature | project SCHEMAFULL;
 DEFINE FIELD added_at ON belongs_to TYPE datetime;
 
-DEFINE TABLE observes TYPE RELATION IN observation OUT project | feature | task | decision | question | intent | git_commit | observation SCHEMAFULL;
+DEFINE TABLE observes TYPE RELATION IN observation OUT project | feature | task | decision | question | intent | git_commit | observation | objective SCHEMAFULL;
 DEFINE FIELD added_at ON observes TYPE option<datetime>;
 
 DEFINE TABLE observed_in TYPE RELATION IN observation OUT agent_session SCHEMAFULL;
@@ -1157,6 +1157,44 @@ DEFINE FIELD added_at ON learning_evidence TYPE option<datetime>;
 DEFINE TABLE supersedes TYPE RELATION IN learning OUT learning SCHEMAFULL;
 DEFINE FIELD superseded_at ON supersedes TYPE datetime;
 DEFINE FIELD reason ON supersedes TYPE option<string>;
+
+-- Objective: strategic goal node
+DEFINE TABLE objective SCHEMAFULL;
+DEFINE FIELD title ON objective TYPE string;
+DEFINE FIELD description ON objective TYPE option<string>;
+DEFINE FIELD target_date ON objective TYPE option<string>;
+DEFINE FIELD priority ON objective TYPE string
+  ASSERT $value IN ["low", "medium", "high", "critical"];
+DEFINE FIELD status ON objective TYPE string
+  ASSERT $value IN ["draft", "active", "completed", "archived", "expired"];
+DEFINE FIELD success_criteria ON objective TYPE option<array<object>>;
+DEFINE FIELD success_criteria[*].metric_name ON objective TYPE string;
+DEFINE FIELD success_criteria[*].target_value ON objective TYPE float;
+DEFINE FIELD success_criteria[*].current_value ON objective TYPE float;
+DEFINE FIELD success_criteria[*].unit ON objective TYPE string;
+DEFINE FIELD workspace ON objective TYPE record<workspace>;
+DEFINE FIELD source_message ON objective TYPE option<record<message>>;
+DEFINE FIELD created_by ON objective TYPE option<record<identity>>;
+DEFINE FIELD created_at ON objective TYPE datetime;
+DEFINE FIELD updated_at ON objective TYPE option<datetime>;
+DEFINE FIELD embedding ON objective TYPE option<array<float>>;
+DEFINE INDEX objective_workspace_status ON objective FIELDS workspace, status;
+DEFINE INDEX objective_target_date ON objective FIELDS target_date;
+DEFINE INDEX idx_objective_embedding ON objective FIELDS embedding HNSW DIMENSION 1536 DIST COSINE;
+
+-- has_objective: links project or workspace to its objectives
+DEFINE TABLE has_objective TYPE RELATION IN project | workspace OUT objective SCHEMAFULL;
+DEFINE FIELD added_at ON has_objective TYPE datetime;
+
+-- supports: links intent to strategic objective
+DEFINE TABLE supports TYPE RELATION IN intent OUT objective SCHEMAFULL;
+DEFINE FIELD alignment_score ON supports TYPE float
+  ASSERT $value >= 0.0 AND $value <= 1.0;
+DEFINE FIELD alignment_method ON supports TYPE string
+  ASSERT $value IN ["embedding", "manual", "rule"];
+DEFINE FIELD reasoning ON supports TYPE option<string>;
+DEFINE FIELD added_at ON supports TYPE option<datetime>;
+DEFINE INDEX supports_out ON supports FIELDS out;
 
 -- Analytics agent: read-only database user
 DEFINE USER analytics ON DATABASE PASSWORD 'brain-analytics-readonly' ROLES VIEWER;
