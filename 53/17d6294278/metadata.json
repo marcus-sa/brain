@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "5317d6294278",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/agent-learnings",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "app/src/server/chat/context.ts",
+    "app/src/server/learning/collision.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/53/17d6294278/0/metadata.json",
+      "transcript": "/53/17d6294278/0/full.jsonl",
+      "context": "/53/17d6294278/0/context.md",
+      "content_hash": "/53/17d6294278/0/content_hash.txt",
+      "prompt": "/53/17d6294278/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 10,
+    "cache_creation_tokens": 38967,
+    "cache_read_tokens": 147461,
+    "output_tokens": 2137,
+    "api_call_count": 4
+  }
+}
