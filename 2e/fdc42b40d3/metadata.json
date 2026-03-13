@@ -1,0 +1,62 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "2efdc42b40d3",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/policy-crud-ui",
+  "checkpoints_count": 4,
+  "files_touched": [
+    "docs/feature/policy-crud-ui/design/adr-001-authorization-guard-pattern.md",
+    "docs/feature/policy-crud-ui/design/adr-002-version-chain-traversal.md",
+    "docs/feature/policy-crud-ui/design/adr-003-version-diff-computation.md",
+    "docs/feature/policy-crud-ui/design/adr-004-rule-builder-autocomplete-strategy.md",
+    "docs/feature/policy-crud-ui/design/adr-005-supersede-atomicity.md",
+    "docs/feature/policy-crud-ui/design/architecture-design.md",
+    "docs/feature/policy-crud-ui/design/component-boundaries.md",
+    "docs/feature/policy-crud-ui/design/data-models.md",
+    "docs/feature/policy-crud-ui/design/technology-stack.md",
+    "docs/feature/policy-crud-ui/distill/test-scenarios.md",
+    "docs/feature/policy-crud-ui/distill/walking-skeleton.md",
+    "docs/feature/policy-crud-ui/requirements/US-PCUI-01-policy-list-view.md",
+    "docs/feature/policy-crud-ui/requirements/US-PCUI-02-create-policy.md",
+    "docs/feature/policy-crud-ui/requirements/US-PCUI-03-policy-detail-view.md",
+    "docs/feature/policy-crud-ui/requirements/US-PCUI-04-activate-deprecate-policy.md",
+    "docs/feature/policy-crud-ui/requirements/US-PCUI-05-create-new-version.md",
+    "docs/feature/policy-crud-ui/requirements/US-PCUI-06-policy-trace-in-review.md",
+    "docs/feature/policy-crud-ui/requirements/US-PCUI-07-version-history-and-diff.md",
+    "docs/feature/policy-crud-ui/requirements/US-PCUI-08-agent-authorization.md",
+    "docs/feature/policy-crud-ui/requirements/dor-validation.md",
+    "docs/feature/policy-crud-ui/requirements/handoff-design.md",
+    "docs/feature/policy-crud-ui/requirements/requirements.md",
+    "docs/ux/policy-crud-ui/journey-policy-management-visual.md",
+    "docs/ux/policy-crud-ui/journey-policy-management.feature",
+    "docs/ux/policy-crud-ui/journey-policy-management.yaml",
+    "docs/ux/policy-crud-ui/jtbd-four-forces.md",
+    "docs/ux/policy-crud-ui/jtbd-job-stories.md",
+    "docs/ux/policy-crud-ui/jtbd-opportunity-scores.md",
+    "docs/ux/policy-crud-ui/personas.md",
+    "docs/ux/policy-crud-ui/shared-artifacts-registry.md",
+    "tests/acceptance/policy-crud-ui/milestone-1-authorization-and-list.test.ts",
+    "tests/acceptance/policy-crud-ui/milestone-2-policy-creation.test.ts",
+    "tests/acceptance/policy-crud-ui/milestone-3-policy-lifecycle.test.ts",
+    "tests/acceptance/policy-crud-ui/milestone-4-policy-detail.test.ts",
+    "tests/acceptance/policy-crud-ui/milestone-5-version-creation.test.ts",
+    "tests/acceptance/policy-crud-ui/milestone-6-policy-trace.test.ts",
+    "tests/acceptance/policy-crud-ui/policy-crud-test-kit.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/2e/fdc42b40d3/0/metadata.json",
+      "transcript": "/2e/fdc42b40d3/0/full.jsonl",
+      "context": "/2e/fdc42b40d3/0/context.md",
+      "content_hash": "/2e/fdc42b40d3/0/content_hash.txt",
+      "prompt": "/2e/fdc42b40d3/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 350,
+    "cache_creation_tokens": 132717,
+    "cache_read_tokens": 1191355,
+    "output_tokens": 13401,
+    "api_call_count": 20
+  }
+}
