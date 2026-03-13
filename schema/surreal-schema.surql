@@ -426,7 +426,7 @@ DEFINE FIELD added_at ON decided_in TYPE option<datetime>;
 DEFINE TABLE belongs_to TYPE RELATION IN task | decision | question OUT feature | project SCHEMAFULL;
 DEFINE FIELD added_at ON belongs_to TYPE datetime;
 
-DEFINE TABLE observes TYPE RELATION IN observation OUT project | feature | task | decision | question | intent | git_commit | observation | objective SCHEMAFULL;
+DEFINE TABLE observes TYPE RELATION IN observation OUT project | feature | task | decision | question | intent | git_commit | observation | objective | behavior SCHEMAFULL;
 DEFINE FIELD added_at ON observes TYPE option<datetime>;
 
 DEFINE TABLE observed_in TYPE RELATION IN observation OUT agent_session SCHEMAFULL;
@@ -1150,7 +1150,7 @@ DEFINE INDEX idx_learning_workspace_status ON learning FIELDS workspace, status;
 DEFINE INDEX idx_learning_embedding ON learning FIELDS embedding HNSW DIMENSION 1536 DIST COSINE;
 
 -- Evidence relation: links a learning to source entities
-DEFINE TABLE learning_evidence TYPE RELATION IN learning OUT message | trace | observation | agent_session SCHEMAFULL;
+DEFINE TABLE learning_evidence TYPE RELATION IN learning OUT message | trace | observation | agent_session | behavior SCHEMAFULL;
 DEFINE FIELD added_at ON learning_evidence TYPE option<datetime>;
 
 -- Supersession relation: tracks when one learning replaces another
@@ -1195,6 +1195,31 @@ DEFINE FIELD alignment_method ON supports TYPE string
 DEFINE FIELD reasoning ON supports TYPE option<string>;
 DEFINE FIELD added_at ON supports TYPE option<datetime>;
 DEFINE INDEX supports_out ON supports FIELDS out;
+
+-- Behavior: agent craftsmanship metric record (append-only)
+DEFINE TABLE behavior SCHEMAFULL;
+DEFINE FIELD metric_type ON behavior TYPE string
+  ASSERT $value IN [
+    "TDD_Adherence",
+    "Security_First",
+    "Conciseness",
+    "Review_Responsiveness",
+    "Documentation_Quality"
+  ];
+DEFINE FIELD score ON behavior TYPE float
+  ASSERT $value >= 0.0 AND $value <= 1.0;
+DEFINE FIELD source_telemetry ON behavior TYPE object FLEXIBLE;
+DEFINE FIELD workspace ON behavior TYPE record<workspace>;
+DEFINE FIELD session ON behavior TYPE option<record<agent_session>>;
+DEFINE FIELD created_at ON behavior TYPE datetime;
+DEFINE INDEX behavior_workspace_metric ON behavior FIELDS workspace, metric_type;
+DEFINE INDEX behavior_session ON behavior FIELDS session;
+DEFINE INDEX behavior_created_at ON behavior FIELDS created_at;
+
+-- exhibits: links an agent identity to a behavior record
+DEFINE TABLE exhibits TYPE RELATION IN identity OUT behavior SCHEMAFULL;
+DEFINE FIELD created_at ON exhibits TYPE option<datetime>;
+DEFINE FIELD added_at ON exhibits TYPE option<datetime>;
 
 -- Analytics agent: read-only database user
 DEFINE USER analytics ON DATABASE PASSWORD 'brain-analytics-readonly' ROLES VIEWER;
