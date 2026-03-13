@@ -432,6 +432,28 @@ export async function getSupersessionEdge(
 }
 
 /**
+ * Creates a deterministic fake embedding vector for testing.
+ * Uses a seed to produce a reproducible 1536-dimension unit vector.
+ * Identical seeds produce identical embeddings (cosine similarity = 1.0).
+ */
+export function fakeLearningEmbedding(seed: number): number[] {
+  const dimension = 1536;
+  const embedding = new Array<number>(dimension);
+  // Simple deterministic pseudo-random based on seed
+  let state = seed;
+  for (let i = 0; i < dimension; i++) {
+    state = ((state * 1103515245 + 12345) & 0x7fffffff);
+    embedding[i] = (state / 0x7fffffff) * 2 - 1;
+  }
+  // Normalize to unit vector
+  const magnitude = Math.sqrt(embedding.reduce((sum, v) => sum + v * v, 0));
+  for (let i = 0; i < dimension; i++) {
+    embedding[i] = embedding[i] / magnitude;
+  }
+  return embedding;
+}
+
+/**
  * Generates real embedding vectors using the configured embedding model.
  * Returns a map of text -> embedding for seeding test data with real vectors.
  */

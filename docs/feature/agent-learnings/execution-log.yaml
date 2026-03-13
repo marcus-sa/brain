@@ -71,5 +71,86 @@ events:
   s: EXECUTED
   sid: 01-03
   t: '2026-03-13T06:35:47Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 01-03
+  t: '2026-03-13T06:36:17Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-03-13T06:38:19Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-03-13T06:40:15Z'
+- d: 'NOT_APPLICABLE: integration changes only, no new pure logic'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 02-01
+  t: '2026-03-13T06:40:19Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-03-13T06:44:48Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-03-13T06:45:12Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 02-02
+  t: '2026-03-13T06:47:16Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 02-02
+  t: '2026-03-13T06:49:05Z'
+- d: 'NOT_APPLICABLE: HTTP adapter layer, no pure domain logic to unit test'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 02-02
+  t: '2026-03-13T06:49:12Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 02-02
+  t: '2026-03-13T06:53:10Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 02-02
+  t: '2026-03-13T06:53:51Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 03-01
+  t: '2026-03-13T06:55:04Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 03-01
+  t: '2026-03-13T06:56:07Z'
+- d: 'NOT_APPLICABLE: All logic involves DB queries and embeddings - no pure domain
+    logic to unit test'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 03-01
+  t: '2026-03-13T06:56:12Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 03-01
+  t: '2026-03-13T06:57:03Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 03-01
+  t: '2026-03-13T06:57:28Z'
 project_id: agent-learnings
 schema_version: '3.0'

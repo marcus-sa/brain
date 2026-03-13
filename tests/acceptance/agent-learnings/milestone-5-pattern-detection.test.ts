@@ -33,7 +33,7 @@ describe("Milestone 5: Pattern Detection and Agent Suggestions", () => {
   // US-AL-002: Rate limiting
   // -------------------------------------------------------------------------
 
-  it.skip("agent is rate-limited to 5 suggestions per workspace per week", async () => {
+  it("agent is rate-limited to 5 suggestions per workspace per week", async () => {
     const { surreal } = getRuntime();
 
     // Given a workspace where the observer agent has already suggested 5 learnings this week
@@ -67,7 +67,7 @@ describe("Milestone 5: Pattern Detection and Agent Suggestions", () => {
     // And the detector should skip creating new suggestions (verified by implementation)
   }, 120_000);
 
-  it.skip("different agents have independent rate limits", async () => {
+  it("different agents have independent rate limits", async () => {
     const { surreal } = getRuntime();
 
     // Given a workspace where observer has 5 suggestions but PM has 0
@@ -114,7 +114,7 @@ describe("Milestone 5: Pattern Detection and Agent Suggestions", () => {
   // US-AL-002: Dismissed re-suggestion prevention
   // -------------------------------------------------------------------------
 
-  it.skip("dismissed learning with high similarity blocks re-suggestion", async () => {
+  it("dismissed learning with high similarity blocks re-suggestion", async () => {
     const { surreal } = getRuntime();
 
     // Given a workspace with a previously dismissed learning that has an embedding
@@ -153,7 +153,7 @@ describe("Milestone 5: Pattern Detection and Agent Suggestions", () => {
   // US-AL-002: Agent-suggested learnings require approval
   // -------------------------------------------------------------------------
 
-  it.skip("agent-suggested learning is created with pending_approval status", async () => {
+  it("agent-suggested learning is created with pending_approval status", async () => {
     const { surreal } = getRuntime();
 
     // Given a workspace
@@ -186,7 +186,7 @@ describe("Milestone 5: Pattern Detection and Agent Suggestions", () => {
   // US-AL-002: Cross-agent coaching
   // -------------------------------------------------------------------------
 
-  it.skip("observer can suggest a learning targeted to coding agents", async () => {
+  it("observer can suggest a learning targeted to coding agents", async () => {
     const { surreal } = getRuntime();
 
     // Given a workspace
@@ -216,7 +216,7 @@ describe("Milestone 5: Pattern Detection and Agent Suggestions", () => {
   // Error paths
   // -------------------------------------------------------------------------
 
-  it.skip("rate limit count excludes suggestions older than 7 days", async () => {
+  it("rate limit count excludes suggestions older than 7 days", async () => {
     const { surreal } = getRuntime();
 
     // Given a workspace with an old suggestion (> 7 days ago)
@@ -257,7 +257,7 @@ describe("Milestone 5: Pattern Detection and Agent Suggestions", () => {
     expect(countResult[0]?.[0]?.count ?? 0).toBe(0);
   }, 120_000);
 
-  it.skip("suggestions from different workspaces do not affect rate limit", async () => {
+  it("suggestions from different workspaces do not affect rate limit", async () => {
     const { surreal } = getRuntime();
 
     // Given workspace A with 5 observer suggestions at limit
