@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "196752755a7f",
+  "session_id": "562d472d-8053-4fcb-b881-65223cbeeea9",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-13T07:17:18.077414Z",
+  "branch": "marcus-sa/agent-learnings",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "app/src/server/learning/collision.ts",
+    "app/src/server/learning/learning-route.ts",
+    "app/src/server/learning/queries.ts",
+    "app/src/server/learning/types.ts",
+    "docs/feature/agent-learnings/execution-log.yaml",
+    "schema/migrations/0031_policy_embedding.surql",
+    "schema/surreal-schema.surql",
+    "tests/acceptance/agent-learnings/learning-test-kit.ts",
+    "tests/acceptance/agent-learnings/milestone-6-collision-detection.test.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "67b3b3b57e6a",
+  "token_usage": {
+    "input_tokens": 106,
+    "cache_creation_tokens": 144025,
+    "cache_read_tokens": 5237447,
+    "output_tokens": 31597,
+    "api_call_count": 60
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-13T07:17:17.768583Z",
+    "agent_lines": 365,
+    "human_added": 8,
+    "human_modified": 3,
+    "human_removed": 0,
+    "total_committed": 376,
+    "agent_percentage": 97.07446808510637
+  }
+}

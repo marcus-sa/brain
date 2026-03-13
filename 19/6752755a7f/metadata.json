@@ -1,0 +1,34 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "196752755a7f",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/agent-learnings",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "app/src/server/learning/collision.ts",
+    "app/src/server/learning/learning-route.ts",
+    "app/src/server/learning/queries.ts",
+    "app/src/server/learning/types.ts",
+    "docs/feature/agent-learnings/execution-log.yaml",
+    "schema/migrations/0031_policy_embedding.surql",
+    "schema/surreal-schema.surql",
+    "tests/acceptance/agent-learnings/learning-test-kit.ts",
+    "tests/acceptance/agent-learnings/milestone-6-collision-detection.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/19/6752755a7f/0/metadata.json",
+      "transcript": "/19/6752755a7f/0/full.jsonl",
+      "context": "/19/6752755a7f/0/context.md",
+      "content_hash": "/19/6752755a7f/0/content_hash.txt",
+      "prompt": "/19/6752755a7f/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 106,
+    "cache_creation_tokens": 144025,
+    "cache_read_tokens": 5237447,
+    "output_tokens": 31597,
+    "api_call_count": 60
+  }
+}
