@@ -19,7 +19,7 @@ import { rootCauseSchema, type RootCauseClassification } from "./schemas";
 import { OBSERVER_IDENTITY } from "../agents/observer/prompt";
 import { suggestLearning } from "../learning/detector";
 import { createObservation } from "../observation/queries";
-import { createEmbeddingVector } from "../graph/embeddings";
+import { cosineSimilarity, createEmbeddingVector } from "../graph/embeddings";
 import type { CreateLearningInput } from "../learning/types";
 import type { embed } from "ai";
 
@@ -122,25 +122,6 @@ export async function queryRecentObservationsWithEmbeddings(
 // ---------------------------------------------------------------------------
 
 /**
- * Computes cosine similarity between two vectors.
- */
-function cosineSimilarity(vectorA: number[], vectorB: number[]): number {
-  let dotProduct = 0;
-  let normA = 0;
-  let normB = 0;
-
-  for (let i = 0; i < vectorA.length; i++) {
-    dotProduct += vectorA[i] * vectorB[i];
-    normA += vectorA[i] * vectorA[i];
-    normB += vectorB[i] * vectorB[i];
-  }
-
-  const denominator = Math.sqrt(normA) * Math.sqrt(normB);
-  if (denominator === 0) return 0;
-  return dotProduct / denominator;
-}
-
-/**
  * Clusters observations by pairwise embedding similarity using single-linkage.
  *
  * Algorithm:
@@ -225,7 +206,6 @@ export function clusterObservationsBySimilarity(
  * Computes the centroid (element-wise average) of a set of embedding vectors.
  * This reduces noise from individual observation text variations, producing
  * a more representative embedding for cluster-level similarity comparisons.
- * Pure function.
  */
 function computeCentroidEmbedding(embeddings: number[][]): number[] {
   if (embeddings.length === 0) return [];
@@ -249,7 +229,6 @@ function computeCentroidEmbedding(embeddings: number[][]): number[] {
 
 /**
  * Picks the observation with highest average similarity to other cluster members.
- * Pure function.
  */
 function pickRepresentativeIndex(
   componentIndices: number[],
@@ -283,83 +262,15 @@ function pickRepresentativeIndex(
 // ---------------------------------------------------------------------------
 
 /**
- * Checks if an active learning already covers the cluster pattern.
- * Uses two-step KNN pattern per SurrealDB HNSW+WHERE bug.
- *
- * Returns covered=true if any active learning has similarity > 0.80
- * to the cluster's representative observation embedding.
+ * Checks if any learning with a given status covers the cluster pattern.
+ * Uses two-step KNN pattern per SurrealDB HNSW+WHERE bug, with brute-force fallback.
  */
-export async function checkCoverageAgainstActiveLearnings(
+async function checkLearningCoverage(
   surreal: Surreal,
   workspaceRecord: RecordId<"workspace", string>,
   clusterEmbedding: number[],
-): Promise<CoverageCheckResult> {
-  // Two-step KNN: LET returns null result, SELECT returns actual matches
-  // query() returns array of statement results: [LET result, SELECT result]
-  const results = await surreal
-    .query<[undefined, Array<{ text: string; similarity: number }>]>(
-      [
-        "LET $candidates = SELECT id, text, workspace, status,",
-        "vector::similarity::cosine(embedding, $embedding) AS similarity",
-        "FROM learning WHERE embedding <|10, COSINE|> $embedding;",
-        "SELECT text, similarity FROM $candidates",
-        `WHERE workspace = $ws AND status = "active" AND similarity > ${COVERAGE_SIMILARITY_THRESHOLD}`,
-        "ORDER BY similarity DESC LIMIT 1;",
-      ].join("\n"),
-      {
-        embedding: clusterEmbedding,
-        ws: workspaceRecord,
-      },
-    );
-
-  // LET is index 0 (undefined), SELECT is index 1
-  const matches = results[1] ?? [];
-  const match = matches[0];
-  if (match) {
-    return { covered: true, matchedLearningText: match.text, similarity: match.similarity };
-  }
-
-  // Fallback: brute-force scan when HNSW index hasn't indexed recent inserts.
-  // Queries all active learnings with embeddings and computes similarity in-app.
-  const [activeLearnings] = await surreal.query<[Array<{ text: string; embedding: number[] }>]>(
-    `SELECT text, embedding FROM learning
-     WHERE workspace = $ws
-       AND status = "active"
-       AND embedding IS NOT NONE;`,
-    { ws: workspaceRecord },
-  );
-
-  logInfo("observer.learning.coverage_fallback", "Fallback coverage check", {
-    activeLearningsCount: (activeLearnings ?? []).length,
-    workspaceId: workspaceRecord.id,
-  });
-
-  for (const learning of activeLearnings ?? []) {
-    const similarity = cosineSimilarity(clusterEmbedding, learning.embedding);
-    if (similarity > COVERAGE_SIMILARITY_THRESHOLD) {
-      return { covered: true, matchedLearningText: learning.text, similarity };
-    }
-  }
-
-  return { covered: false };
-}
-
-// ---------------------------------------------------------------------------
-// Dismissed learning check (IO boundary -- prevents re-suggestion)
-// ---------------------------------------------------------------------------
-
-/**
- * Checks if a dismissed learning already covers the cluster pattern.
- * Uses the representative observation embedding against dismissed learnings.
- * Threshold is lower than the dismissed re-suggestion gate (0.85) because
- * we compare observation text embeddings (not proposed learning text).
- *
- * Two-step KNN pattern per SurrealDB HNSW+WHERE bug, with brute-force fallback.
- */
-export async function checkDismissedLearningForCluster(
-  surreal: Surreal,
-  workspaceRecord: RecordId<"workspace", string>,
-  clusterEmbedding: number[],
+  learningStatus: "active" | "dismissed",
+  similarityThreshold: number,
 ): Promise<CoverageCheckResult> {
   const results = await surreal
     .query<[undefined, Array<{ text: string; similarity: number }>]>(
@@ -368,7 +279,7 @@ export async function checkDismissedLearningForCluster(
         "vector::similarity::cosine(embedding, $embedding) AS similarity",
         "FROM learning WHERE embedding <|10, COSINE|> $embedding;",
         "SELECT text, similarity FROM $candidates",
-        `WHERE workspace = $ws AND status = "dismissed" AND similarity > ${DISMISSED_PATTERN_SIMILARITY_THRESHOLD}`,
+        `WHERE workspace = $ws AND status = "${learningStatus}" AND similarity > ${similarityThreshold}`,
         "ORDER BY similarity DESC LIMIT 1;",
       ].join("\n"),
       {
@@ -384,22 +295,45 @@ export async function checkDismissedLearningForCluster(
   }
 
   // Brute-force fallback when HNSW index hasn't indexed recent inserts
-  const [dismissedLearnings] = await surreal.query<[Array<{ text: string; embedding: number[] }>]>(
+  const [learnings] = await surreal.query<[Array<{ text: string; embedding: number[] }>]>(
     `SELECT text, embedding FROM learning
      WHERE workspace = $ws
-       AND status = "dismissed"
+       AND status = "${learningStatus}"
        AND embedding IS NOT NONE;`,
     { ws: workspaceRecord },
   );
 
-  for (const learning of dismissedLearnings ?? []) {
+  if (learningStatus === "active") {
+    logInfo("observer.learning.coverage_fallback", "Fallback coverage check", {
+      activeLearningsCount: (learnings ?? []).length,
+      workspaceId: workspaceRecord.id,
+    });
+  }
+
+  for (const learning of learnings ?? []) {
     const similarity = cosineSimilarity(clusterEmbedding, learning.embedding);
-    if (similarity > DISMISSED_PATTERN_SIMILARITY_THRESHOLD) {
+    if (similarity > similarityThreshold) {
       return { covered: true, matchedLearningText: learning.text, similarity };
     }
   }
 
   return { covered: false };
+}
+
+export async function checkCoverageAgainstActiveLearnings(
+  surreal: Surreal,
+  workspaceRecord: RecordId<"workspace", string>,
+  clusterEmbedding: number[],
+): Promise<CoverageCheckResult> {
+  return checkLearningCoverage(surreal, workspaceRecord, clusterEmbedding, "active", COVERAGE_SIMILARITY_THRESHOLD);
+}
+
+export async function checkDismissedLearningForCluster(
+  surreal: Surreal,
+  workspaceRecord: RecordId<"workspace", string>,
+  clusterEmbedding: number[],
+): Promise<CoverageCheckResult> {
+  return checkLearningCoverage(surreal, workspaceRecord, clusterEmbedding, "dismissed", DISMISSED_PATTERN_SIMILARITY_THRESHOLD);
 }
 
 // ---------------------------------------------------------------------------
@@ -523,7 +457,6 @@ export async function classifyRootCause(
 
 /**
  * Applies the dual gate: should_propose_learning AND confidence >= threshold.
- * Pure function -- no IO.
  */
 function shouldProposeLearning(classification: RootCauseClassification): boolean {
   return classification.should_propose_learning && classification.confidence >= CONFIDENCE_THRESHOLD;
@@ -531,7 +464,6 @@ function shouldProposeLearning(classification: RootCauseClassification): boolean
 
 /**
  * Maps a root cause classification to a CreateLearningInput.
- * Pure function -- no IO.
  */
 function rootCauseToLearningInput(
   classification: RootCauseClassification,

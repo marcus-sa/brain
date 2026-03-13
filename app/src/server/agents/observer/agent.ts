@@ -529,8 +529,6 @@ async function persistObservation(
 // ---------------------------------------------------------------------------
 
 const ESCALATION_THRESHOLD = 3;
-const DEDUP_SIMILARITY_THRESHOLD = 0.80;
-const DEDUP_WINDOW_HOURS = 24;
 
 /**
  * Counts open observer observations linked to a specific entity.
@@ -560,68 +558,6 @@ async function countEntityObserverObservations(
   );
 
   return countRows?.[0]?.count ?? 0;
-}
-
-/**
- * Checks if a similar pending learning from the observer already exists
- * within the dedup window. Uses brute-force cosine comparison against
- * pending_approval learnings from the last 24 hours.
- *
- * Returns true if a similar learning already exists (should skip proposal).
- */
-async function hasSimilarPendingLearning(
-  surreal: Surreal,
-  workspaceRecord: RecordId<"workspace", string>,
-  proposedEmbedding: number[],
-): Promise<boolean> {
-  if (proposedEmbedding.length === 0) return false;
-
-  const cutoff = new Date(Date.now() - DEDUP_WINDOW_HOURS * 60 * 60 * 1000);
-
-  const [pendingLearnings] = await surreal.query<[Array<{ text: string; embedding: number[] }>]>(
-    `SELECT text, embedding FROM learning
-     WHERE workspace = $ws
-       AND source = "agent"
-       AND suggested_by = "observer"
-       AND status = "pending_approval"
-       AND created_at > $cutoff
-       AND embedding IS NOT NONE;`,
-    { ws: workspaceRecord, cutoff },
-  );
-
-  for (const learning of pendingLearnings ?? []) {
-    const similarity = cosineSimilarity(proposedEmbedding, learning.embedding);
-    if (similarity > DEDUP_SIMILARITY_THRESHOLD) {
-      logInfo("observer.escalation.dedup", "Similar pending learning already exists", {
-        similarity,
-        existingText: learning.text.slice(0, 80),
-      });
-      return true;
-    }
-  }
-
-  return false;
-}
-
-/**
- * Cosine similarity between two vectors.
- * Pure function -- duplicated from learning-diagnosis.ts to avoid
- * exporting internal utility.
- */
-function cosineSimilarity(vectorA: number[], vectorB: number[]): number {
-  let dotProduct = 0;
-  let normA = 0;
-  let normB = 0;
-
-  for (let i = 0; i < vectorA.length; i++) {
-    dotProduct += vectorA[i] * vectorB[i];
-    normA += vectorA[i] * vectorA[i];
-    normB += vectorB[i] * vectorB[i];
-  }
-
-  const denominator = Math.sqrt(normA) * Math.sqrt(normB);
-  if (denominator === 0) return 0;
-  return dotProduct / denominator;
 }
 
 /**
