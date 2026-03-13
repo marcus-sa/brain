@@ -1,0 +1,197 @@
+journey:
+  name: "Runtime Learning Injection"
+  goal: "Select and inject relevant learnings into agent system prompts at session start"
+  persona: "System (prompt builder), verified by Tomas Eriksson"
+
+  emotional_arc:
+    start: "Neutral -- system process"
+    middle: "Seamless -- correct learnings selected"
+    end: "Confident -- agent operates with accumulated wisdom"
+
+steps:
+  - id: 1
+    name: "Learning Query"
+    action: "System queries active learnings for agent type and workspace"
+
+    shared_artifacts:
+      - name: workspace_record
+        source: "Session context"
+        displayed_as: "${workspace_record}"
+        consumers:
+          - "Learning query WHERE clause"
+      - name: agent_type
+        source: "Session context (e.g., code_agent, chat_agent, pm_agent)"
+        displayed_as: "${agent_type}"
+        consumers:
+          - "Learning query target_agents filter"
+      - name: active_learnings
+        source: "SurrealDB query result"
+        displayed_as: "${active_learnings}"
+        consumers:
+          - "Priority sort"
+          - "Token budget check"
+          - "Prompt injection"
+
+    emotional_state:
+      entry: "N/A (automated)"
+      exit: "N/A (automated)"
+
+    gherkin: |
+      Scenario: Active learnings queried for code_agent
+        Given workspace "Brain Development" has 8 active learnings
+        And 6 of those learnings target code_agent
+        When a new code_agent session starts
+        Then the system queries learnings WHERE workspace = "Brain Development" AND "code_agent" IN target_agents AND status = "active"
+        And returns 6 learning records
+
+  - id: 2
+    name: "Priority Sort and Conflict Resolution"
+    action: "System sorts learnings by priority and resolves conflicts"
+
+    shared_artifacts:
+      - name: sorted_learnings
+        source: "Sort algorithm applied to active_learnings"
+        displayed_as: "${sorted_learnings}"
+        consumers:
+          - "Token budget check"
+          - "Prompt section"
+
+    emotional_state:
+      entry: "N/A (automated)"
+      exit: "N/A (automated)"
+
+    integration_checkpoint: |
+      Sort order:
+      1. source = 'human' before source = 'agent'
+      2. Within same source: priority DESC (high > medium > low)
+      3. Within same priority: created_at ASC (older rules first)
+      Conflict: if two learnings contradict, human-created wins. If both human, newer wins.
+
+    gherkin: |
+      Scenario: Human-created learnings prioritized over agent-suggested
+        Given 3 human-created learnings and 3 agent-suggested learnings are active
+        When the system sorts learnings for prompt injection
+        Then all human-created learnings appear before agent-suggested learnings
+        And within each group, high-priority learnings appear first
+
+      Scenario: Conflicting learnings resolved at injection
+        Given an active human-created learning "Never use null"
+        And an active agent-suggested learning "Return null from APIs"
+        When the system detects semantic contradiction
+        Then the human-created learning takes priority
+        And an observation is logged about the conflict
+
+  - id: 3
+    name: "Token Budget Enforcement"
+    action: "System fits learnings within token budget, truncating if necessary"
+
+    shared_artifacts:
+      - name: included_learnings
+        source: "Budget-filtered sorted_learnings"
+        displayed_as: "${included_learnings}"
+        consumers:
+          - "Prompt section"
+      - name: excluded_learnings
+        source: "Learnings that did not fit in budget"
+        displayed_as: "${excluded_learnings}"
+        consumers:
+          - "Session log"
+
+    emotional_state:
+      entry: "N/A (automated)"
+      exit: "N/A (automated)"
+
+    gherkin: |
+      Scenario: All learnings fit within token budget
+        Given 6 active learnings totaling 400 tokens
+        And the learning section budget is 500 tokens
+        When the system checks token budget
+        Then all 6 learnings are included
+        And no learnings are excluded
+
+      Scenario: Token budget exceeded by total learnings
+        Given 10 active learnings totaling 800 tokens
+        And the learning section budget is 500 tokens
+        When the system applies token budget
+        Then human-created learnings are always included
+        And agent-suggested learnings are included by priority until budget reached
+        And excluded learnings are logged
+
+  - id: 4
+    name: "Prompt Section Injection"
+    action: "System formats learnings and injects into system prompt"
+
+    shared_artifacts:
+      - name: learnings_prompt_section
+        source: "Formatted from included_learnings"
+        displayed_as: "${learnings_prompt_section}"
+        consumers:
+          - "buildSystemPrompt() for chat_agent"
+          - "buildPmSystemPrompt() for pm_agent"
+          - "MCP context packet for code_agent"
+          - "Observer context loader"
+
+    emotional_state:
+      entry: "N/A (automated)"
+      exit: "N/A (automated)"
+
+    integration_checkpoint: |
+      Prompt section must:
+      - Group by learning_type (Constraints, Instructions, Precedents)
+      - Include framing text ("These rules were established by your workspace")
+      - Not exceed token budget
+      - Be omitted entirely if no active learnings exist
+
+    gherkin: |
+      Scenario: Learnings injected into chat agent system prompt
+        Given 5 active learnings for chat_agent in "Brain Development" workspace
+        When buildSystemPrompt() is called
+        Then the system prompt includes a "Workspace Learnings" section
+        And learnings are grouped under Constraints, Instructions, and Precedents
+        And the section includes framing text about workspace origin
+
+      Scenario: Learnings injected into MCP context packet
+        Given 6 active learnings for code_agent in "Brain Development" workspace
+        When the MCP context builder prepares the context packet
+        Then the packet includes an "Active Learnings" section
+        And learnings are formatted with type tags ([constraint], [instruction], [precedent])
+
+      Scenario: No learnings in new workspace
+        Given a workspace with zero active learnings
+        When any agent session starts
+        Then no "Workspace Learnings" section appears in the system prompt
+        And no empty section header is rendered
+
+integration_validation:
+  shared_artifact_consistency:
+    - artifact: "active_learnings"
+      must_match_across: [1, 2, 3]
+      failure_message: "Queried learnings must flow through sort and budget stages without data loss"
+    - artifact: "included_learnings"
+      must_match_across: [3, 4]
+      failure_message: "Budget-approved learnings must match what appears in prompt section"
+    - artifact: "agent_type"
+      must_match_across: [1, 4]
+      failure_message: "Agent type used in query must match the injection point"
+
+error_paths:
+  - name: "Budget Overflow Warning"
+    trigger: "Human-created learnings alone exceed the token budget"
+    response: "Include all human learnings (soft budget), exclude agent-suggested, create observation"
+    gherkin: |
+      Scenario: Human learnings exceed token budget
+        Given 15 human-created learnings totaling 900 tokens
+        And the learning section budget is 500 tokens
+        When the system applies token budget
+        Then all human-created learnings are included (budget override)
+        And zero agent-suggested learnings are included
+        And an observation is created "Learning token budget exceeded by human rules. Consider consolidating."
+
+  - name: "Empty Workspace"
+    trigger: "No active learnings for this agent type"
+    response: "Omit learning section entirely"
+    gherkin: |
+      Scenario: No applicable learnings
+        Given workspace "New Project" has 3 active learnings targeting only code_agent
+        When a pm_agent session starts
+        Then no "Workspace Learnings" section is included in the PM agent prompt

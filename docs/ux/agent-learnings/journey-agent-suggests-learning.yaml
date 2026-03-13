@@ -1,0 +1,199 @@
+journey:
+  name: "Agent Suggests a Learning"
+  goal: "Agent detects behavioral pattern and suggests a permanent learning for human approval"
+  persona: "Observer Agent (system actor), Tomas Eriksson (approver)"
+
+  emotional_arc:
+    start: "Unaware (human) / Analytical (Observer)"
+    middle: "Surprised, intrigued -- system noticed a pattern"
+    end: "Impressed, trusting -- system self-improves"
+
+steps:
+  - id: 1
+    name: "Pattern Detection"
+    action: "Observer agent scans graph for repeated correction patterns"
+
+    shared_artifacts:
+      - name: correction_pattern
+        source: "Graph scan: clustered correction messages by embedding similarity"
+        displayed_as: "${correction_pattern}"
+        consumers:
+          - "Suggestion text generation"
+          - "Evidence trail"
+      - name: evidence_sessions
+        source: "agent_session records where corrections occurred"
+        displayed_as: "${evidence_sessions}"
+        consumers:
+          - "Learning suggestion evidence_refs"
+          - "Governance feed evidence display"
+      - name: pattern_confidence
+        source: "Observer semantic analysis"
+        displayed_as: "${pattern_confidence}"
+        consumers:
+          - "Learning suggestion confidence field"
+          - "Governance feed card"
+
+    emotional_state:
+      entry: "N/A (automated)"
+      exit: "N/A (automated)"
+
+    integration_checkpoint: |
+      Observer must check existing active learnings before creating suggestion.
+      If active learning already covers pattern, skip suggestion.
+
+    gherkin: |
+      Scenario: Observer detects repeated correction pattern
+        Given the Observer agent is scanning the knowledge graph
+        And coding agent sessions contain 3 corrections about "null vs undefined" in the past 14 days
+        When the Observer runs pattern detection
+        Then a correction cluster is identified with confidence 0.89
+        And 3 agent_session records are linked as evidence
+
+      Scenario: Observer skips pattern already covered by active learning
+        Given an active learning "Never use null for domain data values" exists
+        And the Observer detects corrections about null usage
+        When the Observer checks for existing coverage
+        Then no new suggestion is created
+        And the Observer logs an observation "Pattern covered by existing learning"
+
+  - id: 2
+    name: "Suggestion Creation"
+    action: "Observer creates a learning suggestion with status pending_approval"
+
+    shared_artifacts:
+      - name: suggestion_text
+        source: "Generated from correction_pattern by Observer"
+        displayed_as: "${suggestion_text}"
+        consumers:
+          - "Learning record (if approved)"
+          - "Governance feed card"
+      - name: suggested_by
+        source: "Observer agent identifier"
+        displayed_as: "${suggested_by}"
+        consumers:
+          - "Learning record source field"
+          - "Governance feed attribution"
+      - name: target_agents
+        source: "Inferred from which agents were corrected"
+        displayed_as: "${target_agents}"
+        consumers:
+          - "Learning record target_agents"
+          - "Governance feed card"
+
+    emotional_state:
+      entry: "N/A (automated)"
+      exit: "N/A (automated)"
+
+    gherkin: |
+      Scenario: Learning suggestion created with evidence
+        Given the Observer detected a correction pattern about "null vs undefined" with confidence 0.89
+        When the Observer creates a learning suggestion
+        Then a learning record is created with status "pending_approval"
+        And suggested_by is "observer"
+        And target_agents includes "code_agent"
+        And evidence_refs link to the 3 agent_session records
+        And the suggested text is "Never use null for domain data values. Represent absence with omitted optional fields."
+
+  - id: 3
+    name: "Governance Feed Display"
+    action: "Pending learning appears in governance feed for human review"
+
+    shared_artifacts:
+      - name: suggestion_text
+        source: "learning record"
+        displayed_as: "${suggestion_text}"
+        consumers:
+          - "Governance feed card body"
+      - name: evidence_sessions
+        source: "learning record evidence_refs"
+        displayed_as: "${evidence_sessions}"
+        consumers:
+          - "Governance feed evidence section"
+
+    emotional_state:
+      entry: "Curious -- Tomas sees pending items in feed"
+      exit: "Intrigued -- evidence trail is convincing"
+
+    gherkin: |
+      Scenario: Pending learning appears in governance feed
+        Given the Observer created a learning suggestion about "null vs undefined"
+        When Tomas opens the governance feed
+        Then a yellow-tier card appears with the suggested learning text
+        And the card shows "Suggested by: Observer | Confidence: 89%"
+        And the card shows evidence quotes from 3 sessions
+        And three action buttons are visible: Approve, Edit & Approve, Dismiss
+
+  - id: 4
+    name: "Human Review Decision"
+    action: "Tomas approves, edits, or dismisses the suggestion"
+
+    shared_artifacts:
+      - name: learning_status
+        source: "Human action on governance card"
+        displayed_as: "${learning_status}"
+        consumers:
+          - "Learning record status field"
+          - "Prompt injection query filter"
+
+    emotional_state:
+      entry: "Evaluative -- weighing the suggestion"
+      exit: "Decisive -- action taken"
+
+    gherkin: |
+      Scenario: Tomas approves learning suggestion
+        Given a pending learning suggestion "Never use null for domain data values" is shown
+        When Tomas clicks "Approve"
+        Then the learning status changes to "active"
+        And a confirmation appears "Learning approved and activated"
+        And the learning will be injected into code_agent prompts from next session
+
+      Scenario: Tomas edits and approves learning suggestion
+        Given a pending learning suggestion is shown
+        When Tomas clicks "Edit & Approve"
+        Then the learning editor opens with the suggested text pre-filled
+        And Tomas can modify the text, type, and target agents
+        When Tomas clicks "Save & Activate"
+        Then the learning is saved with status "active" and the edited text
+
+      Scenario: Tomas dismisses learning suggestion
+        Given a pending learning suggestion about "shorter task titles" is shown
+        When Tomas clicks "Dismiss"
+        Then an optional dismissal reason input appears
+        And when Tomas enters "too subjective" and confirms
+        Then the learning status changes to "dismissed"
+        And the card is removed from the governance feed
+
+integration_validation:
+  shared_artifact_consistency:
+    - artifact: "suggestion_text"
+      must_match_across: [2, 3, 4]
+      failure_message: "Suggestion text from Observer must display in feed and be editable in approval flow"
+    - artifact: "evidence_sessions"
+      must_match_across: [1, 2, 3]
+      failure_message: "Evidence session refs must flow from detection through record to feed display"
+    - artifact: "target_agents"
+      must_match_across: [2, 3, 4]
+      failure_message: "Target agents must be consistent from suggestion through approval"
+
+error_paths:
+  - name: "Low Confidence Pattern"
+    trigger: "Fewer than 3 corrections detected (below threshold)"
+    response: "Observer creates observation instead of learning suggestion"
+    gherkin: |
+      Scenario: Pattern below suggestion threshold
+        Given the Observer detected 2 corrections about "RecordId string format"
+        When the Observer evaluates whether to create a learning suggestion
+        Then no learning suggestion is created
+        And an observation is logged "Emerging pattern: RecordId corrections (2 occurrences). Monitoring."
+
+  - name: "Cross-Agent Coaching"
+    trigger: "PM agent suggests a learning for code_agent"
+    response: "Suggestion created with suggested_by=pm_agent, target=code_agent, surfaces in feed"
+    gherkin: |
+      Scenario: PM agent suggests learning for coding agent
+        Given the PM agent noticed coding agents create tasks without linking to features
+        When the PM agent creates a learning suggestion
+        Then a learning record is created with suggested_by "pm_agent"
+        And target_agents includes "code_agent"
+        And the suggestion text is "When creating tasks, always link to parent feature via belongs_to relation"
+        And the suggestion surfaces in the governance feed for human approval
