@@ -46,5 +46,30 @@ events:
   s: EXECUTED
   sid: 01-02
   t: '2026-03-13T06:20:55Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-03-13T06:21:18Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 01-03
+  t: '2026-03-13T06:32:32Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 01-03
+  t: '2026-03-13T06:32:59Z'
+- d: PASS
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 01-03
+  t: '2026-03-13T06:33:41Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 01-03
+  t: '2026-03-13T06:35:47Z'
 project_id: agent-learnings
 schema_version: '3.0'

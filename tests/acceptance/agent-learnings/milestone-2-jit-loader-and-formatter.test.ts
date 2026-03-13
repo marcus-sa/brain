@@ -30,7 +30,7 @@ describe("Milestone 2: JIT Learning Loader and Formatter", () => {
   // US-AL-003: Priority sorting
   // -------------------------------------------------------------------------
 
-  it.skip("learnings are sorted with human-created before agent-suggested", async () => {
+  it("learnings are sorted with human-created before agent-suggested", async () => {
     const { surreal } = getRuntime();
 
     // Given a workspace with both human and agent learnings
@@ -70,7 +70,7 @@ describe("Milestone 2: JIT Learning Loader and Formatter", () => {
     expect(agentLearning).toBeDefined();
   }, 120_000);
 
-  it.skip("high priority learnings appear before medium and low", async () => {
+  it("high priority learnings appear before medium and low", async () => {
     const { surreal } = getRuntime();
 
     // Given a workspace with learnings of different priorities
@@ -109,7 +109,7 @@ describe("Milestone 2: JIT Learning Loader and Formatter", () => {
   // US-AL-003: Token budget enforcement
   // -------------------------------------------------------------------------
 
-  it.skip("constraints are never dropped even when they exceed the token budget", async () => {
+  it("constraints are never dropped even when they exceed the token budget", async () => {
     const { surreal } = getRuntime();
 
     // Given a workspace with many constraint learnings totaling > 500 tokens
@@ -136,7 +136,7 @@ describe("Milestone 2: JIT Learning Loader and Formatter", () => {
     expect(constraints.length).toBe(10);
   }, 120_000);
 
-  it.skip("instructions fill remaining budget after constraints", async () => {
+  it("instructions fill remaining budget after constraints", async () => {
     const { surreal } = getRuntime();
 
     // Given a workspace with constraints and many instructions
@@ -183,7 +183,7 @@ describe("Milestone 2: JIT Learning Loader and Formatter", () => {
   // US-AL-003: Agent-type filtering
   // -------------------------------------------------------------------------
 
-  it.skip("learnings with empty target_agents array are loaded for all agent types", async () => {
+  it("learnings with empty target_agents array are loaded for all agent types", async () => {
     const { surreal } = getRuntime();
 
     // Given a workspace with a learning that targets all agents (empty array)
@@ -208,7 +208,7 @@ describe("Milestone 2: JIT Learning Loader and Formatter", () => {
     expect(observerLearnings.length).toBe(1);
   }, 120_000);
 
-  it.skip("learnings with specific target_agents are only loaded for those agents", async () => {
+  it("learnings with specific target_agents are only loaded for those agents", async () => {
     const { surreal } = getRuntime();
 
     // Given a workspace with learnings targeted to specific agents
@@ -250,7 +250,7 @@ describe("Milestone 2: JIT Learning Loader and Formatter", () => {
   // US-AL-003: Empty workspace
   // -------------------------------------------------------------------------
 
-  it.skip("workspace with no learnings returns empty list", async () => {
+  it("workspace with no learnings returns empty list", async () => {
     const { surreal } = getRuntime();
 
     // Given a brand new workspace with no learnings
@@ -267,7 +267,7 @@ describe("Milestone 2: JIT Learning Loader and Formatter", () => {
   // Error paths
   // -------------------------------------------------------------------------
 
-  it.skip("deactivated learnings are excluded from active loading", async () => {
+  it("deactivated learnings are excluded from active loading", async () => {
     const { surreal } = getRuntime();
 
     // Given a workspace with an active and a deactivated learning
@@ -293,7 +293,7 @@ describe("Milestone 2: JIT Learning Loader and Formatter", () => {
     expect(learnings[0].text).toContain("TypeScript strict mode");
   }, 120_000);
 
-  it.skip("superseded learnings are excluded from active loading", async () => {
+  it("superseded learnings are excluded from active loading", async () => {
     const { surreal } = getRuntime();
 
     // Given a workspace with an active and a superseded learning
