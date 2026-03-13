@@ -201,5 +201,30 @@ events:
   s: EXECUTED
   sid: 03-02
   t: '2026-03-13T11:32:04Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 03-02
+  t: '2026-03-13T11:32:36Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 03-03
+  t: '2026-03-13T11:34:14Z'
+- d: 'NOT_APPLICABLE: UI wiring step - dialog state logic tested at unit level'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 03-03
+  t: '2026-03-13T11:34:37Z'
+- d: PASS
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 03-03
+  t: '2026-03-13T11:34:40Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 03-03
+  t: '2026-03-13T11:36:09Z'
 project_id: learning-library
 schema_version: '3.0'
