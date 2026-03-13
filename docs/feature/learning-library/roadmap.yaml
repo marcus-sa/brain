@@ -1,0 +1,210 @@
+roadmap:
+  project_id: learning-library
+  created_at: '2026-03-13T10:46:06Z'
+  total_steps: 10
+  phases: 4
+phases:
+- id: '01'
+  name: 'Foundation: contracts, routing, data hooks, sidebar'
+  steps:
+  - id: 01-01
+    name: 'Shared contracts, learnings route, and data hooks'
+    description: >
+      Add KNOWN_LEARNING_TARGET_AGENTS constant to shared contracts.
+      Register /learnings route in TanStack Router under authLayout.
+      Create use-learnings hook (fetch + filter state) and use-learning-actions hook (mutations).
+    files_to_modify:
+      - app/src/shared/contracts.ts
+      - app/src/client/router.tsx
+      - app/src/client/hooks/use-learnings.ts
+      - app/src/client/hooks/use-learning-actions.ts
+    depends_on: []
+    criteria:
+      - 'KNOWN_LEARNING_TARGET_AGENTS exported from contracts with all agent types'
+      - 'Navigating to /learnings renders a page component without errors'
+      - 'use-learnings hook fetches learnings from GET endpoint with status/type/agent params'
+      - 'use-learning-actions hook exposes approve, dismiss, deactivate, create, and edit mutations'
+      - 'Edit mutation calls PUT endpoint; other mutations call existing POST endpoints'
+  - id: 01-02
+    name: 'Sidebar navigation link with pending count badge'
+    description: >
+      Add Learnings nav link to WorkspaceSidebar between Graph and Projects.
+      Create use-pending-learning-count hook that polls pending_approval count.
+      Display count badge on sidebar link when pending > 0.
+    files_to_modify:
+      - app/src/client/components/layout/WorkspaceSidebar.tsx
+      - app/src/client/hooks/use-pending-learning-count.ts
+    depends_on:
+      - 01-01
+    criteria:
+      - 'Sidebar shows Learnings link that navigates to /learnings'
+      - 'Active route highlights the Learnings link'
+      - 'Hook polls GET /learnings?status=pending_approval on 60s interval'
+      - 'Badge displays pending count when workspace has pending learnings'
+      - 'Badge hidden when pending count is zero'
+- id: '02'
+  name: 'Browse and Filter UI'
+  steps:
+  - id: 02-01
+    name: 'Learnings page shell with StatusTabs'
+    description: >
+      Create learnings-page route component with page layout.
+      Create StatusTabs component showing Active, Pending, Dismissed, Deactivated tabs.
+      Active tab selected by default; switching tabs updates filter state in use-learnings.
+    files_to_modify:
+      - app/src/client/routes/learnings-page.tsx
+      - app/src/client/components/learning/StatusTabs.tsx
+    depends_on:
+      - 01-01
+    criteria:
+      - 'Page renders four status tabs: Active, Pending, Dismissed, Deactivated'
+      - 'Active tab selected by default on page load'
+      - 'Switching tabs triggers refetch with corresponding status filter'
+      - 'Each tab displays its learning count'
+  - id: 02-02
+    name: 'LearningFilters: type and agent dropdowns'
+    description: >
+      Create LearningFilters component with type dropdown (constraint/instruction/precedent)
+      and agent dropdown (populated from KNOWN_LEARNING_TARGET_AGENTS).
+      Filters compose with status tab selection.
+    files_to_modify:
+      - app/src/client/components/learning/LearningFilters.tsx
+    depends_on:
+      - 02-01
+    criteria:
+      - 'Type dropdown filters learnings by learning_type'
+      - 'Agent dropdown filters learnings by target agent'
+      - 'Filters compose with status tab (all three params sent to GET endpoint)'
+      - 'Clearing a filter removes that param from the query'
+  - id: 02-03
+    name: 'LearningList, LearningCard, and AgentChips'
+    description: >
+      Create LearningList to render filtered results as LearningCard components.
+      LearningCard shows text, type badge, priority, source, timestamp, and AgentChips.
+      Cards are expandable for full text. Empty state shown when no results match.
+    files_to_modify:
+      - app/src/client/components/learning/LearningList.tsx
+      - app/src/client/components/learning/LearningCard.tsx
+      - app/src/client/components/learning/AgentChips.tsx
+    depends_on:
+      - 02-01
+      - 02-02
+    criteria:
+      - 'Each learning renders as a card with text, type, priority, source, and timestamp'
+      - 'AgentChips display target agents as colored badges; empty targets show "All agents"'
+      - 'Card expands to show full text when truncated'
+      - 'Empty state message displayed when filter combination returns no learnings'
+      - 'Cards on Pending tab show approve/dismiss action buttons'
+- id: '03'
+  name: 'Pending Actions and Create Dialog'
+  steps:
+  - id: 03-01
+    name: 'ApproveDialog and DismissDialog for pending learnings'
+    description: >
+      Create ApproveDialog allowing optional text edit before approval, showing collision warnings.
+      Create DismissDialog with required reason field.
+      Wire both to use-learning-actions mutations; list refreshes on success.
+    files_to_modify:
+      - app/src/client/components/learning/ApproveDialog.tsx
+      - app/src/client/components/learning/DismissDialog.tsx
+    depends_on:
+      - 02-03
+    criteria:
+      - 'Approve dialog opens from pending card action button'
+      - 'User can optionally edit text before approving'
+      - 'Successful approval transitions learning to active and refreshes list'
+      - 'Dismiss dialog requires a reason before submission'
+      - 'Successful dismiss transitions learning to dismissed and refreshes list'
+  - id: 03-02
+    name: 'CreateDialog with type, priority, agent targeting, and collision feedback'
+    description: >
+      Create CreateDialog form with text, type selector, priority selector, and agent
+      multi-select (from KNOWN_LEARNING_TARGET_AGENTS). POST to create endpoint.
+      Display collision results returned from server inline in dialog.
+    files_to_modify:
+      - app/src/client/components/learning/CreateDialog.tsx
+    depends_on:
+      - 01-01
+      - 02-03
+    criteria:
+      - 'Create dialog accessible from page header button'
+      - 'Form validates required fields (text, type) before submission'
+      - 'Agent multi-select allows choosing specific agents or leaving empty for all'
+      - 'Collision feedback displayed inline when server returns collisions'
+      - 'Successful creation refreshes the learning list'
+  - id: 03-03
+    name: 'Wire create and pending actions into learnings page'
+    description: >
+      Connect CreateDialog trigger button to page header.
+      Connect ApproveDialog and DismissDialog to LearningCard action buttons on Pending tab.
+      Ensure all dialog flows update list via use-learnings refetch.
+    files_to_modify:
+      - app/src/client/routes/learnings-page.tsx
+      - app/src/client/components/learning/LearningCard.tsx
+    depends_on:
+      - 03-01
+      - 03-02
+    criteria:
+      - 'Page header shows "New Learning" button that opens CreateDialog'
+      - 'Pending tab cards show Approve and Dismiss buttons that open respective dialogs'
+      - 'All dialog completions trigger list refetch without manual page refresh'
+      - 'Active tab cards do not show approve/dismiss buttons'
+- id: '04'
+  name: 'Edit and Deactivate Active Learnings'
+  steps:
+  - id: 04-01
+    name: 'PUT endpoint and updateLearningFields query'
+    description: >
+      Add handleEdit to learning route handlers for PUT /learnings/:learningId.
+      Add updateLearningFields query (text, priority, target_agents) with active-only guard.
+      Register PUT route in start-server. Re-embed on text change.
+    files_to_modify:
+      - app/src/server/learning/learning-route.ts
+      - app/src/server/learning/queries.ts
+      - app/src/server/runtime/start-server.ts
+    depends_on:
+      - 01-01
+    criteria:
+      - 'PUT returns 200 with updated fields on valid edit of active learning'
+      - 'PUT returns 409 when learning is not in active status'
+      - 'PUT returns 404 for non-existent or wrong-workspace learning'
+      - 'PUT returns 400 for empty or whitespace-only text'
+      - 'Text edit triggers embedding regeneration'
+  - id: 04-02
+    name: 'EditDialog and DeactivateDialog for active learnings'
+    description: >
+      Create EditDialog with editable text, priority, and agent targeting fields.
+      Create DeactivateDialog with confirmation prompt.
+      Wire both to active-tab card actions; EditDialog calls PUT, DeactivateDialog calls action endpoint.
+    files_to_modify:
+      - app/src/client/components/learning/EditDialog.tsx
+      - app/src/client/components/learning/DeactivateDialog.tsx
+      - app/src/client/components/learning/LearningCard.tsx
+      - app/src/client/routes/learnings-page.tsx
+    depends_on:
+      - 04-01
+      - 02-03
+    criteria:
+      - 'Edit dialog opens from active card action button with pre-filled fields'
+      - 'Edit dialog submits changed fields via PUT and refreshes list on success'
+      - 'Deactivate dialog requires confirmation before submission'
+      - 'Successful deactivation moves learning to deactivated status and refreshes list'
+      - 'Active tab cards show Edit and Deactivate buttons; other tabs do not'
+implementation_scope:
+  source_directories:
+    - app/src/client/routes/
+    - app/src/client/hooks/
+    - app/src/client/components/learning/
+    - app/src/client/components/layout/
+    - app/src/shared/
+    - app/src/server/learning/
+    - app/src/server/runtime/
+  test_directories:
+    - tests/acceptance/learning-library/
+  excluded_patterns:
+    - node_modules/**
+    - dist/**
+validation:
+  status: approved
+  reviewer: nw-software-crafter-reviewer
+  approved_at: '2026-03-13'

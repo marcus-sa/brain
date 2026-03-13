@@ -85,7 +85,7 @@ User interaction
 | Gate | Result |
 |------|--------|
 | Unit tests | PASS (all steps) |
-| Acceptance tests | PASS (PUT endpoint; UI steps skipped -- no DOM test runner) |
+| Acceptance tests | PASS (88/88 green -- full lifecycle including PUT endpoint) |
 | Refactoring L1-L3 | PASS |
 | Adversarial review | PASS |
 | Mutation testing (raw) | **84.80%** (threshold 80%) -- PASS |

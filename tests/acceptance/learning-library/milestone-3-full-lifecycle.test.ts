@@ -164,8 +164,7 @@ describe("Milestone 3: Full Learning Lifecycle", () => {
   // Full lifecycle: create -> edit -> deactivate (requires PUT endpoint)
   // ---------------------------------------------------------------------------
 
-  // BLOCKED: requires PUT /api/workspaces/:workspaceId/learnings/:learningId endpoint
-  it.skip("full lifecycle: create learning, refine via edit, then retire via deactivation", async () => {
+  it("full lifecycle: create learning, refine via edit, then retire via deactivation", async () => {
     const { baseUrl, surreal } = getRuntime();
     const user = await createTestUser(baseUrl, `full-lifecycle-${crypto.randomUUID()}`);
     const { workspaceId } = await createTestWorkspace(surreal, "full-lifecycle");
