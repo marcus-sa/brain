@@ -601,13 +601,10 @@ export async function runGraphScan(
 
   // 6. Diagnostic learning proposals: cluster observations and check coverage
   try {
-    const diagnostic = await runDiagnosticClustering(surreal, workspaceRecord);
+    const diagnostic = await runDiagnosticClustering(surreal, workspaceRecord, observerModel);
     result.clusters_found = diagnostic.result.clusters_found;
     result.coverage_skips = diagnostic.result.coverage_skips;
     result.learning_proposals_created = diagnostic.result.learning_proposals_created;
-
-    // Future steps (02-03) will add root cause classification and learning proposer
-    // for diagnostic.uncoveredClusters
 
     logInfo("observer.scan.diagnostic", "Diagnostic clustering completed", {
       workspaceId: workspaceRecord.id,

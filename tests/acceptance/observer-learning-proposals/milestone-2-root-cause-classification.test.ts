@@ -41,7 +41,7 @@ describe("Milestone 2: Root Cause Classification", () => {
   // Valid classification: produces correct category and learning type
   // -------------------------------------------------------------------------
 
-  it.skip("root cause classification produces a learning with valid category and type", async () => {
+  it("root cause classification produces a learning with valid category and type", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace with a clear pattern: agents ignoring confirmed decisions
@@ -127,7 +127,7 @@ describe("Milestone 2: Root Cause Classification", () => {
   // Graceful failure: LLM errors do not crash the scan
   // -------------------------------------------------------------------------
 
-  it.skip("graph scan completes even when diagnostic classification encounters an error", async () => {
+  it("graph scan completes even when diagnostic classification encounters an error", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace with a normal observation cluster

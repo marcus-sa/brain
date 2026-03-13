@@ -1,18 +1,25 @@
 /**
- * Learning Diagnosis: Observation Clustering and Coverage Check
+ * Learning Diagnosis: Observation Clustering, Root Cause Classification, and Learning Proposals
  *
  * Groups open observations by embedding similarity into clusters,
- * then checks if active learnings already cover each cluster pattern.
+ * checks if active learnings already cover each cluster pattern,
+ * classifies root causes via LLM structured output, and proposes learnings.
  *
  * Pure query functions + pipeline composition. IO at boundaries only.
  *
  * Step 01-01: Clustering + coverage check
- * Step 02: Root cause classification (future)
+ * Step 01-02: Root cause classification with LLM structured output
  * Step 03: Learning proposer + graph scan integration (future)
  */
 
 import { RecordId, type Surreal } from "surrealdb";
-import { logInfo } from "../http/observability";
+import { generateObject, type LanguageModel } from "ai";
+import { logError, logInfo } from "../http/observability";
+import { rootCauseSchema, type RootCauseClassification } from "./schemas";
+import { OBSERVER_IDENTITY } from "../agents/observer/prompt";
+import { suggestLearning } from "../learning/detector";
+import { createObservation } from "../observation/queries";
+import type { CreateLearningInput } from "../learning/types";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -273,7 +280,261 @@ export async function checkCoverageAgainstActiveLearnings(
   if (match) {
     return { covered: true, matchedLearningText: match.text, similarity: match.similarity };
   }
+
+  // Fallback: brute-force scan when HNSW index hasn't indexed recent inserts.
+  // Queries all active learnings with embeddings and computes similarity in-app.
+  const [activeLearnings] = await surreal.query<[Array<{ text: string; embedding: number[] }>]>(
+    `SELECT text, embedding FROM learning
+     WHERE workspace = $ws
+       AND status = "active"
+       AND embedding IS NOT NONE;`,
+    { ws: workspaceRecord },
+  );
+
+  logInfo("observer.learning.coverage_fallback", "Fallback coverage check", {
+    activeLearningsCount: (activeLearnings ?? []).length,
+    workspaceId: workspaceRecord.id,
+  });
+
+  for (const learning of activeLearnings ?? []) {
+    const similarity = cosineSimilarity(clusterEmbedding, learning.embedding);
+    if (similarity > COVERAGE_SIMILARITY_THRESHOLD) {
+      return { covered: true, matchedLearningText: learning.text, similarity };
+    }
+  }
+
   return { covered: false };
+}
+
+// ---------------------------------------------------------------------------
+// Root cause classification (LLM structured output)
+// ---------------------------------------------------------------------------
+
+const CONFIDENCE_THRESHOLD = 0.70;
+const CLASSIFICATION_TIMEOUT_MS = 30_000;
+
+/**
+ * Builds the LLM prompt for root cause classification.
+ * Pure function -- formats cluster and context into prompt text.
+ */
+function buildClassificationPrompt(
+  cluster: ObservationCluster,
+  existingLearnings: string[],
+): string {
+  const observationQuotes = cluster.observations
+    .map((obs, i) => `  ${i + 1}. [${obs.severity}] "${obs.text}"`)
+    .join("\n");
+
+  const entityRefsList = [
+    ...new Set(cluster.observations.flatMap((obs) => obs.entityRefs)),
+  ];
+  const entityRefsText = entityRefsList.length > 0
+    ? entityRefsList.map((ref) => `  - ${ref}`).join("\n")
+    : "  No linked entities.";
+
+  const learningsText = existingLearnings.length > 0
+    ? existingLearnings.map((l, i) => `  ${i + 1}. ${l}`).join("\n")
+    : "  No active learnings.";
+
+  return `You are performing root cause analysis on a recurring pattern detected in the workspace.
+
+## Pattern Detected
+Representative text: "${cluster.representativeText}"
+
+Observation quotes (${cluster.clusterSize} occurrences):
+${observationQuotes}
+
+## Related Entities
+${entityRefsText}
+
+## Existing Active Learnings
+${learningsText}
+
+## Classification Instructions
+Determine WHY this pattern keeps recurring:
+
+1. Policy Failure: The governance rules allowed something they shouldn't.
+   -> Propose a constraint that tightens the boundary.
+
+2. Context Failure: The agent lacked information it needed to act correctly.
+   -> Propose an instruction that injects the missing context.
+
+3. Behavioral Drift: The agent had the information but didn't apply it.
+   -> Propose a constraint that reinforces the expected behavior.
+
+Set should_propose_learning to true ONLY if:
+- confidence >= 0.70
+- You have high conviction in both the category AND the proposed text
+- The proposed learning is specific enough to be actionable
+
+Set should_propose_learning to false if:
+- The root cause is ambiguous or could fit multiple categories
+- The proposed learning text is too generic ("be more careful")
+- The evidence is insufficient to justify a permanent behavioral rule
+
+For proposed_learning_type, choose based on the fix needed:
+- "constraint" for must-follow rules (policy fixes, behavioral reinforcement)
+- "instruction" for conditional guidance (context injection, situational awareness)
+
+In evidence_refs, list the observation IDs in table:id format (e.g. observation:uuid).
+In target_agents, list the agent types that should receive this learning.`;
+}
+
+/**
+ * Classifies the root cause of an observation cluster using LLM structured output.
+ * Returns undefined on any failure (timeout, rate limit, invalid output).
+ */
+export async function classifyRootCause(
+  model: LanguageModel,
+  cluster: ObservationCluster,
+  existingLearnings: string[],
+): Promise<RootCauseClassification | undefined> {
+  const start = Date.now();
+
+  try {
+    const prompt = buildClassificationPrompt(cluster, existingLearnings);
+
+    const result = await generateObject({
+      model,
+      system: OBSERVER_IDENTITY,
+      schema: rootCauseSchema,
+      prompt,
+      abortSignal: AbortSignal.timeout(CLASSIFICATION_TIMEOUT_MS),
+    });
+
+    const latencyMs = Date.now() - start;
+    logInfo("observer.llm.root_cause", "Root cause classification completed", {
+      latencyMs,
+      category: result.object.category,
+      confidence: result.object.confidence,
+      shouldPropose: result.object.should_propose_learning,
+    });
+
+    return result.object;
+  } catch (error) {
+    const latencyMs = Date.now() - start;
+    logError("observer.llm.root_cause_error", "Root cause classification failed", {
+      error,
+      latencyMs,
+    });
+    return undefined;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Dual gate: decide whether to propose learning or create observation
+// ---------------------------------------------------------------------------
+
+/**
+ * Applies the dual gate: should_propose_learning AND confidence >= threshold.
+ * Pure function -- no IO.
+ */
+function shouldProposeLearning(classification: RootCauseClassification): boolean {
+  return classification.should_propose_learning && classification.confidence >= CONFIDENCE_THRESHOLD;
+}
+
+/**
+ * Maps a root cause classification to a CreateLearningInput.
+ * Pure function -- no IO.
+ */
+function rootCauseToLearningInput(
+  classification: RootCauseClassification,
+  cluster: ObservationCluster,
+): CreateLearningInput {
+  return {
+    text: classification.proposed_learning_text,
+    learningType: classification.proposed_learning_type,
+    source: "agent",
+    suggestedBy: "observer",
+    patternConfidence: classification.confidence,
+    targetAgents: classification.target_agents,
+    evidenceIds: cluster.observations.map((obs) => ({
+      table: "observation" as const,
+      id: obs.id,
+    })),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Query existing active learnings for classification context
+// ---------------------------------------------------------------------------
+
+async function queryActiveLearningTexts(
+  surreal: Surreal,
+  workspaceRecord: RecordId<"workspace", string>,
+): Promise<string[]> {
+  const [rows] = await surreal.query<[Array<{ text: string; created_at: string }>]>(
+    `SELECT text, created_at FROM learning
+     WHERE workspace = $ws AND status = "active"
+     ORDER BY created_at DESC
+     LIMIT 20;`,
+    { ws: workspaceRecord },
+  );
+  return (rows ?? []).map((r) => r.text);
+}
+
+// ---------------------------------------------------------------------------
+// Process a single uncovered cluster: classify and propose or observe
+// ---------------------------------------------------------------------------
+
+async function processUncoveredCluster(
+  surreal: Surreal,
+  workspaceRecord: RecordId<"workspace", string>,
+  model: LanguageModel,
+  cluster: ObservationCluster,
+  existingLearnings: string[],
+): Promise<{ proposed: boolean }> {
+  const classification = await classifyRootCause(model, cluster, existingLearnings);
+
+  if (!classification) {
+    // LLM call failed -- skip this cluster silently
+    return { proposed: false };
+  }
+
+  if (shouldProposeLearning(classification)) {
+    const learningInput = rootCauseToLearningInput(classification, cluster);
+
+    const result = await suggestLearning({
+      surreal,
+      workspaceRecord,
+      learning: learningInput,
+      now: new Date(),
+    });
+
+    if (result.created) {
+      logInfo("observer.learning.proposed", "Learning proposed from root cause analysis", {
+        category: classification.category,
+        confidence: classification.confidence,
+        learningType: classification.proposed_learning_type,
+        learningId: result.learningRecord.id,
+      });
+      return { proposed: true };
+    }
+
+    logInfo("observer.learning.gate_blocked", "Learning proposal blocked by safety gate", {
+      reason: result.reason,
+    });
+    return { proposed: false };
+  }
+
+  // Dual gate failed: create an observation instead
+  await createObservation({
+    surreal,
+    workspaceRecord,
+    text: `Emerging pattern detected but root cause unclear (${classification.category}, confidence: ${classification.confidence.toFixed(2)}): ${classification.reasoning}`,
+    severity: "info",
+    sourceAgent: "observer_agent",
+    observationType: "pattern",
+    now: new Date(),
+  });
+
+  logInfo("observer.learning.low_confidence", "Pattern observed but confidence too low for learning proposal", {
+    category: classification.category,
+    confidence: classification.confidence,
+    shouldPropose: classification.should_propose_learning,
+  });
+
+  return { proposed: false };
 }
 
 // ---------------------------------------------------------------------------
@@ -281,20 +542,19 @@ export async function checkCoverageAgainstActiveLearnings(
 // ---------------------------------------------------------------------------
 
 /**
- * Runs the observation clustering and coverage check pipeline.
+ * Runs the observation clustering, coverage check, and root cause classification pipeline.
  *
  * Pipeline:
  * 1. Query recent observations with embeddings
  * 2. Cluster by pairwise similarity
  * 3. For each cluster, check coverage against active learnings
- * 4. Return uncovered clusters for downstream processing (root cause classification)
- *
- * Step 01-01 scope: clustering + coverage check only.
- * Future steps add root cause classification and learning proposer.
+ * 4. For uncovered clusters, classify root cause via LLM
+ * 5. Propose learning or create observation based on dual gate
  */
 export async function runDiagnosticClustering(
   surreal: Surreal,
   workspaceRecord: RecordId<"workspace", string>,
+  observerModel?: LanguageModel,
 ): Promise<{
   clusters: ObservationCluster[];
   uncoveredClusters: ObservationCluster[];
@@ -354,6 +614,25 @@ export async function runDiagnosticClustering(
       diagnosticResult.coverage_skips += 1;
     } else {
       uncoveredClusters.push(cluster);
+    }
+  }
+
+  // Step 4: Root cause classification for uncovered clusters (requires observer model)
+  if (observerModel && uncoveredClusters.length > 0) {
+    const existingLearnings = await queryActiveLearningTexts(surreal, workspaceRecord);
+
+    for (const cluster of uncoveredClusters) {
+      const { proposed } = await processUncoveredCluster(
+        surreal,
+        workspaceRecord,
+        observerModel,
+        cluster,
+        existingLearnings,
+      );
+
+      if (proposed) {
+        diagnosticResult.learning_proposals_created += 1;
+      }
     }
   }
 

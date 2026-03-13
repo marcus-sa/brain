@@ -147,3 +147,36 @@ export const anomalyEvaluationResultSchema = z.object({
 });
 
 export type AnomalyEvaluationResult = z.infer<typeof anomalyEvaluationResultSchema>;
+
+// ---------------------------------------------------------------------------
+// Root cause classification (diagnostic learning proposal pipeline)
+// ---------------------------------------------------------------------------
+
+export const rootCauseSchema = z.object({
+  category: z.enum(["policy_failure", "context_failure", "behavioral_drift"]).describe(
+    "policy_failure = governance rules allowed something they shouldn't, context_failure = agent lacked information it needed, behavioral_drift = agent ignored a rule it already had",
+  ),
+  should_propose_learning: z.boolean().describe(
+    "True ONLY if confidence >= 0.70 AND high conviction in category and proposed text. False if root cause is ambiguous or learning too generic.",
+  ),
+  proposed_learning_type: z.enum(["constraint", "instruction"]).describe(
+    "constraint for must-follow rules (policy/behavioral fixes), instruction for conditional guidance (context fixes)",
+  ),
+  reasoning: z.string().describe(
+    "Why this category was chosen, referencing specific evidence from the observations.",
+  ),
+  proposed_learning_text: z.string().describe(
+    "The behavioral rule that would prevent recurrence. Must be specific and actionable.",
+  ),
+  target_agents: z.array(z.string()).describe(
+    "Which agent types should receive this learning (e.g. code_agent, observer, management).",
+  ),
+  evidence_refs: z.array(z.string()).describe(
+    "Observation IDs in table:id format (e.g. observation:uuid) that support this classification.",
+  ),
+  confidence: z.number().min(0).max(1).describe(
+    "Confidence in the classification (0.0-1.0). Use >= 0.70 only when evidence clearly supports the category and proposed fix.",
+  ),
+});
+
+export type RootCauseClassification = z.infer<typeof rootCauseSchema>;
