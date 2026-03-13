@@ -1,0 +1,104 @@
+<system_instruction>
+You are working inside Conductor, a Mac app that lets the user run many coding agents in parallel.
+Your work should take place in the /Users/marcus/conductor/workspaces/brain-v1/karachi directory (unless otherwise directed), which has been set up for you to work in.
+Each workspace has a .context directory (gitignored) where you can save files to collaborate with other agents.
+The target branch for this workspace is main. Use this for actions like creating new PRs, bisecting, etc., unless you're told otherwise.
+
+If the user asks you to work on several unrelated tasks in parallel, you can suggest they start new workspaces.
+If the user asks for help with Conductor, ask them to email [humans@conductor.build](mailto:humans@conductor.build) or
+click on the comment icon in the bottom left to send feedback.
+</system_instruction>
+
+is the observer agent creating learnings?
+
+---
+
+The **Observer Agent** acts as the detective, but the **Learning Agent** acts as the judge. For the Observer to suggest a learning, it has to move from **Reporting** (what happened) to **Diagnostic** (why the gap between intent and reality exists).
+
+In the architecture, the "Suggestion" is a **Learning Proposal Node** that acts as a bridge between a failed reality and a new policy.
+
+---
+
+### 1. The "Discrepancy" Logic
+
+The Observer's suggestion is triggered by a **State Mismatch**. It compares three points of data:
+
+1. **The Intent:** What the agent *claimed* it would do.
+2. **The Observation:** What the external system (Datadog/GitHub/Stripe) *actually* recorded.
+3. **The Policy:** What the rules *intended* to prevent.
+
+**The Trigger:** If `Observation != Intent` OR `Observation == Incident`, the Observer initiates the **"Root Cause Trace."**
+
+---
+
+### 2. The Root Cause Trace (How it finds the learning)
+
+The Observer traverses the graph to find the **Faulty Variable**. It asks three structured questions:
+
+* **Is it a Policy Failure?** (e.g., "The Rego logic allowed a $500 spend, but it should have been $200 for this agent.")
+* *Learning Suggestion:* "Tighten Policy #402 to include role-based caps."
+
+
+* **Is it a Context Failure?** (e.g., "The agent didn't know the API was in maintenance mode.")
+* *Learning Suggestion:* "Inject 'System Status' telemetry into the pre-prompt for all API intents."
+
+
+* **Is it a Behavioral Drift?** (e.g., "The agent ignored the 'Safety First' KBI and kept retrying a broken endpoint.")
+* *Learning Suggestion:* "Reduce the 'Autonomy Score' for this agent until it passes a validation Dojo."
+
+
+
+---
+
+### 3. The "Learning Proposal" Node Spec
+
+Instead of just "talking" to you, the Observer writes a structured proposal to SurrealDB for your approval.
+
+```sql
+DEFINE TABLE learning_proposal SCHEMAFULL;
+
+-- The "Evidence"
+DEFINE FIELD incident_id ON learning_proposal TYPE record<incident>;
+DEFINE FIELD evidence_nodes ON learning_proposal TYPE array; -- [observation:1, intent:A]
+
+-- The "Fix"
+DEFINE FIELD category ON learning_proposal TYPE string 
+    ASSERT $value IN ['policy_patch', 'context_injection', 'behavioral_constraint'];
+DEFINE FIELD proposed_change ON learning_proposal TYPE object; 
+/* Example: { table: "policy", action: "update", logic: "limit = 200" } */
+
+-- The "Reasoning"
+DEFINE FIELD rationale ON learning_proposal TYPE string;
+
+-- Governance
+DEFINE FIELD status ON learning_proposal TYPE string DEFAULT 'pending_review';
+
+```
+
+---
+
+### 4. The Human-in-the-Loop Workflow
+
+This is where the "System Learns" without going rogue.
+
+1. **Notification:** You get a ping: *"The Observer has a Learning Proposal for Incident #102."*
+2. **Review:** You see the proposal in your Business OS dashboard. You see the **Trace** (how it reached this conclusion).
+3. **Approval:** You click **"Apply Patch."**
+4. **Rewire:** The Brain automatically updates the **Policy Node** or the **Agent's Context Buffer**.
+
+---
+
+### 5. Why this is the "2026 Standard"
+
+In 2024, "learning" meant retuning a model (expensive/slow). In your 2026 OS, **learning is a Graph Mutation.** It’s fast, it’s cheap, and it’s **instantly effective.** You aren't teaching the LLM to be "smarter"; you are making the **Architecture** around it more resilient.
+
+**The Verdict:** The Observer doesn't just "guess" learnings. It identifies the **graph edge that failed** and proposes a new one to bridge the gap.
+
+**Would you like me to draft the "Analyst" system prompt for the Observer?** This is the specific logic that tells it how to look at an Incident and generate these `learning_proposal` objects.
+
+---
+
+**Suggested Action:**
+Should we add a **"Simulation Mode"**? Where the Learning Proposal is tested against a "shadow" version of the incident to see if the new policy would have actually blocked it? This is a killer feature for your repo launch. Shall we draft that spec?
+
+Should we have a "learning_proposal" table or is the existing "suggestion" table sufficient?

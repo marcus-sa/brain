@@ -3,7 +3,7 @@
   "checkpoint_id": "5317d6294278",
   "strategy": "manual-commit",
   "branch": "marcus-sa/agent-learnings",
-  "checkpoints_count": 3,
+  "checkpoints_count": 5,
   "files_touched": [
     "app/src/server/chat/context.ts",
     "app/src/server/learning/collision.ts"
@@ -29,13 +29,20 @@
       "context": "",
       "content_hash": "/53/17d6294278/2/content_hash.txt",
       "prompt": ""
+    },
+    {
+      "metadata": "/53/17d6294278/3/metadata.json",
+      "transcript": "/53/17d6294278/3/full.jsonl",
+      "context": "/53/17d6294278/3/context.md",
+      "content_hash": "/53/17d6294278/3/content_hash.txt",
+      "prompt": "/53/17d6294278/3/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 22,
-    "cache_creation_tokens": 87648,
-    "cache_read_tokens": 569758,
-    "output_tokens": 3219,
-    "api_call_count": 13
+    "input_tokens": 29,
+    "cache_creation_tokens": 93693,
+    "cache_read_tokens": 701483,
+    "output_tokens": 4688,
+    "api_call_count": 16
   }
 }
