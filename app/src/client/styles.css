@@ -1169,6 +1169,64 @@ body {
 
 /* View tabs */
 
+/* Status tabs (learning library) */
+
+.status-tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1rem;
+}
+
+.status-tabs__tab {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  font-size: 0.875rem;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.status-tabs__tab:hover {
+  color: var(--foreground);
+}
+
+.status-tabs__tab--active {
+  color: var(--foreground);
+  border-bottom-color: var(--ring);
+}
+
+.status-tabs__count {
+  font-size: 0.75rem;
+  padding: 0.0625rem 0.375rem;
+  border-radius: var(--radius-sm);
+  background: var(--hover);
+  color: var(--muted-foreground);
+}
+
+.status-tabs__tab--active .status-tabs__count {
+  background: var(--ring);
+  color: var(--background);
+}
+
+/* Learnings page */
+
+.learnings-page__loading,
+.learnings-page__error {
+  padding: 1rem 0;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+}
+
+.learnings-page__error {
+  color: var(--destructive, #ef4444);
+}
+
 /* Graph icon on entity card */
 
 .entity-card-graph-link {

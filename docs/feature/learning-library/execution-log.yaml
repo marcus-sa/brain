@@ -46,5 +46,31 @@ events:
   s: EXECUTED
   sid: 01-02
   t: '2026-03-13T11:05:35Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-03-13T11:06:13Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-03-13T11:08:42Z'
+- d: 'NOT_APPLICABLE: pure UI components tested via unit tests on pure logic; no DOM
+    testing library available'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 02-01
+  t: '2026-03-13T11:08:44Z'
+- d: PASS
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-03-13T11:08:45Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-03-13T11:09:44Z'
 project_id: learning-library
 schema_version: '3.0'
