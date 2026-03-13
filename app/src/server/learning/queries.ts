@@ -349,6 +349,74 @@ export async function updateLearningText(input: {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Update fields (for PUT edit endpoint)
+// ---------------------------------------------------------------------------
+
+export async function updateLearningFields(input: {
+  surreal: Surreal;
+  workspaceRecord: RecordId<"workspace", string>;
+  learningRecord: LearningRecord;
+  fields: {
+    text?: string;
+    priority?: EntityPriority;
+    targetAgents?: string[];
+  };
+  now: Date;
+  embedding?: number[];
+}): Promise<void> {
+  const row = await input.surreal.select<{
+    status: LearningStatus;
+    workspace: RecordId<"workspace", string>;
+  }>(input.learningRecord);
+
+  if (!row) {
+    throw new LearningNotFoundError(input.learningRecord.id as string);
+  }
+
+  if ((row.workspace.id as string) !== (input.workspaceRecord.id as string)) {
+    throw new LearningNotFoundError(input.learningRecord.id as string);
+  }
+
+  if (row.status !== "active") {
+    throw new LearningNotActiveError(row.status);
+  }
+
+  const mergeData: Record<string, unknown> = {
+    updated_at: input.now,
+  };
+  if (input.fields.text !== undefined) {
+    mergeData.text = input.fields.text;
+  }
+  if (input.fields.priority !== undefined) {
+    mergeData.priority = input.fields.priority;
+  }
+  if (input.fields.targetAgents !== undefined) {
+    mergeData.target_agents = input.fields.targetAgents;
+  }
+  if (input.embedding !== undefined) {
+    mergeData.embedding = input.embedding;
+  }
+
+  await input.surreal.update(input.learningRecord).merge(mergeData);
+}
+
+export class LearningNotFoundError extends Error {
+  constructor(learningId: string) {
+    super(`learning not found: ${learningId}`);
+    this.name = "LearningNotFoundError";
+  }
+}
+
+export class LearningNotActiveError extends Error {
+  readonly currentStatus: string;
+  constructor(currentStatus: string) {
+    super(`cannot edit a learning in status '${currentStatus}'`);
+    this.name = "LearningNotActiveError";
+    this.currentStatus = currentStatus;
+  }
+}
+
 function toISOString(value: string | Date): string {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }

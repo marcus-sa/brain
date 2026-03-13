@@ -11,6 +11,9 @@ import {
   listWorkspaceLearnings,
   updateLearningStatus,
   updateLearningText,
+  updateLearningFields,
+  LearningNotFoundError,
+  LearningNotActiveError,
 } from "./queries";
 import { checkCollisions, type CollisionResult } from "./collision";
 import type { LearningRecord } from "./types";
@@ -44,6 +47,8 @@ export function createLearningRouteHandlers(deps: ServerDependencies) {
       handleListLearnings(deps, workspaceId, request),
     handleAction: (workspaceId: string, learningId: string, request: Request) =>
       handleLearningAction(deps, workspaceId, learningId, request),
+    handleEdit: (workspaceId: string, learningId: string, request: Request) =>
+      handleEditLearning(deps, workspaceId, learningId, request),
   };
 }
 
@@ -332,5 +337,104 @@ async function handleLearningAction(
       action,
     });
     return jsonError("failed to perform action", 500);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PUT /api/workspaces/:workspaceId/learnings/:learningId
+// ---------------------------------------------------------------------------
+
+type EditBody = {
+  text?: string;
+  priority?: string;
+  target_agents?: string[];
+};
+
+async function handleEditLearning(
+  deps: ServerDependencies,
+  workspaceId: string,
+  learningId: string,
+  request: Request,
+): Promise<Response> {
+  let body: EditBody;
+  try {
+    body = (await request.json()) as EditBody;
+  } catch {
+    return jsonError("invalid JSON body", 400);
+  }
+
+  // Validate text if provided: must not be empty or whitespace-only
+  if (body.text !== undefined) {
+    if (typeof body.text !== "string" || body.text.trim().length === 0) {
+      return jsonError("text must not be empty", 400);
+    }
+  }
+
+  let workspaceRecord: RecordId<"workspace", string>;
+  try {
+    workspaceRecord = await resolveWorkspaceRecord(deps.surreal, workspaceId);
+  } catch (error) {
+    if (error instanceof HttpError) {
+      return jsonError(error.message, error.status);
+    }
+    logError("learning.edit.workspace_resolve.failed", "Failed to resolve workspace", error, { workspaceId });
+    return jsonError("failed to resolve workspace", 500);
+  }
+
+  const learningRecord = new RecordId("learning", learningId) as LearningRecord;
+  const now = new Date();
+
+  // Re-embed if text changed
+  let embedding: number[] | undefined;
+  if (body.text !== undefined) {
+    try {
+      embedding = await createEmbeddingVector(
+        deps.embeddingModel,
+        body.text.trim(),
+        deps.config.embeddingDimension,
+      );
+    } catch (error) {
+      logWarn("learning.edit.embedding_failed", "Embedding regeneration failed, updating without", {
+        workspaceId,
+        learningId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  try {
+    await updateLearningFields({
+      surreal: deps.surreal,
+      workspaceRecord,
+      learningRecord,
+      fields: {
+        ...(body.text !== undefined ? { text: body.text.trim() } : {}),
+        ...(body.priority !== undefined ? { priority: body.priority as "low" | "medium" | "high" } : {}),
+        ...(body.target_agents !== undefined ? { targetAgents: body.target_agents } : {}),
+      },
+      now,
+      embedding,
+    });
+
+    logInfo("learning.edited", "Learning edited via HTTP", {
+      workspaceId,
+      learningId,
+      fieldsChanged: Object.keys(body).filter((k) => (body as Record<string, unknown>)[k] !== undefined),
+      reEmbedded: embedding !== undefined,
+    });
+
+    return jsonResponse({ status: "updated" }, 200);
+  } catch (error) {
+    if (error instanceof LearningNotFoundError) {
+      return jsonError("learning not found", 404);
+    }
+    if (error instanceof LearningNotActiveError) {
+      return jsonError(error.message, 409);
+    }
+    logError("learning.edit.failed", "Failed to edit learning", error, {
+      workspaceId,
+      learningId,
+    });
+    return jsonError("failed to edit learning", 500);
   }
 }

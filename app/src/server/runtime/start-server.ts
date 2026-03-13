@@ -183,6 +183,17 @@ export function createBrainServer(deps: ServerDependencies): ReturnType<typeof B
           (request) => learningHandlers.handleList(request.params.workspaceId, request),
         ),
       },
+      "/api/workspaces/:workspaceId/learnings/:learningId": {
+        PUT: withRequestLogging(
+          "PUT /api/workspaces/:workspaceId/learnings/:learningId",
+          "PUT",
+          (request) => learningHandlers.handleEdit(
+            request.params.workspaceId,
+            request.params.learningId,
+            request,
+          ),
+        ),
+      },
       "/api/workspaces/:workspaceId/learnings/:learningId/actions": {
         POST: withRequestLogging(
           "POST /api/workspaces/:workspaceId/learnings/:learningId/actions",

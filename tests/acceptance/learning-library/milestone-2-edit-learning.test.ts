@@ -54,7 +54,7 @@ describe("Milestone 2: Edit Active Learnings", () => {
   // ---------------------------------------------------------------------------
 
   // BLOCKED: requires PUT /api/workspaces/:workspaceId/learnings/:learningId endpoint
-  it.skip("editing the text of an active learning updates the stored text", async () => {
+  it("editing the text of an active learning updates the stored text", async () => {
     const { baseUrl, surreal } = getRuntime();
     const user = await createTestUser(baseUrl, `edit-text-${crypto.randomUUID()}`);
     const { workspaceId } = await createTestWorkspace(surreal, "edit-text");
@@ -85,7 +85,7 @@ describe("Milestone 2: Edit Active Learnings", () => {
   // ---------------------------------------------------------------------------
 
   // BLOCKED: requires PUT /api/workspaces/:workspaceId/learnings/:learningId endpoint
-  it.skip("editing the priority of an active learning updates the stored priority", async () => {
+  it("editing the priority of an active learning updates the stored priority", async () => {
     const { baseUrl, surreal } = getRuntime();
     const user = await createTestUser(baseUrl, `edit-priority-${crypto.randomUUID()}`);
     const { workspaceId } = await createTestWorkspace(surreal, "edit-priority");
@@ -114,7 +114,7 @@ describe("Milestone 2: Edit Active Learnings", () => {
   // ---------------------------------------------------------------------------
 
   // BLOCKED: requires PUT /api/workspaces/:workspaceId/learnings/:learningId endpoint
-  it.skip("editing target agents narrows which agents see the learning", async () => {
+  it("editing target agents narrows which agents see the learning", async () => {
     const { baseUrl, surreal } = getRuntime();
     const user = await createTestUser(baseUrl, `edit-agents-${crypto.randomUUID()}`);
     const { workspaceId } = await createTestWorkspace(surreal, "edit-agents");
@@ -149,7 +149,7 @@ describe("Milestone 2: Edit Active Learnings", () => {
   // ---------------------------------------------------------------------------
 
   // BLOCKED: requires PUT /api/workspaces/:workspaceId/learnings/:learningId endpoint
-  it.skip("editing text and priority together updates both fields", async () => {
+  it("editing text and priority together updates both fields", async () => {
     const { baseUrl, surreal } = getRuntime();
     const user = await createTestUser(baseUrl, `edit-multi-${crypto.randomUUID()}`);
     const { workspaceId } = await createTestWorkspace(surreal, "edit-multi");
@@ -180,7 +180,7 @@ describe("Milestone 2: Edit Active Learnings", () => {
   // ---------------------------------------------------------------------------
 
   // BLOCKED: requires PUT /api/workspaces/:workspaceId/learnings/:learningId endpoint
-  it.skip("editing a pending learning is rejected", async () => {
+  it("editing a pending learning is rejected", async () => {
     const { baseUrl, surreal } = getRuntime();
     const user = await createTestUser(baseUrl, `edit-pending-${crypto.randomUUID()}`);
     const { workspaceId } = await createTestWorkspace(surreal, "edit-pending");
@@ -204,7 +204,7 @@ describe("Milestone 2: Edit Active Learnings", () => {
   }, 120_000);
 
   // BLOCKED: requires PUT /api/workspaces/:workspaceId/learnings/:learningId endpoint
-  it.skip("editing a deactivated learning is rejected", async () => {
+  it("editing a deactivated learning is rejected", async () => {
     const { baseUrl, surreal } = getRuntime();
     const user = await createTestUser(baseUrl, `edit-deactivated-${crypto.randomUUID()}`);
     const { workspaceId } = await createTestWorkspace(surreal, "edit-deactivated");
@@ -227,7 +227,7 @@ describe("Milestone 2: Edit Active Learnings", () => {
   }, 120_000);
 
   // BLOCKED: requires PUT /api/workspaces/:workspaceId/learnings/:learningId endpoint
-  it.skip("editing a dismissed learning is rejected", async () => {
+  it("editing a dismissed learning is rejected", async () => {
     const { baseUrl, surreal } = getRuntime();
     const user = await createTestUser(baseUrl, `edit-dismissed-${crypto.randomUUID()}`);
     const { workspaceId } = await createTestWorkspace(surreal, "edit-dismissed");
@@ -254,7 +254,7 @@ describe("Milestone 2: Edit Active Learnings", () => {
   // ---------------------------------------------------------------------------
 
   // BLOCKED: requires PUT /api/workspaces/:workspaceId/learnings/:learningId endpoint
-  it.skip("editing with empty text is rejected", async () => {
+  it("editing with empty text is rejected", async () => {
     const { baseUrl, surreal } = getRuntime();
     const user = await createTestUser(baseUrl, `edit-empty-${crypto.randomUUID()}`);
     const { workspaceId } = await createTestWorkspace(surreal, "edit-empty");
@@ -281,7 +281,7 @@ describe("Milestone 2: Edit Active Learnings", () => {
   }, 120_000);
 
   // BLOCKED: requires PUT /api/workspaces/:workspaceId/learnings/:learningId endpoint
-  it.skip("editing with whitespace-only text is rejected", async () => {
+  it("editing with whitespace-only text is rejected", async () => {
     const { baseUrl, surreal } = getRuntime();
     const user = await createTestUser(baseUrl, `edit-whitespace-${crypto.randomUUID()}`);
     const { workspaceId } = await createTestWorkspace(surreal, "edit-whitespace");
@@ -308,7 +308,7 @@ describe("Milestone 2: Edit Active Learnings", () => {
   // ---------------------------------------------------------------------------
 
   // BLOCKED: requires PUT /api/workspaces/:workspaceId/learnings/:learningId endpoint
-  it.skip("editing a non-existent learning returns not found", async () => {
+  it("editing a non-existent learning returns not found", async () => {
     const { baseUrl, surreal } = getRuntime();
     const user = await createTestUser(baseUrl, `edit-notfound-${crypto.randomUUID()}`);
     const { workspaceId } = await createTestWorkspace(surreal, "edit-notfound");
@@ -331,7 +331,7 @@ describe("Milestone 2: Edit Active Learnings", () => {
   // ---------------------------------------------------------------------------
 
   // BLOCKED: requires PUT /api/workspaces/:workspaceId/learnings/:learningId endpoint
-  it.skip("sending an edit with no fields is a no-op or rejected gracefully", async () => {
+  it("sending an edit with no fields is a no-op or rejected gracefully", async () => {
     const { baseUrl, surreal } = getRuntime();
     const user = await createTestUser(baseUrl, `edit-noop-${crypto.randomUUID()}`);
     const { workspaceId } = await createTestWorkspace(surreal, "edit-noop");
@@ -361,7 +361,7 @@ describe("Milestone 2: Edit Active Learnings", () => {
   // ---------------------------------------------------------------------------
 
   // BLOCKED: requires PUT /api/workspaces/:workspaceId/learnings/:learningId endpoint
-  it.skip("editing text regenerates the embedding for similarity search", async () => {
+  it("editing text regenerates the embedding for similarity search", async () => {
     const { baseUrl, surreal } = getRuntime();
     const user = await createTestUser(baseUrl, `edit-reembed-${crypto.randomUUID()}`);
     const { workspaceId } = await createTestWorkspace(surreal, "edit-reembed");
