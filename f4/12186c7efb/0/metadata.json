@@ -1,0 +1,40 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "f412186c7efb",
+  "session_id": "f5840975-2858-4c55-b029-fb5a6d109a8d",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-13T06:02:30.986468Z",
+  "branch": "marcus-sa/agent-learnings",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "docs/feature/agent-learnings/distill/acceptance-review.md",
+    "docs/feature/agent-learnings/distill/test-scenarios.md",
+    "docs/feature/agent-learnings/distill/walking-skeleton.md",
+    "tests/acceptance/agent-learnings/learning-test-kit.ts",
+    "tests/acceptance/agent-learnings/milestone-1-schema-and-queries.test.ts",
+    "tests/acceptance/agent-learnings/milestone-2-jit-loader-and-formatter.test.ts",
+    "tests/acceptance/agent-learnings/milestone-3-prompt-injection.test.ts",
+    "tests/acceptance/agent-learnings/milestone-4-http-and-feed.test.ts",
+    "tests/acceptance/agent-learnings/milestone-5-pattern-detection.test.ts",
+    "tests/acceptance/agent-learnings/milestone-6-collision-detection.test.ts",
+    "tests/acceptance/agent-learnings/walking-skeleton.test.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "7e36f1941236",
+  "token_usage": {
+    "input_tokens": 48,
+    "cache_creation_tokens": 170852,
+    "cache_read_tokens": 2110348,
+    "output_tokens": 17124,
+    "api_call_count": 22
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-13T06:02:30.664367Z",
+    "agent_lines": 3117,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 3117,
+    "agent_percentage": 100
+  }
+}

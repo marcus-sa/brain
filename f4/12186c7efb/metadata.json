@@ -1,0 +1,36 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "f412186c7efb",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/agent-learnings",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "docs/feature/agent-learnings/distill/acceptance-review.md",
+    "docs/feature/agent-learnings/distill/test-scenarios.md",
+    "docs/feature/agent-learnings/distill/walking-skeleton.md",
+    "tests/acceptance/agent-learnings/learning-test-kit.ts",
+    "tests/acceptance/agent-learnings/milestone-1-schema-and-queries.test.ts",
+    "tests/acceptance/agent-learnings/milestone-2-jit-loader-and-formatter.test.ts",
+    "tests/acceptance/agent-learnings/milestone-3-prompt-injection.test.ts",
+    "tests/acceptance/agent-learnings/milestone-4-http-and-feed.test.ts",
+    "tests/acceptance/agent-learnings/milestone-5-pattern-detection.test.ts",
+    "tests/acceptance/agent-learnings/milestone-6-collision-detection.test.ts",
+    "tests/acceptance/agent-learnings/walking-skeleton.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/f4/12186c7efb/0/metadata.json",
+      "transcript": "/f4/12186c7efb/0/full.jsonl",
+      "context": "/f4/12186c7efb/0/context.md",
+      "content_hash": "/f4/12186c7efb/0/content_hash.txt",
+      "prompt": "/f4/12186c7efb/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 48,
+    "cache_creation_tokens": 170852,
+    "cache_read_tokens": 2110348,
+    "output_tokens": 17124,
+    "api_call_count": 22
+  }
+}
