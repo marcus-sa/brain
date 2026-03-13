@@ -1,0 +1,50 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "2744d800f753",
+  "session_id": "1edd90b0-2d8c-4727-b842-43d39b691d9c",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-13T08:07:05.205554Z",
+  "branch": "marcus-sa/agent-learnings",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "docs/requirements/learning-library/US-LL-01-browse-filter-library.md",
+    "docs/requirements/learning-library/US-LL-02-triage-pending-learnings.md",
+    "docs/requirements/learning-library/US-LL-03-edit-deactivate-learning.md",
+    "docs/requirements/learning-library/US-LL-04-create-learning.md",
+    "docs/requirements/learning-library/dor-validation.md",
+    "docs/ux/learning-library/journey-browse-library-visual.md",
+    "docs/ux/learning-library/journey-browse-library.feature",
+    "docs/ux/learning-library/journey-browse-library.yaml",
+    "docs/ux/learning-library/journey-create-learning-visual.md",
+    "docs/ux/learning-library/journey-create-learning.feature",
+    "docs/ux/learning-library/journey-create-learning.yaml",
+    "docs/ux/learning-library/journey-edit-deactivate-visual.md",
+    "docs/ux/learning-library/journey-edit-deactivate.feature",
+    "docs/ux/learning-library/journey-edit-deactivate.yaml",
+    "docs/ux/learning-library/journey-triage-pending-visual.md",
+    "docs/ux/learning-library/journey-triage-pending.feature",
+    "docs/ux/learning-library/journey-triage-pending.yaml",
+    "docs/ux/learning-library/jtbd-analysis.md",
+    "docs/ux/learning-library/shared-artifacts-registry.md"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "9292cab99433",
+  "checkpoint_transcript_start": 123,
+  "transcript_lines_at_start": 123,
+  "token_usage": {
+    "input_tokens": 161,
+    "cache_creation_tokens": 70030,
+    "cache_read_tokens": 905043,
+    "output_tokens": 8486,
+    "api_call_count": 17
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-13T08:07:04.956723Z",
+    "agent_lines": 2217,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 2217,
+    "agent_percentage": 100
+  }
+}

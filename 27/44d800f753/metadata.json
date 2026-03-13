@@ -1,0 +1,44 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "2744d800f753",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/agent-learnings",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "docs/requirements/learning-library/US-LL-01-browse-filter-library.md",
+    "docs/requirements/learning-library/US-LL-02-triage-pending-learnings.md",
+    "docs/requirements/learning-library/US-LL-03-edit-deactivate-learning.md",
+    "docs/requirements/learning-library/US-LL-04-create-learning.md",
+    "docs/requirements/learning-library/dor-validation.md",
+    "docs/ux/learning-library/journey-browse-library-visual.md",
+    "docs/ux/learning-library/journey-browse-library.feature",
+    "docs/ux/learning-library/journey-browse-library.yaml",
+    "docs/ux/learning-library/journey-create-learning-visual.md",
+    "docs/ux/learning-library/journey-create-learning.feature",
+    "docs/ux/learning-library/journey-create-learning.yaml",
+    "docs/ux/learning-library/journey-edit-deactivate-visual.md",
+    "docs/ux/learning-library/journey-edit-deactivate.feature",
+    "docs/ux/learning-library/journey-edit-deactivate.yaml",
+    "docs/ux/learning-library/journey-triage-pending-visual.md",
+    "docs/ux/learning-library/journey-triage-pending.feature",
+    "docs/ux/learning-library/journey-triage-pending.yaml",
+    "docs/ux/learning-library/jtbd-analysis.md",
+    "docs/ux/learning-library/shared-artifacts-registry.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/27/44d800f753/0/metadata.json",
+      "transcript": "/27/44d800f753/0/full.jsonl",
+      "context": "/27/44d800f753/0/context.md",
+      "content_hash": "/27/44d800f753/0/content_hash.txt",
+      "prompt": "/27/44d800f753/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 161,
+    "cache_creation_tokens": 70030,
+    "cache_read_tokens": 905043,
+    "output_tokens": 8486,
+    "api_call_count": 17
+  }
+}
