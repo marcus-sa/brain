@@ -13,6 +13,7 @@ import { elapsedMs, logError, logInfo, logWarn } from "../http/observability";
 import { jsonError, jsonResponse, toIsoString } from "../http/response";
 import { listWorkspaceOpenObservations } from "../observation/queries";
 import { listWorkspacePendingSuggestions } from "../suggestion/queries";
+import { listWorkspacePendingLearnings } from "../learning/queries";
 import type { ServerDependencies } from "../runtime/types";
 import { resolveWorkspaceRecord } from "../workspace/workspace-scope";
 import {
@@ -80,6 +81,7 @@ async function handleFeed(deps: ServerDependencies, workspaceId: string): Promis
       agentAttentionSessions,
       pendingVetoIntents,
       recentlyVetoedIntents,
+      pendingLearnings,
     ] = await Promise.all([
       listProvisionalDecisions(queryInput),
       listWorkspaceConflicts(queryInput),
@@ -94,6 +96,7 @@ async function handleFeed(deps: ServerDependencies, workspaceId: string): Promis
       listAgentAttentionSessions(queryInput),
       listPendingVetoIntents(queryInput),
       listRecentlyVetoedIntents(queryInput),
+      listWorkspacePendingLearnings({ surreal: deps.surreal, workspaceRecord, limit: FEED_ITEM_LIMIT }),
     ]);
 
     const blocking: GovernanceFeedItem[] = [];
@@ -241,6 +244,24 @@ async function handleFeed(deps: ServerDependencies, workspaceId: string): Promis
         status: sug.status,
         createdAt: sug.createdAt,
         actions: suggestionActions(),
+      });
+    }
+
+    // Review: pending learnings awaiting human approval
+    for (const learning of pendingLearnings) {
+      const confidence = learning.patternConfidence !== undefined
+        ? ` (confidence ${Math.round(learning.patternConfidence * 100)}%)`
+        : "";
+      review.push({
+        id: `learning:${learning.id}:pending_approval`,
+        tier: "review",
+        entityId: `learning:${learning.id}`,
+        entityKind: "learning",
+        entityName: learning.text,
+        reason: `Pending learning from ${learning.suggestedBy ?? learning.source}${confidence}`,
+        status: "pending_approval",
+        createdAt: learning.createdAt,
+        actions: learningActions(),
       });
     }
 
@@ -394,6 +415,14 @@ function suggestionActions(): GovernanceFeedAction[] {
 function staleTaskActions(): GovernanceFeedAction[] {
   return [
     { action: "complete", label: "Complete" },
+    { action: "discuss", label: "Discuss" },
+  ];
+}
+
+function learningActions(): GovernanceFeedAction[] {
+  return [
+    { action: "confirm", label: "Approve" },
+    { action: "dismiss", label: "Dismiss" },
     { action: "discuss", label: "Discuss" },
   ];
 }

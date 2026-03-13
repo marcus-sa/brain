@@ -1,0 +1,204 @@
+journey:
+  name: "Human Corrects Agent Behavior"
+  goal: "Record a permanent behavioral correction so the agent never repeats the mistake"
+  persona: "Tomas Eriksson, workspace owner managing AI agents"
+  trigger: "Agent repeats a mistake that was corrected in a previous session"
+
+  emotional_arc:
+    start: "Frustrated -- 'I already told you this last session'"
+    middle: "Hopeful -- 'The system says it created a permanent learning'"
+    end: "Confident -- 'It remembered! The correction stuck.'"
+
+steps:
+  - id: 1
+    name: "Frustration Trigger"
+    action: "Agent repeats a previously corrected mistake in chat"
+
+    shared_artifacts:
+      - name: "conversation_id"
+        source: "conversation table, created at session start"
+        displayed_as: "${conversation_id}"
+        consumers: ["learning_evidence edge", "chat context"]
+      - name: "workspace_id"
+        source: "workspace table, resolved from session"
+        displayed_as: "${workspace_id}"
+        consumers: ["learning workspace field", "context loader", "MCP endpoint"]
+
+    emotional_state:
+      entry: "Neutral -- starting a new session"
+      exit: "Frustrated -- 'Not this again'"
+
+    integration_checkpoint: |
+      Conversation exists in workspace scope.
+      Agent has access to workspace context.
+
+  - id: 2
+    name: "User Issues Correction"
+    action: "Tomas types a behavioral directive in chat"
+
+    shared_artifacts:
+      - name: "correction_text"
+        source: "User message content"
+        displayed_as: "User's correction in natural language"
+        consumers: ["detection step", "learning text field"]
+      - name: "target_agent"
+        source: "Inferred from conversation context or explicit mention"
+        displayed_as: "${target_agent}"
+        consumers: ["learning target_agents field", "prompt injection filter"]
+
+    emotional_state:
+      entry: "Frustrated -- 'Let me fix this once and for all'"
+      exit: "Determined -- 'This time it will stick'"
+
+    integration_checkpoint: |
+      Message persisted in conversation.
+      Agent receives the message for processing.
+
+  - id: 3
+    name: "Behavioral Directive Detection"
+    action: "Agent detects the message contains a behavioral directive"
+
+    shared_artifacts:
+      - name: "learning_text"
+        source: "Extracted from user correction, refined for clarity"
+        displayed_as: "Learning text shown in editor and confirmation card"
+        consumers: ["learning table text field", "collision check input", "embedding computation"]
+      - name: "learning_type"
+        source: "Inferred from language patterns (never/always -> constraint, should/prefer -> instruction, in the past -> precedent)"
+        displayed_as: "${learning_type}"
+        consumers: ["learning table learning_type field", "injection priority"]
+      - name: "source"
+        source: "Always 'human' for this journey"
+        displayed_as: "human"
+        consumers: ["learning table source field", "priority weighting"]
+
+    emotional_state:
+      entry: "Determined"
+      exit: "Hopeful -- system acknowledged the correction"
+
+    integration_checkpoint: |
+      Detection heuristics identified behavioral directive.
+      Learning text extracted from message.
+      Type inferred from language patterns.
+
+  - id: 4
+    name: "Learning Editor"
+    action: "Tomas reviews and refines pre-filled learning in editor"
+
+    shared_artifacts:
+      - name: "target_agents"
+        source: "User selection in editor, defaults to corrected agent + chat_agent"
+        displayed_as: "Checkbox selection"
+        consumers: ["learning table target_agents field", "collision check scope"]
+      - name: "priority"
+        source: "User selection, defaults to medium"
+        displayed_as: "Dropdown"
+        consumers: ["learning table priority field", "injection ordering"]
+
+    emotional_state:
+      entry: "Hopeful"
+      exit: "Empowered -- taking deliberate action"
+
+    integration_checkpoint: |
+      Editor pre-filled from correction context.
+      User can customize text, type, agents, and scope.
+
+  - id: 5
+    name: "Collision Check"
+    action: "System checks for conflicts with existing learnings, policies, and decisions"
+
+    shared_artifacts:
+      - name: "collision_results"
+        source: "Embedding similarity query against active learnings + policies + decisions"
+        displayed_as: "Collision warning card (if any found)"
+        consumers: ["user decision to proceed/edit/cancel"]
+      - name: "learning_embedding"
+        source: "Computed from learning_text via embedding model"
+        displayed_as: "Not displayed (internal)"
+        consumers: ["learning table embedding field", "collision queries", "JIT relevance matching"]
+
+    emotional_state:
+      entry: "Empowered"
+      exit: "Informed -- understands if conflicts exist"
+
+    integration_checkpoint: |
+      Embedding computed for new learning text.
+      Three-layer query: active learnings (sim > 0.75), active policies, confirmed decisions (sim > 0.80).
+      Collision results (if any) displayed to user before activation.
+      Policy collision = hard block. Learning collision = warning with options.
+
+  - id: 6
+    name: "Learning Persisted"
+    action: "Learning record created in SurrealDB with active status"
+
+    shared_artifacts:
+      - name: "learning_id"
+        source: "SurrealDB auto-generated record ID"
+        displayed_as: "learning:${uuid}"
+        consumers: ["learning_evidence edge", "governance feed", "prompt injection query"]
+
+    emotional_state:
+      entry: "Informed"
+      exit: "Cautiously optimistic -- correction is saved"
+
+    integration_checkpoint: |
+      Learning record created with status=active (human source).
+      learning_evidence edge relates learning to source message.
+      Embedding stored on learning record.
+
+  - id: 7
+    name: "Confirmation Response"
+    action: "Agent confirms learning creation with details card"
+
+    emotional_state:
+      entry: "Cautiously optimistic"
+      exit: "Confident -- sees the learning is recorded"
+
+    integration_checkpoint: |
+      Confirmation card shown with text, target agents, type, status.
+      User knows the correction is permanent.
+      Links to learning library for future management.
+
+  - id: 8
+    name: "Injection in Next Session"
+    action: "Learning injected into target agent's system prompt"
+
+    shared_artifacts:
+      - name: "active_learnings_list"
+        source: "Query: SELECT * FROM learning WHERE $agent IN target_agents AND status = 'active' AND workspace = $ws"
+        displayed_as: "System prompt section: ## Active Learnings"
+        consumers: ["buildSystemPrompt()", "buildPmSystemPrompt()", "MCP context response", "context-loader"]
+
+    emotional_state:
+      entry: "N/A (new session, fresh context)"
+      exit: "N/A (system operation)"
+
+    integration_checkpoint: |
+      Learning query returns active learnings for target agent.
+      Learnings grouped by type: constraints first, then instructions, then precedents.
+      Human-created before agent-suggested within each group.
+      Token budget respected -- constraints always included.
+
+  - id: 9
+    name: "Verification"
+    action: "Tomas asks the same question and gets the corrected behavior"
+
+    emotional_state:
+      entry: "Curious -- 'Did it remember?'"
+      exit: "Satisfied -- 'The system learns from my corrections'"
+
+    integration_checkpoint: |
+      Agent's response demonstrates corrected behavior.
+      Learning is working as intended.
+
+integration_validation:
+  shared_artifact_consistency:
+    - artifact: "workspace_id"
+      must_match_across: [1, 2, 3, 5, 6, 8]
+      failure_message: "Learning must be scoped to the same workspace across all operations"
+    - artifact: "target_agents"
+      must_match_across: [2, 3, 4, 6, 8]
+      failure_message: "Target agents must be consistent from detection through injection"
+    - artifact: "learning_text"
+      must_match_across: [3, 4, 5, 6, 7]
+      failure_message: "Learning text must be the same from extraction through confirmation (unless edited in step 4)"

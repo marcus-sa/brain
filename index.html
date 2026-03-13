@@ -380,7 +380,7 @@ footer .right a:hover { color: var(--text-dim); }
 <div class="diagram-wrap reveal">
   <div class="diagram">
     <div class="diagram-label">Architecture</div>
-    <div class="d-row"><div class="d-tag">Human</div><div class="d-boxes"><div class="d-box h">Web Chat</div><div class="d-box h">Feed</div><div class="d-box h">Graph View</div><div class="d-box h">Terminal</div></div></div>
+    <div class="d-row"><div class="d-tag">Human</div><div class="d-boxes"><div class="d-box h">Web Chat</div><div class="d-box h">Feed</div><div class="d-box h">Graph View</div><div class="d-box h">Learning Library</div><div class="d-box h">Terminal</div></div></div>
     <div class="d-arrow">↕</div>
     <div class="d-row"><div class="d-tag">Agents</div><div class="d-boxes"><div class="d-box a">Architect</div><div class="d-box a">Strategist</div><div class="d-box a">Management</div><div class="d-box a">Coding · MCP</div><div class="d-box a">Observer</div></div></div>
     <div class="d-arrow">↕</div>
@@ -467,7 +467,7 @@ footer .right a:hover { color: var(--text-dim); }
     <div class="agent-card">
       <h3>Observer</h3>
       <div class="agent-role">Background intelligence</div>
-      <p>Scans the graph for patterns nobody asked about. Stale decisions, cross-project conflicts, missing coverage, priority drift. Surfaces observations that compound into suggestions.</p>
+      <p>Continuously scans the graph for contradictions, stale tasks, status drift, and cross-project conflicts. Verifies findings through LLM reasoning with confidence scoring and evidence tracking. Peer review prevents false positives. Synthesizes patterns into suggestions and proposes learnings from root cause analysis.</p>
     </div>
   </div>
 </section>
@@ -492,8 +492,8 @@ footer .right a:hover { color: var(--text-dim); }
       <div class="step-dot">2</div>
       <div class="step-line"></div>
       <div>
-        <h3>Architect agent sees it on next context load</h3>
-        <p>The Architect checks the observation against constraints. Confirms the contradiction is real. Generates a suggestion: "Migrate billing API to tRPC, or revisit the standardization decision."</p>
+        <h3>Observer verifies with LLM reasoning</h3>
+        <p>The Observer scans the graph, detects the contradiction, and runs it through a verification pipeline with confidence scoring and evidence tracking. Peer review cross-validates to prevent false positives. The verified finding becomes an observation with a suggestion.</p>
       </div>
     </div>
     <div class="step">
@@ -501,15 +501,23 @@ footer .right a:hover { color: var(--text-dim); }
       <div class="step-line"></div>
       <div>
         <h3>Suggestion surfaces in your feed</h3>
-        <p>You see the suggestion with full provenance — the observation, the contradicted decision, the Architect's reasoning. You accept it. A migration task is created with one click.</p>
+        <p>You see the suggestion with full provenance — the observation, the contradicted decision, the Observer's confidence score and evidence. You accept it. A migration task is created with one click.</p>
       </div>
     </div>
     <div class="step">
       <div class="step-dot">4</div>
       <div class="step-line"></div>
       <div>
-        <h3>Next coding session picks up the task</h3>
-        <p>The migration task appears in the coding agent's context. It decomposes into subtasks, works through them, and status rolls up automatically. No human copied anything between tabs.</p>
+        <h3>Observer proposes a learning</h3>
+        <p>The Observer identifies this as a recurring pattern — REST/tRPC contradictions — and proposes a learning: "Check protocol standardization decisions before introducing new API endpoints." The learning enters your Library for review.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-dot">5</div>
+      <div class="step-line"></div>
+      <div>
+        <h3>Next coding session picks up the task — with the learning</h3>
+        <p>The migration task appears in the coding agent's context. Approved learnings are injected into its prompt at runtime. It won't repeat the same mistake. Status rolls up automatically. No human copied anything between tabs.</p>
       </div>
     </div>
   </div>
@@ -587,7 +595,7 @@ footer .right a:hover { color: var(--text-dim); }
     </div>
     <div class="concept">
       <h3>🧠 Learnings</h3>
-      <p>Agents that repeat mistakes are useless. Learnings are behavioral rules injected into agent prompts at runtime — created by humans directly or suggested by other agents. The system gets smarter as it works, not dumber.</p>
+      <p>Agents that repeat mistakes are useless. Learnings are behavioral rules injected into agent prompts at runtime via JIT loading with token budgets. They follow a lifecycle — proposed by agents or the Observer's root cause analysis, approved by humans, deactivated when outdated. Three-layer collision detection prevents duplicates. The Learning Library lets you browse, filter, approve, and manage learnings across all agents.</p>
     </div>
     <div class="concept">
       <h3>◇ Living Descriptions</h3>
@@ -627,7 +635,7 @@ footer .right a:hover { color: var(--text-dim); }
     <div class="drift-card">
       <h3>Context Drift</h3>
       <div class="drift-problem">The graph becomes a junkyard of stale decisions</div>
-      <p>Decisions made in v1.0 become poison for v2.0. Brain uses temporal decay — nodes that aren't referenced lose weight over time. The Observer agent runs conflict resolution loops, flagging stale decisions that contradict recent commits. Context is filtered for relevance and recency, not dumped wholesale.</p>
+      <p>Decisions made in v1.0 become poison for v2.0. Brain uses temporal decay — nodes that aren't referenced lose weight over time. The Observer continuously scans for contradictions between decisions, verifies them with LLM reasoning, and synthesizes patterns into learnings. Context is filtered for relevance and recency, not dumped wholesale.</p>
     </div>
     <div class="drift-card">
       <h3>Authority Drift</h3>
@@ -637,7 +645,7 @@ footer .right a:hover { color: var(--text-dim); }
     <div class="drift-card">
       <h3>Reality Drift</h3>
       <div class="drift-problem">The graph says 90% done, but the code is broken</div>
-      <p>If the Brain only reads its own graph, it's a delusion engine. Observer agents perform truth audits — checking claims against actual state via webhooks and integrations. When reality diverges from the graph, the system triggers a desync alert before any agent acts on stale data.</p>
+      <p>If the Brain only reads its own graph, it's a delusion engine. The Observer performs truth audits — verifying claims against actual state through LLM verification pipelines with confidence scoring. Peer review cross-validates findings. When reality diverges from the graph, the system triggers a desync alert before any agent acts on stale data.</p>
     </div>
   </div>
 </section>

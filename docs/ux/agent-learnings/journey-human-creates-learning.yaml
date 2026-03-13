@@ -1,0 +1,173 @@
+journey:
+  name: "Human Creates a Learning"
+  goal: "Persist a behavioral correction so agents remember it across sessions"
+  persona: "Tomas Eriksson (Workspace Owner)"
+
+  emotional_arc:
+    start: "Frustrated -- repeated corrections ignored between sessions"
+    middle: "Empowered -- taking deliberate action to fix permanently"
+    end: "Satisfied -- confident the agent will remember"
+
+steps:
+  - id: 1
+    name: "Correction Trigger"
+    action: "User corrects agent behavior in chat conversation"
+
+    shared_artifacts:
+      - name: correction_text
+        source: "Chat message content"
+        displayed_as: "${correction_text}"
+        consumers:
+          - "Learning editor pre-fill"
+          - "Learning record text field"
+
+    emotional_state:
+      entry: "Frustrated -- same mistake again"
+      exit: "Hopeful -- sees 'Save as Learning' option"
+
+    gherkin: |
+      Scenario: Chat agent detects correction and offers learning creation
+        Given Tomas Eriksson is chatting with the coding agent
+        And Tomas has corrected "null vs undefined" usage 3 times in the past week
+        When Tomas types "Don't use null, use undefined via optional properties"
+        Then the chat agent acknowledges the correction
+        And offers a "Save as Learning" inline card
+        And the card is non-disruptive (inline, not modal)
+
+  - id: 2
+    name: "Learning Editor"
+    action: "User reviews and refines the pre-filled learning"
+
+    shared_artifacts:
+      - name: learning_text
+        source: "Pre-filled from correction_text, editable by user"
+        displayed_as: "${learning_text}"
+        consumers:
+          - "Learning record"
+          - "System prompt injection"
+          - "Governance feed card"
+      - name: learning_type
+        source: "User selection"
+        displayed_as: "${learning_type}"
+        consumers:
+          - "Learning record"
+          - "Prompt section grouping"
+          - "Conflict detection"
+      - name: target_agents
+        source: "User checkbox selection"
+        displayed_as: "${target_agents}"
+        consumers:
+          - "Learning record"
+          - "Prompt injection query filter"
+
+    emotional_state:
+      entry: "Empowered -- taking action"
+      exit: "Confident -- reviewed and refined"
+
+    gherkin: |
+      Scenario: Learning editor pre-fills from correction
+        Given Tomas clicked "Save as Learning"
+        When the learning editor opens
+        Then the rule text is pre-filled with "Never use null for domain data values. Represent absence with omitted optional fields (field?: Type) only."
+        And the type selector shows Constraint, Instruction, Precedent options
+        And the agent scope defaults to code_agent and chat_agent
+        And workspace-wide scope is selected by default
+
+  - id: 3
+    name: "Save and Confirm"
+    action: "User saves the learning, receives confirmation"
+
+    shared_artifacts:
+      - name: learning_status
+        source: "System (set to 'active' for human-created)"
+        displayed_as: "${learning_status}"
+        consumers:
+          - "Learning record"
+          - "Confirmation card"
+          - "Learning library view"
+      - name: learning_id
+        source: "SurrealDB record ID"
+        displayed_as: "${learning_id}"
+        consumers:
+          - "Confirmation card link"
+          - "Prompt injection query"
+
+    emotional_state:
+      entry: "Decisive -- clicking save"
+      exit: "Satisfied -- sees confirmation"
+
+    integration_checkpoint: |
+      Learning record created in SurrealDB with:
+      - text = ${learning_text}
+      - type = ${learning_type}
+      - target_agents = ${target_agents}
+      - status = active
+      - source = human
+      - created_by = Tomas Eriksson identity record
+      - workspace = current workspace
+
+    gherkin: |
+      Scenario: Human-created learning is immediately active
+        Given Tomas has filled in the learning editor with constraint "Never use null for domain data values"
+        And selected target agents code_agent and chat_agent
+        When Tomas clicks "Save Learning"
+        Then a learning record is created with status "active"
+        And a confirmation card appears showing the saved learning
+        And the card shows "Status: Active"
+        And no approval step is required
+
+  - id: 4
+    name: "Verification in Next Session"
+    action: "Agent applies the learning in subsequent session"
+
+    shared_artifacts:
+      - name: learning_text
+        source: "learning record"
+        displayed_as: "${learning_text}"
+        consumers:
+          - "System prompt 'Workspace Learnings' section"
+
+    emotional_state:
+      entry: "Hopeful -- will it work?"
+      exit: "Confident -- agent applied the learning correctly"
+
+    gherkin: |
+      Scenario: Learning applied in next coding session
+        Given Tomas created a learning "Never use null for domain data values"
+        And the learning targets code_agent
+        When a new coding agent session starts in Tomas's workspace
+        Then the learning appears in the system prompt under "Workspace Learnings > Constraints"
+        And the agent uses optional properties instead of null when asked to add an optional field
+
+integration_validation:
+  shared_artifact_consistency:
+    - artifact: "learning_text"
+      must_match_across: [1, 2, 3, 4]
+      failure_message: "Learning text must flow from correction through editor to record to prompt injection"
+    - artifact: "target_agents"
+      must_match_across: [2, 3, 4]
+      failure_message: "Target agents selected in editor must match stored record and prompt injection filter"
+    - artifact: "learning_status"
+      must_match_across: [3, 4]
+      failure_message: "Status must be 'active' at save and remain 'active' at injection"
+
+error_paths:
+  - name: "Duplicate Detection"
+    trigger: "User saves a learning with text semantically similar to existing active learning"
+    response: "System shows existing learning, offers Update/Save Separate/Cancel"
+    gherkin: |
+      Scenario: Duplicate learning detected
+        Given an active learning "Never persist null for domain data values" exists
+        When Tomas saves a new learning "Do not use null in domain data"
+        Then the system detects semantic similarity above 0.85
+        And shows the existing learning with options to Update, Save Separate, or Cancel
+
+  - name: "Conflict Detection"
+    trigger: "User saves a learning that contradicts an existing active learning"
+    response: "System shows both learnings, offers Supersede/Save Both/Cancel"
+    gherkin: |
+      Scenario: Conflicting learning detected
+        Given an active learning "Never use null for domain data values" exists
+        When Tomas saves a new learning "Always use null for optional API response fields"
+        Then the system detects a potential conflict
+        And shows both learnings with options to Supersede, Save Both (different scopes), or Cancel

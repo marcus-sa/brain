@@ -1,5 +1,6 @@
 import { Link, useMatchRoute } from "@tanstack/react-router";
 import type { ConversationSidebarItem, WorkspaceConversationSidebarResponse } from "../../../shared/contracts";
+import { usePendingLearningCount } from "../../hooks/use-pending-learning-count";
 
 type WorkspaceSidebarProps = {
   sidebar?: WorkspaceConversationSidebarResponse;
@@ -19,6 +20,8 @@ export function WorkspaceSidebar({
   const matchRoute = useMatchRoute();
   const isHome = matchRoute({ to: "/" });
   const isGraph = matchRoute({ to: "/graph" });
+  const isLearnings = matchRoute({ to: "/learnings" });
+  const { pendingCount } = usePendingLearningCount();
 
   function renderConversationItem(conv: ConversationSidebarItem, depth: number = 0) {
     return (
@@ -48,6 +51,12 @@ export function WorkspaceSidebar({
       </Link>
       <Link to="/graph" className={`sidebar-item sidebar-nav-item${isGraph ? " sidebar-item--active" : ""}`}>
         Graph
+      </Link>
+      <Link to="/learnings" className={`sidebar-item sidebar-nav-item${isLearnings ? " sidebar-item--active" : ""}`}>
+        Learnings
+        {pendingCount > 0 ? (
+          <span className="sidebar-badge">{pendingCount}</span>
+        ) : undefined}
       </Link>
 
       <div className="sidebar-divider" />

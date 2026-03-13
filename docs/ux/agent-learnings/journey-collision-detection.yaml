@@ -1,0 +1,168 @@
+journey:
+  name: "Collision Detection and Resolution"
+  goal: "Create or approve a learning without introducing contradictions"
+  persona: "Tomas Eriksson, workspace owner"
+  trigger: "New learning is about to be activated (human-created or agent-approved)"
+
+  emotional_arc:
+    start: "Unaware -- 'Let me add this'"
+    middle: "Alert -- 'Wait, there's a conflict'"
+    end: "Confident -- 'Resolved safely'"
+
+steps:
+  - id: 1
+    name: "Creation Trigger"
+    action: "New learning about to activate via human creation or agent approval"
+
+    shared_artifacts:
+      - name: "new_learning_text"
+        source: "User correction or agent suggestion text"
+        displayed_as: "Learning text"
+        consumers: ["embedding computation", "collision engine input"]
+      - name: "target_agents"
+        source: "User selection or agent suggestion"
+        displayed_as: "Agent scope"
+        consumers: ["collision query filter (same target_agent)"]
+      - name: "learning_type"
+        source: "Inferred or selected"
+        displayed_as: "constraint | instruction | precedent"
+        consumers: ["priority weighting in collision resolution"]
+
+    emotional_state:
+      entry: "Neutral or hopeful"
+      exit: "Unaware of potential conflicts"
+
+  - id: 2
+    name: "Collision Check"
+    action: "System queries graph for similar/contrary active learnings, policies, and decisions"
+
+    shared_artifacts:
+      - name: "new_embedding"
+        source: "Computed from new_learning_text via embedding model"
+        displayed_as: "Not displayed (internal)"
+        consumers: ["KNN query input for all three layers"]
+      - name: "collision_results"
+        source: "Three-layer query results"
+        displayed_as: "Collision cards (if any found)"
+        consumers: ["resolution UI", "user decision"]
+
+    emotional_state:
+      entry: "Unaware"
+      exit: "Alert (if collision) or confident (if clean)"
+
+    integration_checkpoint: |
+      Embedding computed for new learning text.
+      Layer 1: Active learnings (same target_agent, sim > 0.75) via two-step KNN.
+      Layer 2: Active policies (same workspace) via semantic match.
+      Layer 3: Confirmed/provisional decisions (sim > 0.80) via two-step KNN.
+      Collision types classified: contradicts, duplicates (> 0.90), overlaps, reinforces.
+
+  - id: 3a
+    name: "Policy Collision (Hard Block)"
+    action: "Learning blocked because it conflicts with active policy"
+    condition: "collision_results contains policy match"
+
+    emotional_state:
+      entry: "Alert"
+      exit: "Informed -- understands the governance boundary"
+
+    resolution_options:
+      - "View Policy -- navigate to policy details"
+      - "Cancel -- abandon the learning"
+    note: "User must modify or supersede the policy through policy governance workflow first"
+
+  - id: 3b
+    name: "Learning-to-Learning Collision (Warning)"
+    action: "Warning displayed showing conflicting active learning"
+    condition: "collision_results contains learning match with contradicts type"
+
+    emotional_state:
+      entry: "Alert"
+      exit: "Informed -- sees both learnings side by side"
+
+    resolution_options:
+      - "Create Anyway -- both learnings active, agent must reconcile"
+      - "Edit New -- refine to avoid conflict, collision re-runs"
+      - "Dismiss Old -- dismiss existing, activate new"
+      - "Cancel -- abandon the new learning"
+
+    priority_notes: |
+      Human > Agent: if human learning contradicts agent-suggested, suggest dismissing agent learning.
+      Constraint > Instruction > Precedent: higher type takes precedence within same source.
+
+  - id: 3c
+    name: "Decision Collision (Informational/Warning)"
+    action: "Note displayed showing related confirmed decision"
+    condition: "collision_results contains decision match"
+
+    emotional_state:
+      entry: "Alert"
+      exit: "Informed -- sees relationship to existing decision"
+
+    resolution_options:
+      reinforces: "Informational blue note. Learning activates normally."
+      contradicts: "Warning with Create Anyway, Edit, Cancel"
+
+  - id: 3d
+    name: "Near-Duplicate Detection"
+    action: "Warning displayed showing very similar existing learning"
+    condition: "collision_results contains learning match with sim > 0.90"
+
+    emotional_state:
+      entry: "Alert"
+      exit: "Informed -- realizes they already have this rule"
+
+    resolution_options:
+      - "Merge -- update existing learning with refined text"
+      - "Keep Both -- save as separate (different nuance)"
+      - "Cancel -- abandon (duplicate not needed)"
+
+  - id: 4
+    name: "Resolution Applied"
+    action: "User resolves collision and learning is activated (or cancelled)"
+
+    emotional_state:
+      entry: "Informed"
+      exit: "Confident -- ruleset is coherent"
+
+    integration_checkpoint: |
+      If Create Anyway: both active, prompt notes conflict.
+      If Edit New: collision re-runs on modified text.
+      If Dismiss Old: old -> dismissed, new -> active.
+      If Supersede: old -> superseded with superseded_by edge, new -> active.
+      If Merge: existing updated, embedding recomputed.
+
+priority_weighting:
+  - rule: "Policy > Learning (always)"
+    description: "Policies are deterministic governance. Learnings cannot override them."
+  - rule: "Human > Agent"
+    description: "Human-created learnings take precedence over agent-suggested learnings."
+  - rule: "Constraint > Instruction > Precedent"
+    description: "Within same source, type determines priority."
+  - rule: "Newer > Older (same type, same source)"
+    description: "When same type and source conflict, most recently created takes precedence."
+
+error_paths:
+  - id: "E1"
+    name: "Embedding Service Unavailable"
+    behavior: |
+      Human-created: fail-open, activate without collision check.
+      Agent-suggested: fail-closed, keep pending.
+      Observation logged for governance feed.
+      Deferred collision check queued for recovery.
+
+  - id: "E2"
+    name: "False Positive (High Similarity, Not Actually Conflicting)"
+    behavior: |
+      LLM intent analysis classifies as "overlaps" not "contradicts".
+      Displayed as informational note, not warning.
+      Both learnings can coexist.
+
+integration_validation:
+  shared_artifact_consistency:
+    - artifact: "workspace_id"
+      must_match_across: [1, 2, "3a", "3b", "3c", 4]
+      failure_message: "Collision check must be scoped to same workspace"
+    - artifact: "target_agents"
+      must_match_across: [1, 2, "3b"]
+      failure_message: "Learning collision only checks same target_agent"

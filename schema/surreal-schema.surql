@@ -599,9 +599,11 @@ DEFINE FIELD workspace ON policy TYPE record<workspace>;
 DEFINE FIELD supersedes ON policy TYPE option<record<policy>>;
 DEFINE FIELD created_at ON policy TYPE datetime;
 DEFINE FIELD updated_at ON policy TYPE option<datetime>;
+DEFINE FIELD embedding ON policy TYPE option<array<float>>;
 DEFINE INDEX policy_status ON policy FIELDS status;
 DEFINE INDEX policy_workspace ON policy FIELDS workspace;
 DEFINE INDEX policy_workspace_status ON policy FIELDS workspace, status;
+DEFINE INDEX idx_policy_embedding ON policy FIELDS embedding HNSW DIMENSION 1536 DIST COSINE;
 
 -- Graph relation: identity -governing-> policy
 DEFINE TABLE governing TYPE RELATION IN identity OUT policy SCHEMAFULL;
@@ -1112,6 +1114,49 @@ DEFINE EVENT observation_peer_review ON observation
   THEN {
     http::post("http://localhost:3000/api/observe/observation/" + <string> meta::id($after.id), $after)
   };
+
+-- ---------------------------------------------------------------------------
+-- Learning table: behavioral rules injected into agent prompts at runtime
+-- ---------------------------------------------------------------------------
+
+DEFINE TABLE learning SCHEMAFULL;
+DEFINE FIELD text ON learning TYPE string;
+DEFINE FIELD learning_type ON learning TYPE string
+  ASSERT $value IN ["constraint", "instruction", "precedent"];
+DEFINE FIELD status ON learning TYPE string
+  ASSERT $value IN ["active", "pending_approval", "dismissed", "superseded", "deactivated"];
+DEFINE FIELD source ON learning TYPE string
+  ASSERT $value IN ["human", "agent"];
+DEFINE FIELD priority ON learning TYPE string
+  DEFAULT "medium"
+  ASSERT $value IN ["low", "medium", "high"];
+DEFINE FIELD target_agents ON learning TYPE array<string>;
+DEFINE FIELD workspace ON learning TYPE record<workspace>;
+DEFINE FIELD suggested_by ON learning TYPE option<string>;
+DEFINE FIELD pattern_confidence ON learning TYPE option<float>;
+DEFINE FIELD created_by ON learning TYPE option<record<identity>>;
+DEFINE FIELD created_at ON learning TYPE datetime;
+DEFINE FIELD updated_at ON learning TYPE option<datetime>;
+DEFINE FIELD approved_by ON learning TYPE option<record<identity>>;
+DEFINE FIELD approved_at ON learning TYPE option<datetime>;
+DEFINE FIELD activated_at ON learning TYPE option<datetime>;
+DEFINE FIELD dismissed_by ON learning TYPE option<record<identity>>;
+DEFINE FIELD dismissed_at ON learning TYPE option<datetime>;
+DEFINE FIELD dismissed_reason ON learning TYPE option<string>;
+DEFINE FIELD deactivated_by ON learning TYPE option<record<identity>>;
+DEFINE FIELD deactivated_at ON learning TYPE option<datetime>;
+DEFINE FIELD embedding ON learning TYPE option<array<float>>;
+DEFINE INDEX idx_learning_workspace_status ON learning FIELDS workspace, status;
+DEFINE INDEX idx_learning_embedding ON learning FIELDS embedding HNSW DIMENSION 1536 DIST COSINE;
+
+-- Evidence relation: links a learning to source entities
+DEFINE TABLE learning_evidence TYPE RELATION IN learning OUT message | trace | observation | agent_session SCHEMAFULL;
+DEFINE FIELD added_at ON learning_evidence TYPE option<datetime>;
+
+-- Supersession relation: tracks when one learning replaces another
+DEFINE TABLE supersedes TYPE RELATION IN learning OUT learning SCHEMAFULL;
+DEFINE FIELD superseded_at ON supersedes TYPE datetime;
+DEFINE FIELD reason ON supersedes TYPE option<string>;
 
 -- Analytics agent: read-only database user
 DEFINE USER analytics ON DATABASE PASSWORD 'brain-analytics-readonly' ROLES VIEWER;

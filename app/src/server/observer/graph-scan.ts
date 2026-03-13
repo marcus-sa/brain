@@ -10,11 +10,14 @@
  */
 
 import { RecordId, type Surreal } from "surrealdb";
-import type { LanguageModel } from "ai";
+import type { LanguageModel, embed } from "ai";
 import { createObservation, listWorkspaceOpenObservations, type ObserveTargetRecord } from "../observation/queries";
 import { logInfo } from "../http/observability";
 import { detectContradictions, evaluateAnomalies, synthesizePatterns, type Anomaly, type AnomalyCandidate } from "./llm-synthesis";
 import { parseEntityRef } from "./evidence-validator";
+import { runDiagnosticClustering } from "./learning-diagnosis";
+
+type EmbeddingModel = Parameters<typeof embed>[0]["model"];
 
 // ---------------------------------------------------------------------------
 // Types
@@ -57,6 +60,9 @@ export type GraphScanResult = {
   status_drift_found: number;
   observations_created: number;
   llm_filtered_count: number;
+  learning_proposals_created: number;
+  clusters_found: number;
+  coverage_skips: number;
 };
 
 // ---------------------------------------------------------------------------
@@ -264,6 +270,8 @@ export async function runGraphScan(
   surreal: Surreal,
   workspaceRecord: RecordId<"workspace", string>,
   observerModel: LanguageModel,
+  embeddingModel: EmbeddingModel,
+  embeddingDimension: number,
 ): Promise<GraphScanResult> {
   const result: GraphScanResult = {
     contradictions_found: 0,
@@ -271,6 +279,9 @@ export async function runGraphScan(
     status_drift_found: 0,
     observations_created: 0,
     llm_filtered_count: 0,
+    learning_proposals_created: 0,
+    clusters_found: 0,
+    coverage_skips: 0,
   };
 
   // Load existing observations for deduplication
@@ -401,106 +412,80 @@ export async function runGraphScan(
     }
   }
 
-  // Create observations for stale blocked tasks (LLM-filtered)
+  // Create observations for anomalies (stale-blocked + status-drift), LLM-filtered
+  type AnomalyObservation = {
+    entityRef: string;
+    taskRecord: RecordId<"task">;
+    observationText: string;
+    anomalyType: string;
+    dedupContext?: Record<string, unknown>;
+  };
+
+  const anomalyObservations: AnomalyObservation[] = [];
+
   for (const task of staleBlocked) {
-    const entityRef = `task:${task.id.id as string}`;
-    const evaluation = evaluationMap.get(entityRef);
-
-    // When LLM evaluated and marked not relevant, skip
-    if (evaluation && !evaluation.relevant) {
-      logInfo("observer.scan.llm_filtered", "Stale-blocked task filtered by LLM as not relevant", {
-        taskId: task.id.id,
-        reasoning: evaluation.reasoning,
-      });
-      result.llm_filtered_count += 1;
-      continue;
-    }
-
-    // Entity-level dedup
-    const existingForTask = await queryExistingObserverObservationsForEntity(
-      surreal, workspaceRecord,
-      task.id as RecordId<string, string>,
-    );
-
-    const llmReasoning = evaluation?.reasoning;
-    const severity = evaluation?.severity ?? "warning";
-
-    const observationText = llmReasoning
-      ? `Task blocked for ${task.daysBlocked} days: "${task.title}". ${llmReasoning}`
-      : `Task blocked for ${task.daysBlocked} days: "${task.title}". ` +
-        `This task has been blocked since ${new Date(task.updated_at).toISOString().slice(0, 10)} ` +
-        `(exceeds the ${STALE_BLOCKED_THRESHOLD_DAYS}-day threshold).`;
-
-    if (existingForTask.length > 0 || isAlreadyObserved(existingObservations, observationText, task.id.id as string)) {
-      logInfo("observer.scan.dedup", "Skipping duplicate stale-blocked observation", {
-        taskId: task.id.id,
-      });
-      continue;
-    }
-
-    const now = new Date();
-    await createObservation({
-      surreal,
-      workspaceRecord,
-      text: observationText,
-      severity,
-      sourceAgent: "observer_agent",
-      observationType: "anomaly",
-      now,
-      relatedRecords: [task.id as RecordId<"project" | "feature" | "task" | "decision" | "question", string>],
+    const llmReasoning = evaluationMap.get(`task:${task.id.id as string}`)?.reasoning;
+    anomalyObservations.push({
+      entityRef: `task:${task.id.id as string}`,
+      taskRecord: task.id,
+      anomalyType: "stale-blocked",
+      observationText: llmReasoning
+        ? `Task blocked for ${task.daysBlocked} days: "${task.title}". ${llmReasoning}`
+        : `Task blocked for ${task.daysBlocked} days: "${task.title}". ` +
+          `This task has been blocked since ${new Date(task.updated_at).toISOString().slice(0, 10)} ` +
+          `(exceeds the ${STALE_BLOCKED_THRESHOLD_DAYS}-day threshold).`,
+      dedupContext: { taskId: task.id.id },
     });
-
-    result.observations_created += 1;
   }
 
-  // Create observations for status drift tasks (LLM-filtered)
   for (const drift of driftTasks) {
-    const entityRef = `task:${drift.id.id as string}`;
-    const evaluation = evaluationMap.get(entityRef);
+    const llmReasoning = evaluationMap.get(`task:${drift.id.id as string}`)?.reasoning;
+    anomalyObservations.push({
+      entityRef: `task:${drift.id.id as string}`,
+      taskRecord: drift.id,
+      anomalyType: "status-drift",
+      observationText: llmReasoning
+        ? `Status drift: Task "${drift.title}" is ${drift.status} but dependency "${drift.dependency.title}" is ${drift.dependency.status}. ${llmReasoning}`
+        : `Status drift detected: Task "${drift.title}" is marked as ${drift.status}, ` +
+          `but its dependency "${drift.dependency.title}" is still ${drift.dependency.status}. ` +
+          `A task should not be completed before its dependencies.`,
+      dedupContext: { taskId: drift.id.id, depTaskId: drift.dependency.id.id },
+    });
+  }
 
-    // When LLM evaluated and marked not relevant, skip
+  for (const anomaly of anomalyObservations) {
+    const evaluation = evaluationMap.get(anomaly.entityRef);
+
     if (evaluation && !evaluation.relevant) {
-      logInfo("observer.scan.llm_filtered", "Status-drift task filtered by LLM as not relevant", {
-        taskId: drift.id.id,
+      logInfo("observer.scan.llm_filtered", `${anomaly.anomalyType} task filtered by LLM as not relevant`, {
+        taskId: (anomaly.taskRecord.id as string),
         reasoning: evaluation.reasoning,
       });
       result.llm_filtered_count += 1;
       continue;
     }
 
-    // Entity-level dedup
     const existingForTask = await queryExistingObserverObservationsForEntity(
       surreal, workspaceRecord,
-      drift.id as RecordId<string, string>,
+      anomaly.taskRecord as RecordId<string, string>,
     );
 
-    const llmReasoning = evaluation?.reasoning;
-    const severity = evaluation?.severity ?? "warning";
-
-    const observationText = llmReasoning
-      ? `Status drift: Task "${drift.title}" is ${drift.status} but dependency "${drift.dependency.title}" is ${drift.dependency.status}. ${llmReasoning}`
-      : `Status drift detected: Task "${drift.title}" is marked as ${drift.status}, ` +
-        `but its dependency "${drift.dependency.title}" is still ${drift.dependency.status}. ` +
-        `A task should not be completed before its dependencies.`;
-
-    if (existingForTask.length > 0 || isAlreadyObserved(existingObservations, observationText, drift.id.id as string)) {
-      logInfo("observer.scan.dedup", "Skipping duplicate status-drift observation", {
-        taskId: drift.id.id,
-        depTaskId: drift.dependency.id.id,
-      });
+    if (existingForTask.length > 0 || isAlreadyObserved(existingObservations, anomaly.observationText, anomaly.taskRecord.id as string)) {
+      logInfo("observer.scan.dedup", `Skipping duplicate ${anomaly.anomalyType} observation`, anomaly.dedupContext ?? {});
       continue;
     }
 
+    const severity = evaluation?.severity ?? "warning";
     const now = new Date();
     await createObservation({
       surreal,
       workspaceRecord,
-      text: observationText,
+      text: anomaly.observationText,
       severity,
       sourceAgent: "observer_agent",
       observationType: "anomaly",
       now,
-      relatedRecords: [drift.id as RecordId<"project" | "feature" | "task" | "decision" | "question", string>],
+      relatedRecords: [anomaly.taskRecord as RecordId<"project" | "feature" | "task" | "decision" | "question", string>],
     });
 
     result.observations_created += 1;
@@ -590,6 +575,26 @@ export async function runGraphScan(
         anomalyCount: anomalies.length,
       });
     }
+  }
+
+  // 5. Diagnostic learning proposals: cluster observations and check coverage
+  try {
+    const diagnostic = await runDiagnosticClustering(surreal, workspaceRecord, observerModel, embeddingModel, embeddingDimension);
+    result.clusters_found = diagnostic.result.clusters_found;
+    result.coverage_skips = diagnostic.result.coverage_skips;
+    result.learning_proposals_created = diagnostic.result.learning_proposals_created;
+
+    logInfo("observer.scan.diagnostic", "Diagnostic clustering completed", {
+      workspaceId: workspaceRecord.id,
+      clustersFound: diagnostic.result.clusters_found,
+      coverageSkips: diagnostic.result.coverage_skips,
+      uncoveredClusters: diagnostic.uncoveredClusters.length,
+    });
+  } catch (error) {
+    logInfo("observer.scan.diagnostic_error", "Diagnostic clustering failed, continuing scan", {
+      workspaceId: workspaceRecord.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 
   logInfo("observer.scan.completed", "Graph scan completed", {

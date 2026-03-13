@@ -1,4 +1,4 @@
-export type EntityKind = "workspace" | "project" | "person" | "identity" | "feature" | "task" | "decision" | "question" | "observation" | "suggestion" | "message" | "agent_session" | "intent" | "policy";
+export type EntityKind = "workspace" | "project" | "person" | "identity" | "feature" | "task" | "decision" | "question" | "observation" | "suggestion" | "message" | "agent_session" | "intent" | "policy" | "learning";
 
 export type SourceKind = "message" | "document_chunk" | "git_commit";
 
@@ -427,4 +427,41 @@ export type EntityActionRequest = {
   priority?: EntityPriority;
   convertTo?: "task" | "feature" | "decision" | "project";
   convertTitle?: string;
+};
+
+// --- Learning types ---
+
+export const LEARNING_TYPES = ["constraint", "instruction", "precedent"] as const;
+export type LearningType = (typeof LEARNING_TYPES)[number];
+
+export const LEARNING_STATUSES = ["active", "pending_approval", "dismissed", "superseded", "deactivated"] as const;
+export type LearningStatus = (typeof LEARNING_STATUSES)[number];
+
+export const LEARNING_SOURCES = ["human", "agent"] as const;
+export type LearningSource = (typeof LEARNING_SOURCES)[number];
+
+export const KNOWN_LEARNING_TARGET_AGENTS = [
+  { value: "chat_agent", label: "Chat Agent" },
+  { value: "pm_agent", label: "PM Agent" },
+  { value: "observer_agent", label: "Observer Agent" },
+  { value: "mcp", label: "MCP (Coding Agents)" },
+] as const;
+
+export type KnownLearningTargetAgent = (typeof KNOWN_LEARNING_TARGET_AGENTS)[number]["value"];
+
+export type LearningSummary = {
+  id: string;
+  text: string;
+  learningType: LearningType;
+  status: LearningStatus;
+  source: LearningSource;
+  priority: EntityPriority;
+  targetAgents: string[];
+  suggestedBy?: string;
+  patternConfidence?: number;
+  createdAt: string;
+  approvedAt?: string;
+  dismissedAt?: string;
+  dismissedReason?: string;
+  deactivatedAt?: string;
 };

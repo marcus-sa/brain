@@ -1,0 +1,84 @@
+roadmap:
+  project_id: observer-learning-proposals
+  created_at: '2026-03-13T13:44:37Z'
+  total_steps: 4
+  phases: 2
+phases:
+- id: '01'
+  name: 'Diagnostic Pipeline'
+  steps:
+  - id: 01-01
+    name: 'Observation clustering and coverage check'
+    criteria:
+      - Clusters observations with pairwise similarity > 0.75 and cluster size >= 3
+      - Time window limits to observations from past 14 days only
+      - Coverage check skips cluster if active learning covers pattern (similarity > 0.80)
+      - When covered, logs coverage_skip (no observation created)
+    dependencies: []
+    production_files:
+      - app/src/server/observer/learning-diagnosis.ts
+    test_files:
+      - tests/acceptance/observer-learning-proposals/milestone-1-clustering-and-coverage.test.ts
+      - tests/acceptance/observer-learning-proposals/walking-skeleton.test.ts
+  - id: 01-02
+    name: 'Root cause classifier with LLM structured output'
+    criteria:
+      - Zod schema includes category, should_propose_learning, proposed_learning_type, reasoning, proposed_learning_text, target_agents, evidence_refs, confidence
+      - LLM determines both root cause category AND learning type directly
+      - Dual gate: should_propose_learning === false OR confidence < 0.70 produces observation instead of learning
+      - Prompt includes observation quotes, related entities, existing learnings
+      - Timeout: 30s abort signal
+    dependencies:
+      - 01-01
+    production_files:
+      - app/src/server/observer/learning-diagnosis.ts
+      - app/src/server/observer/schemas.ts
+    test_files:
+      - tests/acceptance/observer-learning-proposals/milestone-2-root-cause-classification.test.ts
+      - tests/acceptance/observer-learning-proposals/walking-skeleton.test.ts
+  - id: 01-03
+    name: 'Learning proposer and graph scan integration'
+    criteria:
+      - Maps root cause to CreateLearningInput with evidence edges to source observations
+      - suggestLearning() handles rate limiting and dismissed similarity
+      - GraphScanResult includes learning_proposals_created count
+      - E2E: 3+ similar observations cluster into diagnosis producing learning with pending_approval
+    dependencies:
+      - 01-02
+    production_files:
+      - app/src/server/observer/learning-diagnosis.ts
+      - app/src/server/observer/graph-scan.ts
+    test_files:
+      - tests/acceptance/observer-learning-proposals/milestone-3-proposer-and-scan.test.ts
+      - tests/acceptance/observer-learning-proposals/walking-skeleton.test.ts
+- id: '02'
+  name: 'Event-Driven Integration'
+  steps:
+  - id: 02-01
+    name: 'Event-driven escalation in observer agent'
+    criteria:
+      - After persistObservation, queries observation count for entity
+      - When count >= 3, runs diagnostic pipeline on entity-scoped cluster
+      - Dedup: queries pending_approval learnings from observer in last 24h; skips if similarity > 0.80
+      - No duplicates from same pattern via both event-driven and scan paths
+      - Graceful skip when observer model unavailable
+      - suggestLearning called with suggestedBy = 'observer'
+    dependencies:
+      - 01-03
+    production_files:
+      - app/src/server/agents/observer/agent.ts
+    test_files:
+      - tests/acceptance/observer-learning-proposals/milestone-4-event-escalation.test.ts
+implementation_scope:
+  source_directories:
+  - app/src/server/observer/
+  - app/src/server/agents/observer/
+  test_directories:
+  - tests/acceptance/observer-learning-proposals/
+  excluded_patterns:
+  - node_modules/**
+  - dist/**
+validation:
+  status: approved
+  reviewer: nw-solution-architect
+  approved_at: '2026-03-13T13:45:00Z'
