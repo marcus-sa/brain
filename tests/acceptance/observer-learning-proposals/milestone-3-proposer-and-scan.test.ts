@@ -40,7 +40,7 @@ describe("Milestone 3: Learning Proposer and Graph Scan Integration", () => {
   // End-to-end: observations -> cluster -> diagnosis -> learning created
   // -------------------------------------------------------------------------
 
-  it.skip("observation cluster is diagnosed and produces a learning record with pending approval", async () => {
+  it("observation cluster is diagnosed and produces a learning record with pending approval", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace with four observations about agents skipping test verification
@@ -87,7 +87,7 @@ describe("Milestone 3: Learning Proposer and Graph Scan Integration", () => {
   // Evidence edges: learning traces back to source observations
   // -------------------------------------------------------------------------
 
-  it.skip("proposed learning has evidence edges linking to the source observations", async () => {
+  it("proposed learning has evidence edges linking to the source observations", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace with a clear observation cluster
@@ -134,7 +134,7 @@ describe("Milestone 3: Learning Proposer and Graph Scan Integration", () => {
   // GraphScanResult: includes learning_proposals_created count
   // -------------------------------------------------------------------------
 
-  it.skip("graph scan result reports the count of learning proposals created", async () => {
+  it("graph scan result reports the count of learning proposals created", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace with an observation cluster
@@ -167,7 +167,7 @@ describe("Milestone 3: Learning Proposer and Graph Scan Integration", () => {
   // Rate limit: 6th suggestion in 7 days is rejected
   // -------------------------------------------------------------------------
 
-  it.skip("observer is rate-limited after five learning suggestions in one week", async () => {
+  it("observer is rate-limited after five learning suggestions in one week", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace where the observer has already suggested 5 learnings this week
@@ -203,7 +203,7 @@ describe("Milestone 3: Learning Proposer and Graph Scan Integration", () => {
   // Dismissed similarity: similar dismissed learning blocks re-suggestion
   // -------------------------------------------------------------------------
 
-  it.skip("observer does not re-suggest a learning that was previously dismissed", async () => {
+  it("observer does not re-suggest a learning that was previously dismissed", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a workspace where a similar learning was previously dismissed

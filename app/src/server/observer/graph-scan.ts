@@ -10,12 +10,14 @@
  */
 
 import { RecordId, type Surreal } from "surrealdb";
-import type { LanguageModel } from "ai";
+import type { LanguageModel, embed } from "ai";
 import { createObservation, listWorkspaceOpenObservations, type ObserveTargetRecord } from "../observation/queries";
 import { logInfo } from "../http/observability";
 import { detectContradictions, evaluateAnomalies, synthesizePatterns, type Anomaly, type AnomalyCandidate } from "./llm-synthesis";
 import { parseEntityRef } from "./evidence-validator";
 import { runDiagnosticClustering } from "./learning-diagnosis";
+
+type EmbeddingModel = Parameters<typeof embed>[0]["model"];
 
 // ---------------------------------------------------------------------------
 // Types
@@ -268,6 +270,8 @@ export async function runGraphScan(
   surreal: Surreal,
   workspaceRecord: RecordId<"workspace", string>,
   observerModel: LanguageModel,
+  embeddingModel?: EmbeddingModel,
+  embeddingDimension?: number,
 ): Promise<GraphScanResult> {
   const result: GraphScanResult = {
     contradictions_found: 0,
@@ -601,7 +605,7 @@ export async function runGraphScan(
 
   // 6. Diagnostic learning proposals: cluster observations and check coverage
   try {
-    const diagnostic = await runDiagnosticClustering(surreal, workspaceRecord, observerModel);
+    const diagnostic = await runDiagnosticClustering(surreal, workspaceRecord, observerModel, embeddingModel, embeddingDimension);
     result.clusters_found = diagnostic.result.clusters_found;
     result.coverage_skips = diagnostic.result.coverage_skips;
     result.learning_proposals_created = diagnostic.result.learning_proposals_created;

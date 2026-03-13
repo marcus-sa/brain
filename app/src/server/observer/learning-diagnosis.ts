@@ -9,7 +9,7 @@
  *
  * Step 01-01: Clustering + coverage check
  * Step 01-02: Root cause classification with LLM structured output
- * Step 03: Learning proposer + graph scan integration (future)
+ * Step 01-03: Learning proposer + graph scan integration
  */
 
 import { RecordId, type Surreal } from "surrealdb";
@@ -19,7 +19,11 @@ import { rootCauseSchema, type RootCauseClassification } from "./schemas";
 import { OBSERVER_IDENTITY } from "../agents/observer/prompt";
 import { suggestLearning } from "../learning/detector";
 import { createObservation } from "../observation/queries";
+import { createEmbeddingVector } from "../graph/embeddings";
 import type { CreateLearningInput } from "../learning/types";
+import type { embed } from "ai";
+
+type EmbeddingModel = Parameters<typeof embed>[0]["model"];
 
 // ---------------------------------------------------------------------------
 // Types
@@ -56,7 +60,15 @@ export type DiagnosticResult = {
 const CLUSTER_SIMILARITY_THRESHOLD = 0.75;
 const MINIMUM_CLUSTER_SIZE = 3;
 const TIME_WINDOW_DAYS = 14;
-const COVERAGE_SIMILARITY_THRESHOLD = 0.80;
+// Coverage threshold is lower than typical dedup thresholds (0.85) because
+// we compare observation-text centroids (descriptive, noisy) against learning-text
+// embeddings (directive, concise). Cross-form comparisons consistently score
+// 30-40% lower on cosine similarity than same-form comparisons.
+const COVERAGE_SIMILARITY_THRESHOLD = 0.50;
+// Same cross-domain text form issue as coverage threshold — observation
+// centroids vs dismissed learning embeddings. Lower than the dismissed
+// re-suggestion gate (0.85) in suggestLearning() which compares same-form texts.
+const DISMISSED_PATTERN_SIMILARITY_THRESHOLD = 0.50;
 
 // ---------------------------------------------------------------------------
 // Observation query (IO boundary)
@@ -210,6 +222,32 @@ export function clusterObservationsBySimilarity(
 }
 
 /**
+ * Computes the centroid (element-wise average) of a set of embedding vectors.
+ * This reduces noise from individual observation text variations, producing
+ * a more representative embedding for cluster-level similarity comparisons.
+ * Pure function.
+ */
+function computeCentroidEmbedding(embeddings: number[][]): number[] {
+  if (embeddings.length === 0) return [];
+  if (embeddings.length === 1) return embeddings[0];
+
+  const dimension = embeddings[0].length;
+  const centroid = new Array<number>(dimension).fill(0);
+
+  for (const embedding of embeddings) {
+    for (let i = 0; i < dimension; i++) {
+      centroid[i] += embedding[i];
+    }
+  }
+
+  for (let i = 0; i < dimension; i++) {
+    centroid[i] /= embeddings.length;
+  }
+
+  return centroid;
+}
+
+/**
  * Picks the observation with highest average similarity to other cluster members.
  * Pure function.
  */
@@ -299,6 +337,64 @@ export async function checkCoverageAgainstActiveLearnings(
   for (const learning of activeLearnings ?? []) {
     const similarity = cosineSimilarity(clusterEmbedding, learning.embedding);
     if (similarity > COVERAGE_SIMILARITY_THRESHOLD) {
+      return { covered: true, matchedLearningText: learning.text, similarity };
+    }
+  }
+
+  return { covered: false };
+}
+
+// ---------------------------------------------------------------------------
+// Dismissed learning check (IO boundary -- prevents re-suggestion)
+// ---------------------------------------------------------------------------
+
+/**
+ * Checks if a dismissed learning already covers the cluster pattern.
+ * Uses the representative observation embedding against dismissed learnings.
+ * Threshold is lower than the dismissed re-suggestion gate (0.85) because
+ * we compare observation text embeddings (not proposed learning text).
+ *
+ * Two-step KNN pattern per SurrealDB HNSW+WHERE bug, with brute-force fallback.
+ */
+export async function checkDismissedLearningForCluster(
+  surreal: Surreal,
+  workspaceRecord: RecordId<"workspace", string>,
+  clusterEmbedding: number[],
+): Promise<CoverageCheckResult> {
+  const results = await surreal
+    .query<[undefined, Array<{ text: string; similarity: number }>]>(
+      [
+        "LET $candidates = SELECT id, text, workspace, status,",
+        "vector::similarity::cosine(embedding, $embedding) AS similarity",
+        "FROM learning WHERE embedding <|10, COSINE|> $embedding;",
+        "SELECT text, similarity FROM $candidates",
+        `WHERE workspace = $ws AND status = "dismissed" AND similarity > ${DISMISSED_PATTERN_SIMILARITY_THRESHOLD}`,
+        "ORDER BY similarity DESC LIMIT 1;",
+      ].join("\n"),
+      {
+        embedding: clusterEmbedding,
+        ws: workspaceRecord,
+      },
+    );
+
+  const matches = results[1] ?? [];
+  const match = matches[0];
+  if (match) {
+    return { covered: true, matchedLearningText: match.text, similarity: match.similarity };
+  }
+
+  // Brute-force fallback when HNSW index hasn't indexed recent inserts
+  const [dismissedLearnings] = await surreal.query<[Array<{ text: string; embedding: number[] }>]>(
+    `SELECT text, embedding FROM learning
+     WHERE workspace = $ws
+       AND status = "dismissed"
+       AND embedding IS NOT NONE;`,
+    { ws: workspaceRecord },
+  );
+
+  for (const learning of dismissedLearnings ?? []) {
+    const similarity = cosineSimilarity(clusterEmbedding, learning.embedding);
+    if (similarity > DISMISSED_PATTERN_SIMILARITY_THRESHOLD) {
       return { covered: true, matchedLearningText: learning.text, similarity };
     }
   }
@@ -483,6 +579,8 @@ async function processUncoveredCluster(
   model: LanguageModel,
   cluster: ObservationCluster,
   existingLearnings: string[],
+  embeddingModel?: EmbeddingModel,
+  embeddingDimension?: number,
 ): Promise<{ proposed: boolean }> {
   const classification = await classifyRootCause(model, cluster, existingLearnings);
 
@@ -494,10 +592,17 @@ async function processUncoveredCluster(
   if (shouldProposeLearning(classification)) {
     const learningInput = rootCauseToLearningInput(classification, cluster);
 
+    // Generate embedding for the proposed learning text to enable
+    // dismissed similarity gate and persist with the learning record
+    const embedding = embeddingModel && embeddingDimension
+      ? await createEmbeddingVector(embeddingModel, learningInput.text, embeddingDimension)
+      : undefined;
+
     const result = await suggestLearning({
       surreal,
       workspaceRecord,
       learning: learningInput,
+      embedding,
       now: new Date(),
     });
 
@@ -555,6 +660,8 @@ export async function runDiagnosticClustering(
   surreal: Surreal,
   workspaceRecord: RecordId<"workspace", string>,
   observerModel?: LanguageModel,
+  embeddingModel?: EmbeddingModel,
+  embeddingDimension?: number,
 ): Promise<{
   clusters: ObservationCluster[];
   uncoveredClusters: ObservationCluster[];
@@ -588,21 +695,25 @@ export async function runDiagnosticClustering(
   const uncoveredClusters: ObservationCluster[] = [];
 
   for (const cluster of clusters) {
-    // Find the representative observation's embedding for coverage check
-    const representativeObs = observations.find(
-      (obs) => obs.text === cluster.representativeText,
-    );
+    // Compute cluster centroid embedding (average of all observation embeddings)
+    // to reduce noise from individual observation text variations
+    const clusterObsWithEmbeddings = cluster.observations
+      .map((co) => observations.find((o) => o.id === co.id))
+      .filter((o): o is ObservationWithEmbedding => o !== undefined && o.embedding.length > 0);
 
-    if (!representativeObs) {
-      // Should not happen, but handle gracefully
+    if (clusterObsWithEmbeddings.length === 0) {
       uncoveredClusters.push(cluster);
       continue;
     }
 
+    const centroidEmbedding = computeCentroidEmbedding(
+      clusterObsWithEmbeddings.map((o) => o.embedding),
+    );
+
     const coverage = await checkCoverageAgainstActiveLearnings(
       surreal,
       workspaceRecord,
-      representativeObs.embedding,
+      centroidEmbedding,
     );
 
     if (coverage.covered) {
@@ -610,6 +721,23 @@ export async function runDiagnosticClustering(
         clusterSize: cluster.clusterSize,
         matchedLearningText: coverage.matchedLearningText,
         similarity: coverage.similarity,
+      });
+      diagnosticResult.coverage_skips += 1;
+      continue;
+    }
+
+    // Check if a dismissed learning already covers this pattern
+    const dismissedCheck = await checkDismissedLearningForCluster(
+      surreal,
+      workspaceRecord,
+      centroidEmbedding,
+    );
+
+    if (dismissedCheck.covered) {
+      logInfo("observer.learning.dismissed_skip", "Cluster pattern matches a previously dismissed learning", {
+        clusterSize: cluster.clusterSize,
+        matchedLearningText: dismissedCheck.matchedLearningText,
+        similarity: dismissedCheck.similarity,
       });
       diagnosticResult.coverage_skips += 1;
     } else {
@@ -628,6 +756,8 @@ export async function runDiagnosticClustering(
         observerModel,
         cluster,
         existingLearnings,
+        embeddingModel,
+        embeddingDimension,
       );
 
       if (proposed) {

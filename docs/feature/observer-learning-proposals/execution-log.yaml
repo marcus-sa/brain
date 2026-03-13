@@ -46,5 +46,35 @@ events:
   s: EXECUTED
   sid: 01-02
   t: '2026-03-13T14:10:22Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-03-13T14:10:54Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 01-03
+  t: '2026-03-13T14:12:57Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 01-03
+  t: '2026-03-13T14:14:28Z'
+- d: 'NOT_APPLICABLE: acceptance tests cover all behaviors for proposer and scan integration'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 01-03
+  t: '2026-03-13T14:14:33Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 01-03
+  t: '2026-03-13T14:34:56Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 01-03
+  t: '2026-03-13T14:34:56Z'
 project_id: observer-learning-proposals
 schema_version: '3.0'
