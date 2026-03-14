@@ -277,54 +277,89 @@ export function buildVersionChainSingle(policy: PolicyRecord): PolicyVersionChai
   }];
 }
 
-const MAX_VERSION_CHAIN_DEPTH = 50;
+// ---------------------------------------------------------------------------
+// Version chain resolution — single-query bulk fetch + in-memory traversal
+// ---------------------------------------------------------------------------
 
-/** Traverse the supersedes chain to build a full version history. */
+/**
+ * Fetch all versioned policies in the workspace in one query, then walk the
+ * supersedes chain in memory. Replaces N sequential DB round-trips with 1.
+ */
+async function resolveChainFromPool(
+  surreal: Surreal,
+  policy: PolicyRecord,
+): Promise<PolicyRecord[]> {
+  // Single round-trip: fetch all workspace policies that participate in any
+  // supersedes relationship (as source or target). The LET subquery collects
+  // IDs referenced as supersedes targets so root policies (which lack
+  // supersedes themselves) are included in the pool.
+  const [, pool] = await surreal.query<[unknown, PolicyRecord[]]>(
+    `LET $targets = SELECT VALUE supersedes FROM policy WHERE workspace = $ws AND supersedes != NONE;
+     SELECT * FROM policy WHERE workspace = $ws AND (
+       supersedes != NONE OR id IN $targets OR id = $id
+     ) ORDER BY version ASC;`,
+    { ws: policy.workspace, id: policy.id },
+  );
+
+  // Build lookup maps for in-memory traversal
+  const byId = new Map<string, PolicyRecord>();
+  const bySupersedes = new Map<string, PolicyRecord>(); // key = superseded policy id
+  for (const p of pool) {
+    byId.set(p.id.id as string, p);
+    if (p.supersedes) {
+      bySupersedes.set(p.supersedes.id as string, p);
+    }
+  }
+
+  // Ensure the starting policy is in the pool (it may lack supersedes)
+  if (!byId.has(policy.id.id as string)) {
+    byId.set(policy.id.id as string, policy);
+  }
+
+  // Walk backward to root
+  const chain: PolicyRecord[] = [];
+  const seen = new Set<string>();
+  let current: PolicyRecord | undefined = policy;
+  const ancestors: PolicyRecord[] = [];
+  while (current?.supersedes) {
+    const parentId = current.supersedes.id as string;
+    if (seen.has(parentId)) break;
+    seen.add(parentId);
+    const parent = byId.get(parentId);
+    if (!parent) break;
+    ancestors.unshift(parent);
+    current = parent;
+  }
+
+  chain.push(...ancestors);
+  if (!seen.has(policy.id.id as string)) {
+    seen.add(policy.id.id as string);
+    chain.push(policy);
+  }
+
+  // Walk forward to latest
+  let latestId = policy.id.id as string;
+  for (let i = 0; i < 50; i++) {
+    const child = bySupersedes.get(latestId);
+    if (!child) break;
+    const childId = child.id.id as string;
+    if (seen.has(childId)) break;
+    seen.add(childId);
+    chain.push(child);
+    latestId = childId;
+  }
+
+  chain.sort((a, b) => a.version - b.version);
+  return chain;
+}
+
+/** Build version chain formatted as PolicyVersionChainItem[]. */
 export async function buildVersionChain(
   surreal: Surreal,
   policy: PolicyRecord,
 ): Promise<PolicyVersionChainItem[]> {
-  const seen = new Set<string>();
-  const allVersions: PolicyRecord[] = [policy];
-  seen.add(policy.id.id as string);
-
-  // Walk backward: follow supersedes references (bounded)
-  let current: PolicyRecord | undefined = policy;
-  let depth = 0;
-  while (current?.supersedes && depth < MAX_VERSION_CHAIN_DEPTH) {
-    const parentId = current.supersedes.id as string;
-    if (seen.has(parentId)) break;
-    seen.add(parentId);
-    const parentRecord = new RecordId("policy", parentId);
-    const parent = await surreal.select<PolicyRecord>(parentRecord);
-    if (!parent) break;
-    allVersions.unshift(parent);
-    current = parent;
-    depth++;
-  }
-
-  // Walk forward: find policies that supersede the given policy (bounded)
-  let latestId = policy.id.id as string;
-  depth = 0;
-  while (depth < MAX_VERSION_CHAIN_DEPTH) {
-    const [rows] = await surreal.query<[PolicyRecord[]]>(
-      "SELECT * FROM policy WHERE supersedes = $ref LIMIT 1;",
-      { ref: new RecordId("policy", latestId) },
-    );
-    const child = rows?.[0];
-    if (child && !seen.has(child.id.id as string)) {
-      seen.add(child.id.id as string);
-      allVersions.push(child);
-      latestId = child.id.id as string;
-      depth++;
-    } else {
-      break;
-    }
-  }
-
-  // Sort by version number and format
-  allVersions.sort((a, b) => a.version - b.version);
-  return allVersions.map((v) => ({
+  const chain = await resolveChainFromPool(surreal, policy);
+  return chain.map((v) => ({
     id: v.id.id as string,
     version: v.version,
     status: v.status,
@@ -332,7 +367,7 @@ export async function buildVersionChain(
   }));
 }
 
-/** Traverse the supersedes chain and return enriched version history (title + rules_count). */
+/** Build enriched version chain (includes title + rules_count). */
 export async function getVersionChain(
   surreal: Surreal,
   policyId: string,
@@ -341,51 +376,8 @@ export async function getVersionChain(
   const policy = await getPolicyById(surreal, policyId, workspace);
   if (!policy) return undefined;
 
-  return buildVersionChainEnriched(surreal, policy);
-}
-
-/** Like buildVersionChain but includes title + rules_count from already-fetched records. */
-async function buildVersionChainEnriched(
-  surreal: Surreal,
-  policy: PolicyRecord,
-): Promise<Array<PolicyVersionChainItem & { title: string; rules_count: number }>> {
-  const seen = new Set<string>();
-  const allVersions: PolicyRecord[] = [policy];
-  seen.add(policy.id.id as string);
-
-  let current: PolicyRecord | undefined = policy;
-  let depth = 0;
-  while (current?.supersedes && depth < MAX_VERSION_CHAIN_DEPTH) {
-    const parentId = current.supersedes.id as string;
-    if (seen.has(parentId)) break;
-    seen.add(parentId);
-    const parent = await surreal.select<PolicyRecord>(new RecordId("policy", parentId));
-    if (!parent) break;
-    allVersions.unshift(parent);
-    current = parent;
-    depth++;
-  }
-
-  let latestId = policy.id.id as string;
-  depth = 0;
-  while (depth < MAX_VERSION_CHAIN_DEPTH) {
-    const [rows] = await surreal.query<[PolicyRecord[]]>(
-      "SELECT * FROM policy WHERE supersedes = $ref LIMIT 1;",
-      { ref: new RecordId("policy", latestId) },
-    );
-    const child = rows?.[0];
-    if (child && !seen.has(child.id.id as string)) {
-      seen.add(child.id.id as string);
-      allVersions.push(child);
-      latestId = child.id.id as string;
-      depth++;
-    } else {
-      break;
-    }
-  }
-
-  allVersions.sort((a, b) => a.version - b.version);
-  return allVersions.map((v) => ({
+  const chain = await resolveChainFromPool(surreal, policy);
+  return chain.map((v) => ({
     id: v.id.id as string,
     version: v.version,
     status: v.status,
