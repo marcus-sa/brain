@@ -4,6 +4,8 @@ import type { RecordId, Surreal } from "surrealdb";
 import type { ActionSpec, BudgetLimit, EvaluationResult } from "./types";
 import type { PolicyTraceEntry, IntentEvaluationContext } from "../policy/types";
 import { evaluatePolicyGate } from "../policy/policy-gate";
+import type { AlignmentResult, AlignmentCandidate } from "../objective/alignment";
+import { selectBestAlignment } from "../objective/alignment";
 
 // --- LLM Evaluator Port ---
 
@@ -12,12 +14,36 @@ export type LlmEvaluator = (
   signal?: AbortSignal,
 ) => Promise<EvaluationResult>;
 
+// --- Alignment Port ---
+
+/**
+ * Port: finds objective candidates matching an intent embedding.
+ * Implementation uses KNN two-step query pattern.
+ * Returns scored candidates for pure classification.
+ */
+export type FindAlignedObjectives = (
+  intentEmbedding: number[],
+  workspaceId: RecordId<"workspace">,
+) => Promise<AlignmentCandidate[]>;
+
+/**
+ * Port: creates a supports edge between intent and objective.
+ * Immutable once created.
+ */
+export type CreateSupportsEdge = (
+  intentId: RecordId<"intent">,
+  objectiveId: string,
+  alignmentScore: number,
+  alignmentMethod: "embedding" | "manual" | "rule",
+) => Promise<void>;
+
 // --- Pipeline Types ---
 
 type EvaluationOutput = EvaluationResult & {
   policy_only: boolean;
   policy_trace: PolicyTraceEntry[];
   human_veto_required: boolean;
+  alignment?: AlignmentResult;
 };
 
 export type EvaluateIntentInput = {
@@ -35,6 +61,14 @@ export type EvaluateIntentInput = {
   requesterRole?: string;
   llmEvaluator: LlmEvaluator;
   timeoutMs?: number;
+  /** Optional: intent embedding for objective alignment (warning mode) */
+  intentEmbedding?: number[];
+  /** Optional: intent record ID for supports edge creation */
+  intentId?: RecordId<"intent">;
+  /** Optional: port to find aligned objectives via KNN */
+  findAlignedObjectives?: FindAlignedObjectives;
+  /** Optional: port to create supports edge */
+  createSupportsEdge?: CreateSupportsEdge;
 };
 
 const DEFAULT_EVAL_TIMEOUT_MS = 30_000;
@@ -73,6 +107,36 @@ export async function evaluateIntent(
   const humanVetoRequired = gateResult.human_veto_required;
   const policyTrace = gateResult.policy_trace;
 
+  // --- Alignment step (warning mode: never blocks authorization) ---
+  let alignmentResult: AlignmentResult | undefined;
+  if (input.intentEmbedding && input.findAlignedObjectives) {
+    try {
+      const candidates = await input.findAlignedObjectives(
+        input.intentEmbedding,
+        input.workspaceId,
+      );
+      alignmentResult = selectBestAlignment(candidates);
+
+      // Create supports edge if matched and ports are available
+      if (
+        alignmentResult.classification === "matched" &&
+        alignmentResult.objectiveId &&
+        input.intentId &&
+        input.createSupportsEdge
+      ) {
+        await input.createSupportsEdge(
+          input.intentId,
+          alignmentResult.objectiveId,
+          alignmentResult.score,
+          "embedding",
+        );
+      }
+    } catch {
+      // Alignment failure never blocks intent authorization (warning mode)
+      alignmentResult = { classification: "none", score: 0 };
+    }
+  }
+
   const timeoutMs = input.timeoutMs ?? DEFAULT_EVAL_TIMEOUT_MS;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -84,6 +148,7 @@ export async function evaluateIntent(
       policy_only: false,
       policy_trace: policyTrace,
       human_veto_required: humanVetoRequired,
+      alignment: alignmentResult,
     };
   } catch (error) {
     const reason = isAbortError(error)
@@ -96,6 +161,7 @@ export async function evaluateIntent(
       policy_only: true,
       policy_trace: policyTrace,
       human_veto_required: humanVetoRequired,
+      alignment: alignmentResult,
     };
   } finally {
     clearTimeout(timer);

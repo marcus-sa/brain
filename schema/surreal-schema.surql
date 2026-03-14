@@ -550,7 +550,9 @@ DEFINE FIELD authorization_details[*].constraints ON intent TYPE option<object> 
 DEFINE FIELD dpop_jwk_thumbprint ON intent TYPE option<string>;
 DEFINE FIELD token_issued_at ON intent TYPE option<datetime>;
 DEFINE FIELD token_expires_at ON intent TYPE option<datetime>;
+DEFINE FIELD embedding ON intent TYPE option<array<float>>;
 DEFINE INDEX intent_workspace_status ON intent FIELDS workspace, status;
+DEFINE INDEX idx_intent_embedding ON intent FIELDS embedding HNSW DIMENSION 1536 DIST COSINE;
 DEFINE INDEX intent_created_at ON intent FIELDS created_at;
 DEFINE INDEX intent_trace_id ON intent FIELDS trace_id;
 DEFINE INDEX intent_veto_expires ON intent FIELDS veto_expires_at;

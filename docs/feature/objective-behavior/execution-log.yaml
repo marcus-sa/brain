@@ -71,5 +71,30 @@ events:
   s: EXECUTED
   sid: 01-03
   t: '2026-03-14T03:44:15Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 01-03
+  t: '2026-03-14T03:44:49Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-03-14T03:46:40Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-03-14T03:48:04Z'
+- d: PASS
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-03-14T03:48:51Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-03-14T03:50:59Z'
 project_id: objective-behavior
 schema_version: '3.0'

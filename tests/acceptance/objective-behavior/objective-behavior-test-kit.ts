@@ -347,20 +347,22 @@ export async function createIntent(
     },
   });
 
+  const intentContent: Record<string, unknown> = {
+    goal: opts.goal,
+    reasoning: opts.reasoning ?? "Test intent",
+    status: opts.status ?? "pending_auth",
+    priority: 50,
+    action_spec: opts.action_spec ?? { provider: "test", action: "test", params: {} },
+    trace_id: traceRecord,
+    requester: requesterRecord,
+    workspace: workspaceRecord,
+    created_at: new Date(),
+  };
+  if (opts.embedding !== undefined) intentContent.embedding = opts.embedding;
+
   await surreal.query(`CREATE $intent CONTENT $content;`, {
     intent: intentRecord,
-    content: {
-      goal: opts.goal,
-      reasoning: opts.reasoning ?? "Test intent",
-      status: opts.status ?? "pending_auth",
-      priority: 50,
-      action_spec: opts.action_spec ?? { provider: "test", action: "test", params: {} },
-      trace_id: traceRecord,
-      requester: requesterRecord,
-      workspace: workspaceRecord,
-      embedding: opts.embedding,
-      created_at: new Date(),
-    },
+    content: intentContent,
   });
 
   return { intentId };
