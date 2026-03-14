@@ -1,6 +1,20 @@
 import { RecordId, type Surreal } from "surrealdb";
 import type { PolicyRecord, PolicyRule, PolicySelector, PolicyStatus } from "./types";
 
+// --- Detail Response Types ---
+
+export type PolicyEdgeInfo = {
+  governing: Array<{ identity_id: string; created_at: string }>;
+  protects: Array<{ workspace_id: string; created_at: string }>;
+};
+
+export type PolicyVersionChainItem = {
+  id: string;
+  version: number;
+  status: string;
+  created_at: string;
+};
+
 // --- List Response Types ---
 
 export type PolicyListItem = {
@@ -167,6 +181,64 @@ export async function deprecatePolicy(
   `,
     { policy: policyRecord },
   );
+}
+
+// --- Detail Query Functions ---
+
+export async function getPolicyById(
+  surreal: Surreal,
+  policyId: string,
+  workspace: RecordId<"workspace">,
+): Promise<PolicyRecord | undefined> {
+  const policyRecord = new RecordId("policy", policyId);
+  const policy = await surreal.select<PolicyRecord>(policyRecord);
+
+  if (!policy || (policy.workspace.id as string) !== (workspace.id as string)) {
+    return undefined;
+  }
+
+  return policy;
+}
+
+export async function getPolicyEdges(
+  surreal: Surreal,
+  policyId: string,
+): Promise<PolicyEdgeInfo> {
+  const policyRecord = new RecordId("policy", policyId);
+
+  const [governingRows] = await surreal.query<
+    [Array<{ in: RecordId<"identity", string>; created_at: Date }>]
+  >(
+    "SELECT in, created_at FROM governing WHERE out = $policy;",
+    { policy: policyRecord },
+  );
+
+  const [protectsRows] = await surreal.query<
+    [Array<{ out: RecordId<"workspace", string>; created_at: Date }>]
+  >(
+    "SELECT out, created_at FROM protects WHERE in = $policy;",
+    { policy: policyRecord },
+  );
+
+  return {
+    governing: (governingRows ?? []).map((e) => ({
+      identity_id: e.in.id as string,
+      created_at: formatTimestamp(e.created_at),
+    })),
+    protects: (protectsRows ?? []).map((e) => ({
+      workspace_id: e.out.id as string,
+      created_at: formatTimestamp(e.created_at),
+    })),
+  };
+}
+
+export function buildVersionChain(policy: PolicyRecord): PolicyVersionChainItem[] {
+  return [{
+    id: policy.id.id as string,
+    version: policy.version,
+    status: policy.status,
+    created_at: formatTimestamp(policy.created_at),
+  }];
 }
 
 export async function createPolicyAuditEvent(

@@ -36,7 +36,7 @@ describe("Milestone 4: Policy Detail (US-PCUI-03)", () => {
   // Walking Skeleton: Admin views full policy details
   // AC: Detail includes all PolicyRecord fields, edges, and version chain
   // ---------------------------------------------------------------------------
-  it.skip("admin views full details of a draft policy", async () => {
+  it("admin views full details of a draft policy", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a draft policy with description, selector, and two rules
@@ -80,7 +80,7 @@ describe("Milestone 4: Policy Detail (US-PCUI-03)", () => {
   // Active policy detail includes governing and protects edges
   // AC: Edges populated after activation
   // ---------------------------------------------------------------------------
-  it.skip("active policy detail includes governing and protects edges", async () => {
+  it("active policy detail includes governing and protects edges", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given an active policy
@@ -113,7 +113,7 @@ describe("Milestone 4: Policy Detail (US-PCUI-03)", () => {
   // Deprecated policy detail shows empty edges
   // AC: Edges removed after deprecation
   // ---------------------------------------------------------------------------
-  it.skip("deprecated policy detail shows no governance edges", async () => {
+  it("deprecated policy detail shows no governance edges", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a deprecated policy (was active, then deprecated)
@@ -145,7 +145,7 @@ describe("Milestone 4: Policy Detail (US-PCUI-03)", () => {
   // Non-existent policy returns 404
   // AC: GET with invalid ID returns 404
   // ---------------------------------------------------------------------------
-  it.skip("non-existent policy returns 404", async () => {
+  it("non-existent policy returns 404", async () => {
     const { baseUrl } = getRuntime();
 
     // Given a workspace with no matching policy

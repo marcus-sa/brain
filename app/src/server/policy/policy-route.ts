@@ -4,7 +4,7 @@ import { logError } from "../http/observability";
 import { jsonError, jsonResponse } from "../http/response";
 import type { ServerDependencies } from "../runtime/types";
 import { resolveWorkspaceRecord } from "../workspace/workspace-scope";
-import { activatePolicy, createPolicy, deprecatePolicy, listWorkspacePolicies } from "./policy-queries";
+import { activatePolicy, buildVersionChain, createPolicy, deprecatePolicy, getPolicyById, getPolicyEdges, listWorkspacePolicies } from "./policy-queries";
 import { validatePolicyCreateBody } from "./policy-validation";
 import type { PolicyRecord, PolicyRule, PolicySelector, PolicyStatus } from "./types";
 
@@ -165,22 +165,13 @@ async function handlePolicyDetail(
   const workspaceRecord = workspaceOrError;
 
   try {
-    const policyRecord = new RecordId("policy", policyId);
-    const policy = await deps.surreal.select<PolicyRecord>(policyRecord);
-
-    if (!policy || (policy.workspace.id as string) !== (workspaceRecord.id as string)) {
+    const policy = await getPolicyById(deps.surreal, policyId, workspaceRecord);
+    if (!policy) {
       return jsonError("policy not found", 404);
     }
 
-    // Fetch edges
-    const [governingRows] = await deps.surreal.query<[Array<{ in: RecordId<"identity", string>; created_at: Date }>]>(
-      "SELECT in, created_at FROM governing WHERE out = $policy;",
-      { policy: policyRecord },
-    );
-    const [protectsRows] = await deps.surreal.query<[Array<{ out: RecordId<"workspace", string>; created_at: Date }>]>(
-      "SELECT out, created_at FROM protects WHERE in = $policy;",
-      { policy: policyRecord },
-    );
+    const edges = await getPolicyEdges(deps.surreal, policyId);
+    const versionChain = buildVersionChain(policy);
 
     return jsonResponse({
       policy: {
@@ -199,17 +190,8 @@ async function handlePolicyDetail(
           updated_at: policy.updated_at instanceof Date ? policy.updated_at.toISOString() : String(policy.updated_at),
         } : {}),
       },
-      edges: {
-        governing: (governingRows ?? []).map((e) => ({
-          identity_id: e.in.id as string,
-          created_at: e.created_at instanceof Date ? e.created_at.toISOString() : String(e.created_at),
-        })),
-        protects: (protectsRows ?? []).map((e) => ({
-          workspace_id: e.out.id as string,
-          created_at: e.created_at instanceof Date ? e.created_at.toISOString() : String(e.created_at),
-        })),
-      },
-      version_chain: [],
+      edges,
+      version_chain: versionChain,
     }, 200);
   } catch (error) {
     logError("policy.detail.failed", "Failed to get policy detail", error, { workspaceId, policyId });
