@@ -15,11 +15,23 @@ import { RecordId, type Surreal } from "surrealdb";
 import type { LanguageModel, embed } from "ai";
 import { createObservation, listWorkspaceOpenObservations, type ObserveTargetRecord } from "../observation/queries";
 import { logInfo } from "../http/observability";
-import { detectContradictions, evaluateAnomalies, synthesizePatterns, type Anomaly, type AnomalyCandidate } from "./llm-synthesis";
+import { detectContradictions as defaultDetectContradictions, evaluateAnomalies as defaultEvaluateAnomalies, synthesizePatterns as defaultSynthesizePatterns, type Anomaly, type AnomalyCandidate } from "./llm-synthesis";
 import { parseEntityRef } from "./evidence-validator";
 import { runDiagnosticClustering, queryWorkspaceBehaviorTrends, proposeBehaviorLearning, checkBehaviorLearningRateLimit } from "./learning-diagnosis";
 
 type EmbeddingModel = Parameters<typeof embed>[0]["model"];
+
+export type GraphScanLlm = {
+  detectContradictions: typeof defaultDetectContradictions;
+  evaluateAnomalies: typeof defaultEvaluateAnomalies;
+  synthesizePatterns: typeof defaultSynthesizePatterns;
+};
+
+const defaultLlm: GraphScanLlm = {
+  detectContradictions: defaultDetectContradictions,
+  evaluateAnomalies: defaultEvaluateAnomalies,
+  synthesizePatterns: defaultSynthesizePatterns,
+};
 
 // ---------------------------------------------------------------------------
 // Types
@@ -254,13 +266,13 @@ export async function queryExistingObserverObservationsForEntity(
 // Deduplication
 // ---------------------------------------------------------------------------
 
-type ExistingObservation = {
+export type ExistingObservation = {
   text: string;
   severity: string;
   status: string;
 };
 
-function isAlreadyObserved(
+export function isAlreadyObserved(
   existingObservations: ExistingObservation[],
   newText: string,
   entityId?: string,
@@ -466,6 +478,7 @@ export async function runGraphScan(
   observerModel: LanguageModel,
   embeddingModel: EmbeddingModel,
   embeddingDimension: number,
+  llm: GraphScanLlm = defaultLlm,
 ): Promise<GraphScanResult> {
   const result: GraphScanResult = {
     contradictions_found: 0,
@@ -501,7 +514,7 @@ export async function runGraphScan(
     const decisionMap = new Map(decisions.map((d) => [d.id.id as string, d]));
     const taskMap = new Map(completedTasks.map((t) => [t.id.id as string, t]));
 
-    const detected = await detectContradictions(
+    const detected = await llm.detectContradictions(
       observerModel,
       decisions.map((d) => ({ id: d.id.id as string, summary: d.summary, rationale: d.rationale })),
       completedTasks.map((t) => ({ id: t.id.id as string, title: t.title, description: t.description })),
@@ -520,6 +533,9 @@ export async function runGraphScan(
 
   result.contradictions_found = contradictions.length;
 
+  // Track deduplicated entity refs so we exclude them from pattern synthesis
+  const dedupedEntityRefs = new Set<string>();
+
   for (const { decision, task } of contradictions) {
     // Entity-level dedup: check if observer already has an open observation on this decision
     const existingForDecision = await queryExistingObserverObservationsForEntity(
@@ -536,6 +552,8 @@ export async function runGraphScan(
         decisionId: decision.id.id,
         taskId: task.id.id,
       });
+      dedupedEntityRefs.add(`decision:${decision.id.id as string}`);
+      dedupedEntityRefs.add(`task:${task.id.id as string}`);
       continue;
     }
 
@@ -592,7 +610,7 @@ export async function runGraphScan(
   const evaluationMap = new Map<string, { relevant: boolean; reasoning: string; severity: "info" | "warning" | "conflict" }>();
 
   if (anomalyCandidates.length > 0) {
-    const evaluations = await evaluateAnomalies(observerModel, anomalyCandidates);
+    const evaluations = await llm.evaluateAnomalies(observerModel, anomalyCandidates);
 
     if (evaluations) {
       for (const ev of evaluations) {
@@ -668,6 +686,7 @@ export async function runGraphScan(
 
     if (existingForTask.length > 0 || isAlreadyObserved(existingObservations, anomaly.observationText, anomaly.taskRecord.id as string)) {
       logInfo("observer.scan.dedup", `Skipping duplicate ${anomaly.anomalyType} observation`, anomaly.dedupContext ?? {});
+      dedupedEntityRefs.add(anomaly.entityRef);
       continue;
     }
 
@@ -691,6 +710,9 @@ export async function runGraphScan(
   const anomalies: Anomaly[] = [];
 
   for (const { decision, task } of contradictions) {
+    const decisionRef = `decision:${decision.id.id as string}`;
+    const taskRef = `task:${task.id.id as string}`;
+    if (dedupedEntityRefs.has(decisionRef) || dedupedEntityRefs.has(taskRef)) continue;
     anomalies.push({
       type: "contradiction",
       text: `Decision "${decision.summary}" conflicts with task "${task.title}"`,
@@ -705,8 +727,10 @@ export async function runGraphScan(
     });
   }
   for (const task of staleBlocked) {
-    const evaluation = evaluationMap.get(`task:${task.id.id as string}`);
+    const entityRef = `task:${task.id.id as string}`;
+    const evaluation = evaluationMap.get(entityRef);
     if (evaluation && !evaluation.relevant) continue; // skip LLM-filtered anomalies
+    if (dedupedEntityRefs.has(entityRef)) continue; // skip already-observed anomalies
     anomalies.push({
       type: "stale_blocked",
       text: `Task "${task.title}" blocked for ${task.daysBlocked} days`,
@@ -715,8 +739,10 @@ export async function runGraphScan(
     });
   }
   for (const drift of driftTasks) {
-    const evaluation = evaluationMap.get(`task:${drift.id.id as string}`);
+    const entityRef = `task:${drift.id.id as string}`;
+    const evaluation = evaluationMap.get(entityRef);
     if (evaluation && !evaluation.relevant) continue; // skip LLM-filtered anomalies
+    if (dedupedEntityRefs.has(entityRef)) continue; // skip already-observed anomalies
     anomalies.push({
       type: "status_drift",
       text: `Task "${drift.title}" completed but dependency "${drift.dependency.title}" is ${drift.dependency.status}`,
@@ -726,7 +752,7 @@ export async function runGraphScan(
   }
 
   if (anomalies.length > 0) {
-    const patterns = await synthesizePatterns(observerModel, anomalies);
+    const patterns = await llm.synthesizePatterns(observerModel, anomalies);
 
     if (patterns) {
       for (const pattern of patterns) {

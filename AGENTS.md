@@ -117,6 +117,12 @@
 - **Pattern**: Create test user first (`createTestUserWithMcp`), then create tasks/projects in `user.workspaceId`. Do NOT create a separate workspace via API unless you pass its ID to `createTestUserWithMcp`.
 - **`mcpFetch` vs `mcpHeaders`**: Always use `user.mcpFetch(path, { body })` — it creates a fresh DPoP proof per request. The `mcpHeaders` property is deprecated and will fail because DPoP proofs are single-use.
 
+## Regression Tests for Bug Fixes
+
+- Every bug fix MUST include a regression test that fails without the fix and passes with it.
+- Prefer unit tests when the fix is in pure logic. Use acceptance tests when the fix involves DB or HTTP interactions.
+- Design side-effect-heavy functions with injectable dependencies (e.g. LLM calls, external APIs) so unit tests can stub them and assert on inputs/outputs without requiring the full runtime.
+
 ## Test Uniqueness
 
 - Use `crypto.randomUUID()` for test identifiers (emails, IDs, suffixes) — never `Date.now()` alone. Concurrent test runs share the same millisecond, causing collisions.
