@@ -131,6 +131,9 @@ async function handleListPolicies(
   workspaceId: string,
   request: Request,
 ): Promise<Response> {
+  const identityOrError = await resolveIdentityFromSession(deps, request);
+  if (isResponse(identityOrError)) return identityOrError;
+
   const workspaceOrError = await resolveWorkspace(deps, workspaceId, "policy.list.workspace_resolve.failed");
   if (isResponse(workspaceOrError)) return workspaceOrError;
   const workspaceRecord = workspaceOrError;
@@ -160,8 +163,11 @@ async function handlePolicyDetail(
   deps: ServerDependencies,
   workspaceId: string,
   policyId: string,
-  _request: Request,
+  request: Request,
 ): Promise<Response> {
+  const identityOrError = await resolveIdentityFromSession(deps, request);
+  if (isResponse(identityOrError)) return identityOrError;
+
   const workspaceOrError = await resolveWorkspace(deps, workspaceId, "policy.detail.workspace_resolve.failed");
   if (isResponse(workspaceOrError)) return workspaceOrError;
   const workspaceRecord = workspaceOrError;
@@ -405,8 +411,11 @@ async function handleGetVersionHistory(
   deps: ServerDependencies,
   workspaceId: string,
   policyId: string,
-  _request: Request,
+  request: Request,
 ): Promise<Response> {
+  const identityOrError = await resolveIdentityFromSession(deps, request);
+  if (isResponse(identityOrError)) return identityOrError;
+
   const workspaceOrError = await resolveWorkspace(deps, workspaceId, "policy.versions.workspace_resolve.failed");
   if (isResponse(workspaceOrError)) return workspaceOrError;
   const workspaceRecord = workspaceOrError;
