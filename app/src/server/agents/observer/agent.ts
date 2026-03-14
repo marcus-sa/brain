@@ -53,7 +53,7 @@ export type ObserverAgentInput = {
   entityTable: string;
   entityId: string;
   entityBody?: Record<string, unknown>;
-  observerModel?: LanguageModel;
+  observerModel: LanguageModel;
   embeddingModel?: EmbeddingModel;
   embeddingDimension?: number;
 };

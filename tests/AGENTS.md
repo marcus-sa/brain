@@ -49,7 +49,7 @@ Each subdirectory under `tests/acceptance/` runs as a separate CI matrix job (se
 - Standalone acceptance tests that need AI models (extraction, embedding) MUST import `testAI` from `./acceptance-test-kit` — never create ad-hoc OpenRouter instances or use `{} as any` stubs.
 - `testAI` exports: `openrouter`, `extractionModel`, `extractionModelId`, `embeddingModel`, `embeddingDimension`.
 - All env vars are validated via `requireTestEnv` (fail-fast, no defaults).
-- Required env: `OPENROUTER_API_KEY`, `EXTRACTION_MODEL`, `OPENROUTER_EMBEDDING_MODEL`, `EMBEDDING_DIMENSION`.
+- Required env: `OPENROUTER_API_KEY`, `EXTRACTION_MODEL`, `EMBEDDING_MODEL`, `EMBEDDING_DIMENSION`.
 - Fake model stubs (`{} as any`, `undefined as any`) break fire-and-forget description triggers when entities accumulate >1 description entry — the Vercel AI SDK requires `specificationVersion` on model objects.
 
 ## Concurrent Test Isolation

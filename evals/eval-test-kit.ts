@@ -68,7 +68,7 @@ export async function setupEvalRuntime(suiteName: string): Promise<EvalRuntime> 
   const openRouterApiKey = requireEnv("OPENROUTER_API_KEY");
   const extractionModelId = requireEnv("EXTRACTION_MODEL");
   const chatAgentModelId = requireEnv("CHAT_AGENT_MODEL");
-  const embeddingModelId = requireEnv("OPENROUTER_EMBEDDING_MODEL");
+  const embeddingModelId = requireEnv("EMBEDDING_MODEL");
   const embeddingDimension = Number(requireEnv("EMBEDDING_DIMENSION"));
   const extractionStoreThreshold = Number(process.env.EXTRACTION_STORE_THRESHOLD ?? "0.3");
   const extractionDisplayThreshold = Number(process.env.EXTRACTION_DISPLAY_THRESHOLD ?? "0.5");

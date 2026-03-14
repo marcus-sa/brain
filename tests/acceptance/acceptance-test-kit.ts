@@ -28,7 +28,7 @@ export const testAI = {
   openrouter,
   extractionModelId: requireTestEnv("EXTRACTION_MODEL"),
   extractionModel: openrouter(requireTestEnv("EXTRACTION_MODEL")),
-  embeddingModel: openrouter.textEmbeddingModel(requireTestEnv("OPENROUTER_EMBEDDING_MODEL")),
+  embeddingModel: openrouter.textEmbeddingModel(requireTestEnv("EMBEDDING_MODEL")),
   embeddingDimension: Number(requireTestEnv("EMBEDDING_DIMENSION")),
 };
 
@@ -114,7 +114,7 @@ export function setupAcceptanceSuite(
       extractionModelId: requireTestEnv("EXTRACTION_MODEL"),
       pmAgentModelId: process.env.PM_AGENT_MODEL?.trim() || requireTestEnv("EXTRACTION_MODEL"),
       analyticsAgentModelId: requireTestEnv("ANALYTICS_MODEL"),
-      embeddingModelId: requireTestEnv("OPENROUTER_EMBEDDING_MODEL"),
+      embeddingModelId: requireTestEnv("EMBEDDING_MODEL"),
       embeddingDimension: Number(requireTestEnv("EMBEDDING_DIMENSION")),
       extractionStoreThreshold: Number(requireTestEnv("EXTRACTION_STORE_THRESHOLD")),
       extractionDisplayThreshold: Number(requireTestEnv("EXTRACTION_DISPLAY_THRESHOLD")),
@@ -128,7 +128,7 @@ export function setupAcceptanceSuite(
       betterAuthUrl: baseUrl,
       githubClientId: process.env.GITHUB_CLIENT_ID ?? "smoke-test-github-id",
       githubClientSecret: process.env.GITHUB_CLIENT_SECRET ?? "smoke-test-github-secret",
-      ...(process.env.OBSERVER_MODEL?.trim() ? { observerModelId: process.env.OBSERVER_MODEL.trim() } : {}),
+      observerModelId: process.env.OBSERVER_MODEL?.trim() || requireTestEnv("EXTRACTION_MODEL"),
     };
 
     const deps = await createRuntimeDependencies(config);
@@ -146,7 +146,8 @@ export function setupAcceptanceSuite(
       pmAgentModel: deps.pmAgentModel,
       analyticsAgentModel: deps.analyticsAgentModel,
       embeddingModel: deps.embeddingModel,
-      ...(deps.observerModel ? { observerModel: deps.observerModel } : {}),
+      observerModel: deps.observerModel,
+      scorerModel: deps.scorerModel,
       sse: createSseRegistry(),
       inflight,
       asSigningKey: deps.asSigningKey,

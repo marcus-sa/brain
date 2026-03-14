@@ -36,7 +36,7 @@ export type ScoredResult = {
 
 export type DispatcherDependencies = {
   surreal: Surreal;
-  scorerModel?: LanguageModel;
+  scorerModel: LanguageModel;
 };
 
 // ---------------------------------------------------------------------------
@@ -49,13 +49,6 @@ async function scoreOneDefinition(
   deps: DispatcherDependencies,
 ): Promise<ScoredResult | undefined> {
   const definitionId = definition.id.id as string;
-
-  if (!deps.scorerModel) {
-    logInfo("behavior.dispatcher", "LLM scorer model not configured, skipping scoring", {
-      definition_title: definition.title,
-    });
-    return undefined;
-  }
 
   const llmResult: LlmScorerResult | undefined = await scoreTelemetryWithLlm(
     deps.scorerModel,

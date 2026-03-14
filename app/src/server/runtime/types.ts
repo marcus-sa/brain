@@ -37,8 +37,8 @@ export type ServerDependencies = {
   pmAgentModel: any;
   analyticsAgentModel: any;
   embeddingModel: any;
-  observerModel?: any;
-  scorerModel?: any;
+  observerModel: any;
+  scorerModel: any;
   sse: SseRegistry;
   inflight: InflightTracker;
   asSigningKey: AsSigningKey;

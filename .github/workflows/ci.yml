@@ -74,7 +74,7 @@ jobs:
           ANALYTICS_MODEL: ${{ vars.ANALYTICS_MODEL }}
           PM_AGENT_MODEL: ${{ vars.PM_AGENT_MODEL }}
           OBSERVER_MODEL: ${{ vars.OBSERVER_MODEL }}
-          OPENROUTER_EMBEDDING_MODEL: ${{ vars.OPENROUTER_EMBEDDING_MODEL }}
+          EMBEDDING_MODEL: ${{ vars.EMBEDDING_MODEL }}
           EMBEDDING_DIMENSION: ${{ vars.EMBEDDING_DIMENSION }}
           EXTRACTION_STORE_THRESHOLD: ${{ vars.EXTRACTION_STORE_THRESHOLD }}
           OPENAI_BASE_URL: https://openrouter.ai/api/v1

@@ -7,8 +7,12 @@ export type OpenRouterReasoningOptions = {
   effort?: OpenRouterReasoningEffort;
 };
 
+export type InferenceProvider = "openrouter" | "ollama";
+
 export type ServerConfig = {
-  openRouterApiKey: string;
+  inferenceProvider: InferenceProvider;
+  openRouterApiKey?: string;
+  ollamaBaseUrl?: string;
   chatAgentModelId: string;
   extractionModelId: string;
   pmAgentModelId: string;
@@ -24,7 +28,7 @@ export type ServerConfig = {
   surrealNamespace: string;
   surrealDatabase: string;
   port: number;
-  observerModelId?: string;
+  observerModelId: string;
   scorerModelId: string;
   githubWebhookSecret?: string;
   betterAuthSecret: string;
@@ -34,7 +38,15 @@ export type ServerConfig = {
 };
 
 export function loadServerConfig(): ServerConfig {
-  const openRouterApiKey = requireEnv("OPENROUTER_API_KEY");
+  const inferenceProvider = parseInferenceProvider();
+
+  const openRouterApiKey = inferenceProvider === "openrouter"
+    ? requireEnv("OPENROUTER_API_KEY")
+    : Bun.env.OPENROUTER_API_KEY?.trim() || undefined;
+
+  const ollamaBaseUrl = inferenceProvider === "ollama"
+    ? (Bun.env.OLLAMA_BASE_URL?.trim() || "http://127.0.0.1:11434")
+    : undefined;
 
   const extractionStoreThreshold = parseUnitInterval(
     requireEnv("EXTRACTION_STORE_THRESHOLD"),
@@ -56,7 +68,7 @@ export function loadServerConfig(): ServerConfig {
     ? Bun.env.PM_AGENT_MODEL.trim()
     : extractionModelId;
   const analyticsAgentModelId = requireEnv("ANALYTICS_MODEL");
-  const embeddingModelId = requireEnv("OPENROUTER_EMBEDDING_MODEL");
+  const embeddingModelId = requireEnv("EMBEDDING_MODEL");
   const embeddingDimension = parsePositiveInteger(requireEnv("EMBEDDING_DIMENSION"), "EMBEDDING_DIMENSION");
 
   const surrealUrl = requireEnv("SURREAL_URL");
@@ -68,7 +80,7 @@ export function loadServerConfig(): ServerConfig {
   const port = parsePositiveInteger(requireEnv("PORT"), "PORT");
   const observerModelId = Bun.env.OBSERVER_MODEL && Bun.env.OBSERVER_MODEL.trim().length > 0
     ? Bun.env.OBSERVER_MODEL.trim()
-    : undefined;
+    : extractionModelId;
   const scorerModelId = Bun.env.SCORER_MODEL && Bun.env.SCORER_MODEL.trim().length > 0
     ? Bun.env.SCORER_MODEL.trim()
     : extractionModelId;
@@ -78,8 +90,14 @@ export function loadServerConfig(): ServerConfig {
   const githubClientId = requireEnv("GITHUB_CLIENT_ID");
   const githubClientSecret = requireEnv("GITHUB_CLIENT_SECRET");
 
+  const openRouterReasoning = inferenceProvider === "openrouter"
+    ? parseOpenRouterReasoning()
+    : undefined;
+
   return {
-    openRouterApiKey,
+    inferenceProvider,
+    ...(openRouterApiKey ? { openRouterApiKey } : {}),
+    ...(ollamaBaseUrl ? { ollamaBaseUrl } : {}),
     chatAgentModelId,
     extractionModelId,
     pmAgentModelId,
@@ -88,14 +106,14 @@ export function loadServerConfig(): ServerConfig {
     embeddingDimension,
     extractionStoreThreshold,
     extractionDisplayThreshold,
-    openRouterReasoning: parseOpenRouterReasoning(),
+    ...(openRouterReasoning ? { openRouterReasoning } : {}),
     surrealUrl,
     surrealUsername,
     surrealPassword,
     surrealNamespace,
     surrealDatabase,
     port,
-    ...(observerModelId ? { observerModelId } : {}),
+    observerModelId,
     scorerModelId,
     ...(githubWebhookSecret ? { githubWebhookSecret } : {}),
     betterAuthSecret,
@@ -129,6 +147,13 @@ function parseUnitInterval(value: string, envName: string): number {
   }
 
   return parsed;
+}
+
+function parseInferenceProvider(): InferenceProvider {
+  const value = Bun.env.INFERENCE_PROVIDER?.trim().toLowerCase();
+  if (!value || value === "openrouter") return "openrouter";
+  if (value === "ollama") return "ollama";
+  throw new Error("INFERENCE_PROVIDER must be one of: openrouter, ollama");
 }
 
 function parseOpenRouterReasoning(): OpenRouterReasoningOptions | undefined {

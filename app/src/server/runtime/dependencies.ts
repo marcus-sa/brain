@@ -1,4 +1,5 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { createOllama } from "ollama-ai-provider";
 import { wrapLanguageModel } from "ai";
 import { devToolsMiddleware } from "@ai-sdk/devtools";
 import { Surreal } from "surrealdb";
@@ -17,8 +18,8 @@ export async function createRuntimeDependencies(config: ServerConfig): Promise<{
   pmAgentModel: any;
   analyticsAgentModel: any;
   embeddingModel: any;
-  observerModel?: any;
-  scorerModel?: any;
+  observerModel: any;
+  scorerModel: any;
   asSigningKey: AsSigningKey;
 }> {
   const surreal = new Surreal();
@@ -36,36 +37,12 @@ export async function createRuntimeDependencies(config: ServerConfig): Promise<{
   });
   await analyticsSurreal.use({ namespace: config.surrealNamespace, database: config.surrealDatabase });
 
-  const openrouter = createOpenRouter({ apiKey: config.openRouterApiKey });
   const wrap = (model: any) => devtools ? wrapLanguageModel({ model, middleware: devtools }) : model;
-  const chatAgentModel = wrap(openrouter(config.chatAgentModelId, {
-    plugins: [{ id: "response-healing" }],
-    ...(config.openRouterReasoning ? { extraBody: { reasoning: config.openRouterReasoning } } : {}),
-  }));
-  const extractionModel = wrap(openrouter(config.extractionModelId, {
-    plugins: [{ id: "response-healing" }],
-    ...(config.openRouterReasoning ? { extraBody: { reasoning: config.openRouterReasoning } } : {}),
-  }));
-  const pmAgentModel = wrap(openrouter(config.pmAgentModelId, {
-    plugins: [{ id: "response-healing" }],
-    ...(config.openRouterReasoning ? { extraBody: { reasoning: config.openRouterReasoning } } : {}),
-  }));
-  const analyticsAgentModel = wrap(openrouter(config.analyticsAgentModelId, {
-    plugins: [{ id: "response-healing" }],
-  }));
-  const embeddingModel = openrouter.textEmbeddingModel(config.embeddingModelId);
-  const observerModel = config.observerModelId
-    ? wrap(openrouter(config.observerModelId, {
-        plugins: [{ id: "response-healing" }],
-        ...(config.openRouterReasoning ? { extraBody: { reasoning: config.openRouterReasoning } } : {}),
-      }))
-    : undefined;
 
-  const scorerModel = config.scorerModelId
-    ? wrap(openrouter(config.scorerModelId, {
-        plugins: [{ id: "response-healing" }],
-      }))
-    : undefined;
+  const { chatAgentModel, extractionModel, pmAgentModel, analyticsAgentModel, embeddingModel, observerModel, scorerModel } =
+    config.inferenceProvider === "ollama"
+      ? createOllamaModels(config, wrap)
+      : createOpenRouterModels(config, wrap);
 
   const auth = createAuth(surreal, {
     betterAuthSecret: config.betterAuthSecret,
@@ -85,8 +62,49 @@ export async function createRuntimeDependencies(config: ServerConfig): Promise<{
     pmAgentModel,
     analyticsAgentModel,
     embeddingModel,
-    ...(observerModel ? { observerModel } : {}),
-    ...(scorerModel ? { scorerModel } : {}),
+    observerModel,
+    scorerModel,
     asSigningKey,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// OpenRouter model factory
+// ---------------------------------------------------------------------------
+
+function createOpenRouterModels(config: ServerConfig, wrap: (model: any) => any) {
+  const openrouter = createOpenRouter({ apiKey: config.openRouterApiKey! });
+  const withPlugins = (modelId: string, reasoning = true) =>
+    wrap(openrouter(modelId, {
+      plugins: [{ id: "response-healing" }],
+      ...(reasoning && config.openRouterReasoning ? { extraBody: { reasoning: config.openRouterReasoning } } : {}),
+    }));
+
+  return {
+    chatAgentModel: withPlugins(config.chatAgentModelId),
+    extractionModel: withPlugins(config.extractionModelId),
+    pmAgentModel: withPlugins(config.pmAgentModelId),
+    analyticsAgentModel: withPlugins(config.analyticsAgentModelId, false),
+    embeddingModel: openrouter.textEmbeddingModel(config.embeddingModelId),
+    observerModel: withPlugins(config.observerModelId),
+    scorerModel: withPlugins(config.scorerModelId, false),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Ollama model factory
+// ---------------------------------------------------------------------------
+
+function createOllamaModels(config: ServerConfig, wrap: (model: any) => any) {
+  const ollama = createOllama({ baseURL: `${config.ollamaBaseUrl}/api` });
+
+  return {
+    chatAgentModel: wrap(ollama(config.chatAgentModelId)),
+    extractionModel: wrap(ollama(config.extractionModelId)),
+    pmAgentModel: wrap(ollama(config.pmAgentModelId)),
+    analyticsAgentModel: wrap(ollama(config.analyticsAgentModelId)),
+    embeddingModel: ollama.embedding(config.embeddingModelId),
+    observerModel: wrap(ollama(config.observerModelId)),
+    scorerModel: wrap(ollama(config.scorerModelId)),
   };
 }

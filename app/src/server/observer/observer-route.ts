@@ -56,7 +56,7 @@ export function createObserverRouteHandler(deps: ServerDependencies) {
         entityTable: table,
         entityId: id,
         entityBody: body,
-        observerModel: deps.observerModel as LanguageModel | undefined,
+        observerModel: deps.observerModel as LanguageModel,
       });
 
       logInfo(`observer.${table}.verified`, `${table} verification complete`, {
@@ -82,18 +82,13 @@ export function createObserverRouteHandler(deps: ServerDependencies) {
 export function createGraphScanRouteHandler(deps: ServerDependencies) {
   return async (workspaceId: string, _request: Request): Promise<Response> => {
     try {
-      const observerModel = deps.observerModel as LanguageModel | undefined;
-      if (!observerModel) {
-        return jsonResponse({ error: "observer_model_required", message: "OBSERVER_MODEL env var is required for graph scan" }, 503);
-      }
-
       logInfo("observer.scan.started", "Graph scan triggered", { workspaceId });
 
       const workspaceRecord = new RecordId("workspace", workspaceId);
       const result = await runGraphScan(
         deps.surreal,
         workspaceRecord,
-        observerModel,
+        deps.observerModel as LanguageModel,
         deps.embeddingModel,
         deps.config.embeddingDimension,
       );

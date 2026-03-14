@@ -12,7 +12,7 @@ import { createTestUserWithMcp, setupAcceptanceSuite, type TestUserWithMcp } fro
 const getRuntime = setupAcceptanceSuite("intent-context");
 
 const openrouter = createOpenRouter({ apiKey: process.env.OPENROUTER_API_KEY! });
-const embeddingModel = openrouter.textEmbeddingModel(process.env.OPENROUTER_EMBEDDING_MODEL!);
+const embeddingModel = openrouter.textEmbeddingModel(process.env.EMBEDDING_MODEL!);
 const embeddingDimension = Number(process.env.EMBEDDING_DIMENSION!);
 
 async function embedText(text: string): Promise<number[] | undefined> {
