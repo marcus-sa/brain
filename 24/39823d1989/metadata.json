@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "2439823d1989",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/objective-behavior-nodes",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "docs/feature/objective-behavior/execution-log.yaml"
+  ],
+  "sessions": [
+    {
+      "metadata": "/24/39823d1989/0/metadata.json",
+      "transcript": "/24/39823d1989/0/full.jsonl",
+      "context": "/24/39823d1989/0/context.md",
+      "content_hash": "/24/39823d1989/0/content_hash.txt",
+      "prompt": "/24/39823d1989/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 60,
+    "cache_creation_tokens": 250602,
+    "cache_read_tokens": 1805511,
+    "output_tokens": 26346,
+    "api_call_count": 29
+  }
+}
