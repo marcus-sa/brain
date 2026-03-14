@@ -21,6 +21,8 @@ import type {
   CreateBehaviorDefinitionInput,
   UpdateBehaviorDefinitionInput,
 } from "./definition-types";
+import { matchDefinitions } from "./definition-matcher";
+import { dispatchScoring, type ScoredResult } from "./scorer-dispatcher";
 
 // ---------------------------------------------------------------------------
 // Response serialization (pure)
@@ -68,6 +70,8 @@ export function createBehaviorRouteHandlers(deps: ServerDependencies) {
   return {
     handleList: (workspaceId: string, request: Request) =>
       handleListBehaviors(deps, workspaceId, request),
+    handleScore: (workspaceId: string, request: Request) =>
+      handleScoreTelemetry(deps, workspaceId, request),
     handleCreateDefinition: (workspaceId: string, request: Request) =>
       handleCreateDefinition(deps, workspaceId, request),
     handleListDefinitions: (workspaceId: string, request: Request) =>
@@ -111,6 +115,77 @@ async function handleListBehaviors(
   } catch (error) {
     logError("behavior.list.failed", "Failed to list behaviors", error, { workspaceId });
     return jsonError("failed to list behaviors", 500);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/workspaces/:workspaceId/behaviors/score
+// ---------------------------------------------------------------------------
+
+function serializeScoredResult(result: ScoredResult) {
+  return {
+    behaviorId: result.behaviorId,
+    metricType: result.definitionTitle,
+    score: result.score,
+    definitionId: result.definitionId,
+    definitionVersion: result.definitionVersion,
+    scoringMode: result.scoringMode,
+    ...(result.rationale ? { rationale: result.rationale } : {}),
+    ...(result.evidenceChecked ? { evidenceChecked: result.evidenceChecked } : {}),
+  };
+}
+
+async function handleScoreTelemetry(
+  deps: ServerDependencies,
+  workspaceId: string,
+  request: Request,
+): Promise<Response> {
+  try {
+    let body: Record<string, unknown>;
+    try {
+      body = (await request.json()) as Record<string, unknown>;
+    } catch {
+      return jsonError("Request body must be valid JSON", 400);
+    }
+
+    const telemetryType = body.telemetry_type as string | undefined;
+    const identityId = body.identity_id as string | undefined;
+    const payload = body.payload as Record<string, unknown> | undefined;
+
+    if (!telemetryType || telemetryType.trim().length === 0) return jsonError("telemetry_type is required", 400);
+    if (!identityId || identityId.trim().length === 0) return jsonError("identity_id is required", 400);
+    if (!payload || typeof payload !== "object") return jsonError("payload must be an object", 400);
+
+    // Query all definitions for this workspace, then filter by active + telemetry type
+    const allDefinitions = await listBehaviorDefinitions(deps.surreal, workspaceId);
+    const matched = matchDefinitions(allDefinitions, telemetryType);
+
+    if (matched.length === 0) {
+      return jsonResponse({ results: [], matched_definitions: 0 }, 200);
+    }
+
+    // Dispatch scoring for all matched definitions
+    const scored = await dispatchScoring(
+      matched,
+      {
+        telemetryType,
+        telemetryPayload: payload,
+        identityId,
+        workspaceId,
+      },
+      {
+        surreal: deps.surreal,
+        scorerModel: deps.scorerModel,
+      },
+    );
+
+    return jsonResponse({
+      results: scored.map(serializeScoredResult),
+      matched_definitions: matched.length,
+    }, 200);
+  } catch (error) {
+    logError("behavior.score.failed", "Failed to score telemetry", error, { workspaceId });
+    return jsonError("failed to score telemetry", 500);
   }
 }
 

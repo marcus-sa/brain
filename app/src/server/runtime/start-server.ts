@@ -247,6 +247,13 @@ export function createBrainServer(deps: ServerDependencies): ReturnType<typeof B
           (request) => behaviorHandlers.handleList(request.params.workspaceId, request),
         ),
       },
+      "/api/workspaces/:workspaceId/behaviors/score": {
+        POST: withRequestLogging(
+          "POST /api/workspaces/:workspaceId/behaviors/score",
+          "POST",
+          (request) => behaviorHandlers.handleScore(request.params.workspaceId, request),
+        ),
+      },
       "/api/workspaces/:workspaceId/behavior-definitions": {
         POST: withRequestLogging(
           "POST /api/workspaces/:workspaceId/behavior-definitions",

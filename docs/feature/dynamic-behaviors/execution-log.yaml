@@ -122,5 +122,30 @@ events:
   s: EXECUTED
   sid: 02-02
   t: '2026-03-14T09:03:42Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 02-02
+  t: '2026-03-14T09:04:30Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 02-03
+  t: '2026-03-14T09:06:52Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 02-03
+  t: '2026-03-14T09:06:53Z'
+- d: 'NOT_APPLICABLE: HTTP wiring only, no new domain logic'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 02-03
+  t: '2026-03-14T09:06:54Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 02-03
+  t: '2026-03-14T09:06:55Z'
 project_id: dynamic-behaviors
 schema_version: '3.0'
