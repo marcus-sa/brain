@@ -95,6 +95,7 @@ function validateRule(rule: unknown, index: number): string[] {
 
 type PolicyCreateInput = {
   title: unknown;
+  description: unknown;
   rules: unknown;
 };
 
@@ -108,6 +109,11 @@ export function validatePolicyCreateBody(body: PolicyCreateInput): ValidationRes
   // Title
   if (typeof body.title !== "string" || body.title.trim() === "") {
     errors.push("title is required and must be a non-empty string");
+  }
+
+  // Description
+  if (typeof body.description !== "string" || body.description.trim() === "") {
+    errors.push("description is required and must be a non-empty string");
   }
 
   // Rules

@@ -227,6 +227,7 @@ describe("Milestone 2: Policy Creation Validation (US-PCUI-02)", () => {
       workspace.workspaceId,
       {
         title: "No Rules Policy",
+        description: "Policy with no rules for testing",
         rules: [],
       },
     );

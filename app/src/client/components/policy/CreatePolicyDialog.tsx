@@ -30,6 +30,7 @@ type PolicyFormState = {
 
 type FormErrors = {
   title?: string;
+  description?: string;
   rules?: string;
   submit?: string;
 };
@@ -58,6 +59,10 @@ function validateForm(state: PolicyFormState): FormErrors {
     errors.title = "Title is required";
   }
 
+  if (state.description.trim() === "") {
+    errors.description = "Description is required";
+  }
+
   if (state.rules.length === 0) {
     errors.rules = "At least one rule is required";
   } else {
@@ -79,12 +84,9 @@ function hasErrors(errors: FormErrors): boolean {
 function buildRequestBody(state: PolicyFormState) {
   const body: Record<string, unknown> = {
     title: state.title.trim(),
+    description: state.description.trim(),
     rules: state.rules.map(ruleEntryToApiRule),
   };
-
-  if (state.description.trim()) {
-    body.description = state.description.trim();
-  }
 
   if (state.agentRole.trim()) {
     body.selector = { agent_role: state.agentRole.trim() };
@@ -248,12 +250,12 @@ export function CreatePolicyDialog({ open, onClose }: CreatePolicyDialogProps) {
 
           <div className="policy-dialog__field">
             <label className="policy-dialog__label" htmlFor="policy-description">
-              Description
+              Description <span className="policy-dialog__required">*</span>
             </label>
             <textarea
               id="policy-description"
-              className="policy-dialog__textarea"
-              placeholder="Optional description of what this policy governs"
+              className={`policy-dialog__textarea${errors.description ? " policy-dialog__textarea--error" : ""}`}
+              placeholder="Describe what this policy governs"
               rows={3}
               value={form.description}
               onChange={(e) => updateField("description", e.target.value)}

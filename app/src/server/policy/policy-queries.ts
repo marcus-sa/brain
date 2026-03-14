@@ -48,7 +48,7 @@ const toPolicyListItem = (record: PolicyRecord): PolicyListItem => ({
 
 type CreatePolicyParams = {
   title: string;
-  description?: string;
+  description: string;
   selector?: PolicySelector;
   rules: PolicyRule[];
   human_veto_required?: boolean;
@@ -122,6 +122,7 @@ export async function createPolicy(
 
   const content: Record<string, unknown> = {
     title: params.title,
+    description: params.description,
     version: params.version ?? 1,
     status: "draft",
     selector: params.selector ?? {},
@@ -131,8 +132,6 @@ export async function createPolicy(
     workspace: params.workspace,
     created_at: new Date(),
   };
-
-  if (params.description) content.description = params.description;
   if (params.max_ttl) content.max_ttl = params.max_ttl;
   if (params.supersedes) content.supersedes = params.supersedes;
 

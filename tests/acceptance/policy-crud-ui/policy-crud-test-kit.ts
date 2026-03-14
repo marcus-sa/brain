@@ -92,7 +92,7 @@ export type PolicyDetailResponse = {
   policy: {
     id: string;
     title: string;
-    description?: string;
+    description: string;
     version: number;
     status: string;
     selector: {
@@ -118,7 +118,7 @@ export type PolicyDetailResponse = {
 
 export type PolicyCreateBody = {
   title: string;
-  description?: string;
+  description: string;
   selector?: {
     workspace?: string;
     agent_role?: string;
@@ -379,6 +379,7 @@ export function buildMinimalRule(overrides?: Partial<PolicyCreateBody["rules"][0
 export function buildPolicyBody(overrides?: Partial<PolicyCreateBody>): PolicyCreateBody {
   return {
     title: `Test Policy ${crypto.randomUUID().slice(0, 8)}`,
+    description: "Test policy description for automated testing",
     rules: [buildMinimalRule()],
     ...overrides,
   };

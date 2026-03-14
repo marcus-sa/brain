@@ -179,7 +179,7 @@ async function handlePolicyDetail(
       policy: {
         id: policy.id.id as string,
         title: policy.title,
-        ...(policy.description ? { description: policy.description } : {}),
+        description: policy.description,
         version: policy.version,
         status: policy.status,
         selector: policy.selector ?? {},
@@ -224,7 +224,7 @@ async function handleCreatePolicy(
     return jsonError("invalid JSON body", 400);
   }
 
-  const validation = validatePolicyCreateBody(body as { title: unknown; rules: unknown });
+  const validation = validatePolicyCreateBody(body as { title: unknown; description: unknown; rules: unknown });
   if (!validation.valid) {
     return jsonError(validation.errors[0], 400);
   }
@@ -234,7 +234,7 @@ async function handleCreatePolicy(
   try {
     const { policyId } = await createPolicy(deps.surreal, {
       title: parsed.title as string,
-      description: parsed.description as string | undefined,
+      description: parsed.description as string,
       selector: parsed.selector as PolicySelector | undefined,
       rules: parsed.rules as PolicyRule[],
       human_veto_required: parsed.human_veto_required as boolean | undefined,
