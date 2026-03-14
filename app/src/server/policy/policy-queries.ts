@@ -214,6 +214,10 @@ export async function activatePolicy(
     await surreal.query(
       `
       BEGIN TRANSACTION;
+        LET $currentStatus = (SELECT VALUE status FROM $policy)[0];
+        IF $currentStatus NOT IN ['draft', 'testing'] {
+          THROW string::concat("policy must be in draft or testing status to activate (current: ", <string> $currentStatus, ")");
+        };
         LET $oldVer = (SELECT VALUE version FROM $oldPolicy)[0];
         IF $oldVer != NONE AND $policyVersion <= $oldVer {
           THROW string::concat("version ", <string> $policyVersion,
@@ -239,6 +243,10 @@ export async function activatePolicy(
     await surreal.query(
       `
       BEGIN TRANSACTION;
+        LET $currentStatus = (SELECT VALUE status FROM $policy)[0];
+        IF $currentStatus NOT IN ['draft', 'testing'] {
+          THROW string::concat("policy must be in draft or testing status to activate (current: ", <string> $currentStatus, ")");
+        };
         UPDATE $policy SET status = 'active', updated_at = time::now();
         RELATE $creator->governing->$policy SET created_at = time::now();
         RELATE $policy->protects->$workspace SET created_at = time::now();
@@ -262,6 +270,10 @@ export async function deprecatePolicy(
   await surreal.query(
     `
     BEGIN TRANSACTION;
+      LET $currentStatus = (SELECT VALUE status FROM $policy)[0];
+      IF $currentStatus NOT IN ['active'] {
+        THROW string::concat("policy must be in active status to deprecate (current: ", <string> $currentStatus, ")");
+      };
       UPDATE $policy SET status = 'deprecated', updated_at = time::now();
       DELETE governing WHERE out = $policy;
       DELETE protects WHERE in = $policy;

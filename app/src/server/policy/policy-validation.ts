@@ -83,6 +83,11 @@ function validateRule(rule: unknown, index: number): string[] {
     errors.push(`rule[${index}]: id must be a non-empty string`);
   }
 
+  // Priority
+  if (typeof rule.priority !== "number" || !Number.isFinite(rule.priority)) {
+    errors.push(`rule[${index}]: priority must be a finite number`);
+  }
+
   // Effect
   if (!VALID_EFFECTS.has(rule.effect as string)) {
     errors.push(`rule[${index}]: effect must be "allow" or "deny"`);
