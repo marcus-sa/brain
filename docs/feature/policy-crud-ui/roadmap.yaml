@@ -1,0 +1,245 @@
+roadmap:
+  project_id: policy-crud-ui
+  created_at: '2026-03-14T03:43:21Z'
+  total_steps: 14
+  phases: 5
+phases:
+- id: '01'
+  name: 'Route handler factory + identity guard + list endpoint'
+  steps:
+  - id: 01-01
+    name: 'Policy route handler factory with identity guard'
+    description: >
+      Create policy-route.ts following learning-route.ts pattern. Wire route handler factory
+      with identity resolution from session. Implement pure identity guard rejecting agent
+      identities on mutation endpoints (POST, PATCH) with 403. Register routes in start-server.ts.
+    criteria:
+      - 'Agent identities receive 403 on POST /policies, PATCH /activate, PATCH /deprecate, POST /versions'
+      - 'Agent identities receive 200 on GET /policies and GET /policies/:id'
+      - 'Human identities pass the guard on all endpoints'
+    test_scenarios:
+      - 'milestone-1: agent denied create (1.1)'
+      - 'milestone-1: agent denied activate (1.2)'
+      - 'milestone-1: agent denied deprecate (1.3)'
+      - 'milestone-1: agent denied version creation (1.4)'
+      - 'milestone-1: agent can read list (1.5)'
+      - 'milestone-1: agent can read detail (1.6)'
+  - id: 01-02
+    name: 'List policies endpoint with status filtering'
+    description: >
+      Implement listPolicies query returning workspace policies with title, status, version,
+      rules_count, created_at. Support optional ?status= query parameter filter. Wire to
+      GET /api/workspaces/:wsId/policies.
+    criteria:
+      - 'GET /policies returns all workspace policies with title, status, version, rules_count, created_at'
+      - 'GET /policies?status=active returns only policies matching that status'
+      - 'Empty workspace returns { policies: [] }'
+      - 'Filter with no matches returns empty array'
+    test_scenarios:
+      - 'milestone-1: admin sees all policies (1.7)'
+      - 'milestone-1: status filter returns matching (1.8)'
+      - 'milestone-1: empty workspace returns empty list (1.9)'
+      - 'milestone-1: filter no matches returns empty (1.10)'
+  - id: 01-03
+    name: 'Policy request validation'
+    description: >
+      Implement pure validation functions for policy creation bodies: required non-empty title,
+      at least one rule, valid predicate structure (field/operator/value), valid effect
+      (allow/deny only). Return 400 with descriptive error on failure.
+    criteria:
+      - 'Missing or empty title returns 400 with error containing "title"'
+      - 'Empty rules array returns 400 with error containing "rule"'
+      - 'Invalid predicate structure returns 400'
+      - 'Invalid effect value returns 400'
+    test_scenarios:
+      - 'milestone-2: missing title rejected (2.4)'
+      - 'milestone-2: missing rules rejected (2.5)'
+      - 'milestone-2: invalid predicate rejected (2.6)'
+      - 'milestone-2: invalid effect rejected (2.7)'
+- id: '02'
+  name: 'Policy creation endpoint'
+  steps:
+  - id: 02-01
+    name: 'Create draft policy via API'
+    description: >
+      Implement POST /api/workspaces/:wsId/policies. Persist policy with draft status,
+      version 1, workspace scope. Support title, description, selector, rules,
+      human_veto_required, max_ttl fields. Return 201 with { policy_id }.
+    criteria:
+      - 'POST returns 201 with policy_id for valid payload'
+      - 'Created policy has status=draft, version=1'
+      - 'All fields (title, description, selector, rules, human_veto_required, max_ttl) persist correctly'
+      - 'Multiple rules at different priorities are preserved'
+    test_scenarios:
+      - 'milestone-2: admin creates draft with deny rule (2.1)'
+      - 'milestone-2: admin creates with multiple rules (2.2)'
+      - 'milestone-2: admin creates with selector (2.3)'
+  - id: 02-02
+    name: 'Activate policy with governance edges'
+    description: >
+      Implement PATCH /api/workspaces/:wsId/policies/:id/activate. Validate draft status
+      prerequisite (409 for active/deprecated/superseded). Transition to active, create
+      governing and protects relation edges. When activating a policy with a supersedes
+      reference, atomically transition the old version to superseded and remove its edges
+      (see ADR-005, extended in step 03-03). Return 200 with { status: "active" }.
+    criteria:
+      - 'Draft policy transitions to active with governing and protects edges created'
+      - 'Already-active policy returns 409'
+      - 'Deprecated policy returns 409'
+      - 'Superseded policy returns 409'
+    test_scenarios:
+      - 'milestone-3: admin activates draft (3.1)'
+      - 'milestone-3: cannot activate active (3.2)'
+      - 'milestone-3: cannot activate deprecated (3.3)'
+      - 'milestone-3: cannot activate superseded (3.4)'
+  - id: 02-03
+    name: 'Deprecate policy with edge removal'
+    description: >
+      Implement PATCH /api/workspaces/:wsId/policies/:id/deprecate. Validate active status
+      prerequisite (409 for draft/deprecated). Transition to deprecated, remove governing
+      and protects edges. Policy excluded from loadActivePolicies results.
+    criteria:
+      - 'Active policy transitions to deprecated with edges removed'
+      - 'Deprecated policy excluded from active policy loading'
+      - 'Draft policy returns 409'
+      - 'Already-deprecated policy returns 409'
+    test_scenarios:
+      - 'milestone-3: admin deprecates active (3.5)'
+      - 'milestone-3: cannot deprecate draft (3.6)'
+      - 'milestone-3: cannot deprecate deprecated (3.7)'
+- id: '03'
+  name: 'Policy detail + version creation + policy trace'
+  steps:
+  - id: 03-01
+    name: 'Policy detail endpoint with edges'
+    description: >
+      Implement GET /api/workspaces/:wsId/policies/:id. Return full PolicyRecord with
+      resolved governing/protects edges via getPolicyEdges query. Return 404 for
+      non-existent policies. Include edge state appropriate to policy status.
+    criteria:
+      - 'Detail returns full record: id, title, description, version, status, selector, rules, human_veto_required, max_ttl, created_at'
+      - 'Active policy detail includes populated governing and protects edges'
+      - 'Deprecated policy detail shows empty edges'
+      - 'Non-existent policy returns 404'
+    test_scenarios:
+      - 'milestone-4: admin views full draft detail (4.1)'
+      - 'milestone-4: active policy includes edges (4.2)'
+      - 'milestone-4: deprecated policy shows empty edges (4.3)'
+      - 'milestone-4: non-existent returns 404 (4.4)'
+  - id: 03-02
+    name: 'Version creation with supersede chain'
+    description: >
+      Implement POST /api/workspaces/:wsId/policies/:id/versions. Only active policies
+      can spawn new versions (409 for draft/deprecated). Create new policy record with
+      incremented version, draft status, supersedes reference to parent, and copied fields.
+      Return 201 with { policy_id, version }.
+    criteria:
+      - 'New version created as draft with incremented version number and supersedes reference'
+      - 'All fields copied from parent (title, description, selector, rules, human_veto_required, max_ttl)'
+      - 'Cannot create version from draft policy (409)'
+      - 'Cannot create version from deprecated policy (409)'
+    test_scenarios:
+      - 'milestone-5: admin creates version from active (5.1)'
+      - 'milestone-5: cannot version draft (5.2)'
+      - 'milestone-5: cannot version deprecated (5.3)'
+  - id: 03-03
+    name: 'Supersede atomicity + version history + policy trace persistence'
+    description: >
+      Extend activate endpoint: when activating a policy with supersedes reference,
+      atomically transition old version to superseded and remove its edges. Implement
+      GET /policies/:id/versions returning ordered version chain via recursive supersedes
+      traversal. Ensure policy_trace field on intent evaluation persists trace entries
+      and links back to policy detail.
+    criteria:
+      - 'Activating new version atomically supersedes old version and moves edges'
+      - 'GET /versions returns all versions ordered by version number'
+      - 'Version history for non-existent policy returns 404'
+      - 'Policy trace entries on intent evaluation link to retrievable policy details'
+    test_scenarios:
+      - 'milestone-5: supersede atomicity (5.4)'
+      - 'milestone-5: version history returns chain (5.5)'
+      - 'milestone-5: version history 404 (5.6)'
+      - 'milestone-4: version chain in detail (4.5)'
+      - 'milestone-4: single version chain (4.6)'
+      - 'milestone-6: trace with matching rules (6.1)'
+      - 'milestone-6: trace matched and unmatched (6.2)'
+      - 'milestone-6: trace links to policy detail (6.3)'
+      - 'milestone-6: empty trace no active policies (6.4)'
+- id: '04'
+  name: 'React UI — policy list + create dialog + detail page'
+  steps:
+  - id: 04-01
+    name: 'Policy list page and sidebar navigation'
+    description: >
+      Add Policies entry to WorkspaceSidebar. Create PoliciesPage with TanStack Router
+      route. Fetch and display policies in a table with title, status badge, version,
+      rules count, created date. Include status filter dropdown.
+    criteria:
+      - 'Policies link visible in workspace sidebar navigation'
+      - 'Policy list page displays all workspace policies in tabular format'
+      - 'Status filter dropdown filters the displayed list'
+      - 'Empty state shown when no policies exist'
+  - id: 04-02
+    name: 'Create policy dialog with rule builder'
+    description: >
+      Create dialog for new policy creation. Form fields: title (required), description,
+      selector (agent_role), human_veto_required toggle, max_ttl. Inline rule builder
+      for adding rules with condition (field/operator/value), effect (allow/deny), and
+      priority. Submit calls POST /policies endpoint.
+    criteria:
+      - 'Dialog opens from list page action button'
+      - 'Form validates required title and at least one rule before submission'
+      - 'Rules can be added and removed inline'
+      - 'Successful creation navigates to policy detail page'
+  - id: 04-03
+    name: 'Policy detail page with lifecycle actions'
+    description: >
+      Create PolicyDetailPage showing full policy record, governance edges, and version
+      chain. Include activate/deprecate action buttons with confirmation. Show version
+      history list linking to each version. Create-new-version button for active policies.
+    criteria:
+      - 'Detail page displays all policy fields, rules, and governance edges'
+      - 'Activate button shown for draft policies, deprecate for active'
+      - 'Version history list shows all versions with status indicators'
+      - 'Create new version button appears for active policies'
+- id: '05'
+  name: 'Advanced UI — rule builder + policy trace + version diff'
+  steps:
+  - id: 05-01
+    name: 'Rule builder with field autocomplete'
+    description: >
+      Enhance rule builder with autocomplete for condition field names sourced from
+      known IntentEvaluationContext fields (action_spec.action, action_spec.provider,
+      budget_limit.amount, etc.). Operator dropdown adapts to field type. Value input
+      with type-appropriate controls.
+    criteria:
+      - 'Field input offers autocomplete suggestions from IntentEvaluationContext'
+      - 'Operator dropdown shows relevant operators for selected field type'
+      - 'Composed rule preview shows human-readable condition summary'
+  - id: 05-02
+    name: 'Policy trace view and version diff'
+    description: >
+      Add policy trace section to intent review/consent page showing which policies and
+      rules matched during evaluation. Each trace entry links to policy detail. Implement
+      version diff view comparing two version records side-by-side with structural diff
+      of rules, selector, and metadata computed client-side (ADR-003, no server endpoint needed).
+    criteria:
+      - 'Intent review page shows policy trace with matched/unmatched rule indicators'
+      - 'Trace entries link to corresponding policy detail pages'
+      - 'Version diff computed client-side from two policy detail responses'
+      - 'Diff view accessible from version history list'
+implementation_scope:
+  source_directories:
+  - app/src/server/policy/
+  - app/src/client/components/policy/
+  - app/src/client/pages/
+  test_directories:
+  - tests/acceptance/policy-crud-ui/
+  excluded_patterns:
+  - node_modules/**
+  - dist/**
+validation:
+  status: approved
+  reviewer: nw-software-crafter-reviewer
+  approved_at: '2026-03-14T03:50:00Z'
+  notes: 'Approved with 0 blocking defects. Applied D1 (client-side diff clarification) and D2 (supersede cross-reference).'
