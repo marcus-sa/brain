@@ -194,7 +194,7 @@ describe("Milestone 3: Policy Deprecation (US-PCUI-04)", () => {
   // Admin deprecates an active policy and edges are removed
   // AC: Active -> deprecated, governing and protects edges removed
   // ---------------------------------------------------------------------------
-  it.skip("admin deprecates an active policy and governance edges are removed", async () => {
+  it("admin deprecates an active policy and governance edges are removed", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given an active policy with governing and protects edges
@@ -240,7 +240,7 @@ describe("Milestone 3: Policy Deprecation (US-PCUI-04)", () => {
   // Cannot deprecate a draft policy
   // AC: PATCH /deprecate on draft policy returns 409
   // ---------------------------------------------------------------------------
-  it.skip("cannot deprecate a draft policy", async () => {
+  it("cannot deprecate a draft policy", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a draft policy
@@ -268,7 +268,7 @@ describe("Milestone 3: Policy Deprecation (US-PCUI-04)", () => {
   // Cannot deprecate an already-deprecated policy
   // AC: PATCH /deprecate on deprecated policy returns 409
   // ---------------------------------------------------------------------------
-  it.skip("cannot deprecate an already-deprecated policy", async () => {
+  it("cannot deprecate an already-deprecated policy", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a deprecated policy
