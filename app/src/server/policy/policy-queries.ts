@@ -55,7 +55,6 @@ type CreatePolicyParams = {
   max_ttl?: string;
   createdBy: RecordId<"identity">;
   workspace: RecordId<"workspace">;
-  version?: number;
   supersedes?: RecordId<"policy">;
 };
 
@@ -116,14 +115,69 @@ export async function listWorkspacePolicies(
 export async function createPolicy(
   surreal: Surreal,
   params: CreatePolicyParams,
-): Promise<{ policyId: string; policyRecord: RecordId<"policy"> }> {
+): Promise<{ policyId: string; policyRecord: RecordId<"policy">; version: number }> {
   const policyId = `policy-${crypto.randomUUID()}`;
   const policyRecord = new RecordId("policy", policyId);
 
+  if (params.supersedes) {
+    // Atomic version assignment inside a transaction to prevent TOCTOU race.
+    // Two concurrent requests both reading the same source version would both
+    // compute version N+1 and create duplicate drafts. The transaction:
+    // 1. Checks no draft already supersedes this policy (rejects duplicates)
+    // 2. Computes MAX(version)+1 from the chain atomically
+    // 3. Creates the new draft
+    const content: Record<string, unknown> = {
+      title: params.title,
+      description: params.description,
+      version: 1, // placeholder — overwritten atomically inside transaction
+      status: "draft",
+      selector: params.selector ?? {},
+      rules: params.rules,
+      human_veto_required: params.human_veto_required ?? false,
+      created_by: params.createdBy,
+      workspace: params.workspace,
+      supersedes: params.supersedes,
+      created_at: new Date(),
+    };
+    if (params.max_ttl) content.max_ttl = params.max_ttl;
+
+    await surreal.query(
+      `
+      BEGIN TRANSACTION;
+        LET $existing = (SELECT VALUE id FROM policy
+            WHERE supersedes = $supersedes AND status = 'draft' LIMIT 1)[0];
+        IF $existing != NONE {
+          THROW "a draft version already exists for this policy";
+        };
+        LET $maxVer = (SELECT VALUE version FROM policy
+            WHERE workspace = $ws AND (id = $supersedes OR supersedes = $supersedes)
+            ORDER BY version DESC LIMIT 1)[0] ?? 0;
+        CREATE $policy CONTENT $content;
+        UPDATE $policy SET version = $maxVer + 1;
+      COMMIT TRANSACTION;
+      `,
+      {
+        policy: policyRecord,
+        ws: params.workspace,
+        supersedes: params.supersedes,
+        content,
+      },
+    );
+
+    // Read back the assigned version after the transaction commits.
+    const [versionRows] = await surreal.query<[Array<{ version: number }>]>(
+      "SELECT version FROM $policy;",
+      { policy: policyRecord },
+    );
+    const version = versionRows[0]?.version ?? 1;
+    return { policyId, policyRecord, version };
+  }
+
+  // Non-versioned (first version) — no supersedes, always version 1.
   const content: Record<string, unknown> = {
     title: params.title,
     description: params.description,
-    version: params.version ?? 1,
+    version: 1,
     status: "draft",
     selector: params.selector ?? {},
     rules: params.rules,
@@ -133,14 +187,13 @@ export async function createPolicy(
     created_at: new Date(),
   };
   if (params.max_ttl) content.max_ttl = params.max_ttl;
-  if (params.supersedes) content.supersedes = params.supersedes;
 
   await surreal.query("CREATE $policy CONTENT $content;", {
     policy: policyRecord,
     content,
   });
 
-  return { policyId, policyRecord };
+  return { policyId, policyRecord, version: 1 };
 }
 
 export async function activatePolicy(

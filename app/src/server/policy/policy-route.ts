@@ -383,7 +383,7 @@ async function handleCreatePolicyVersion(
     }
 
     const sourcePolicyRecord = new RecordId("policy", policyId);
-    const { policyId: newPolicyId } = await createPolicy(deps.surreal, {
+    const { policyId: newPolicyId, version } = await createPolicy(deps.surreal, {
       title: sourcePolicy.title,
       description: sourcePolicy.description,
       selector: sourcePolicy.selector,
@@ -392,11 +392,10 @@ async function handleCreatePolicyVersion(
       max_ttl: sourcePolicy.max_ttl,
       createdBy: guardResult.identityRecord,
       workspace: workspaceRecord,
-      version: sourcePolicy.version + 1,
       supersedes: sourcePolicyRecord,
     });
 
-    return jsonResponse({ policy_id: newPolicyId, version: sourcePolicy.version + 1 }, 201);
+    return jsonResponse({ policy_id: newPolicyId, version }, 201);
   } catch (error) {
     logError("policy.version.failed", "Failed to create policy version", error, { workspaceId, policyId });
     return jsonError("failed to create policy version", 500);
