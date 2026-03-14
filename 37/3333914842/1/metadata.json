@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "373333914842",
+  "session_id": "36fb9620-dd6d-4ebe-8d54-c1c02c856ff1",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-14T10:07:43.07301Z",
+  "branch": "marcus-sa/policy-crud-ui",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "tests/unit/coding-agent-orchestrator/worktree-manager.test.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "25e43b91edac",
+  "checkpoint_transcript_start": 247,
+  "transcript_lines_at_start": 247,
+  "token_usage": {
+    "input_tokens": 17,
+    "cache_creation_tokens": 13975,
+    "cache_read_tokens": 678640,
+    "output_tokens": 2121,
+    "api_call_count": 9
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-14T10:07:42.977213Z",
+    "agent_lines": 32,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 32,
+    "agent_percentage": 100
+  }
+}
