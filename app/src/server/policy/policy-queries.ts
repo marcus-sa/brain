@@ -157,6 +157,14 @@ export async function activatePolicy(
   const supersededRecord = policy?.supersedes;
 
   if (supersededRecord) {
+    // D5: Validate version chain monotonicity
+    const oldPolicy = await surreal.select<PolicyRecord>(supersededRecord);
+    if (oldPolicy && policy.version <= oldPolicy.version) {
+      throw new Error(
+        `version ${policy.version} must be greater than superseded version ${oldPolicy.version}`,
+      );
+    }
+
     await surreal.query(
       `
       BEGIN TRANSACTION;

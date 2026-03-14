@@ -157,6 +157,32 @@ describe("validatePolicyCreateBody", () => {
     expect(result.valid).toBe(false);
   });
 
+  it("rejects empty condition array", () => {
+    const result = validatePolicyCreateBody({
+      title: "Valid Title",
+      rules: [{
+        id: "r1",
+        condition: [] as unknown,
+        effect: "deny",
+        priority: 100,
+      }],
+    });
+
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.errors.some((e) => e.includes("condition"))).toBe(true);
+    }
+  });
+
+  it("rejects null body", () => {
+    const result = validatePolicyCreateBody(null as unknown as { title: unknown; rules: unknown });
+
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.errors.some((e) => e.includes("request body is required"))).toBe(true);
+    }
+  });
+
   it("rejects completely malformed condition object", () => {
     const result = validatePolicyCreateBody({
       title: "Valid Title",

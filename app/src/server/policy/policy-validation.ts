@@ -99,6 +99,10 @@ type PolicyCreateInput = {
 };
 
 export function validatePolicyCreateBody(body: PolicyCreateInput): ValidationResult {
+  if (body === null || body === undefined) {
+    return { valid: false, errors: ["request body is required"] };
+  }
+
   const errors: string[] = [];
 
   // Title

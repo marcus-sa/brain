@@ -66,7 +66,7 @@ describe("Milestone 1: Agent Authorization Gate (US-PCUI-08)", () => {
     // Then the request is rejected with 403
     expect(response.status).toBe(403);
     const body = await response.json() as { error: string };
-    expect(body.error).toContain("cannot modify policies");
+    expect(body.error).toBe("agents cannot modify policies");
   }, 120_000);
 
   // ---------------------------------------------------------------------------
