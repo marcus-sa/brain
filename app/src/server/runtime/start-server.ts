@@ -233,6 +233,13 @@ export function createBrainServer(deps: ServerDependencies): ReturnType<typeof B
           (request) => objectiveHandlers.handleUpdate(request.params.workspaceId, request.params.objectiveId, request),
         ),
       },
+      "/api/workspaces/:workspaceId/objectives/:objectiveId/progress": {
+        GET: withRequestLogging(
+          "GET /api/workspaces/:workspaceId/objectives/:objectiveId/progress",
+          "GET",
+          (request) => objectiveHandlers.handleProgress(request.params.workspaceId, request.params.objectiveId),
+        ),
+      },
       "/api/workspaces/:workspaceId/behaviors": {
         GET: withRequestLogging(
           "GET /api/workspaces/:workspaceId/behaviors",

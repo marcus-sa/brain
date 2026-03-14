@@ -162,6 +162,78 @@ export async function updateSuccessCriteria(
 // Link to Project/Workspace
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Progress
+// ---------------------------------------------------------------------------
+
+export type ObjectiveProgress = {
+  objective_id: string;
+  title: string;
+  status: ObjectiveStatus;
+  supporting_intent_count: number;
+  success_criteria: SuccessCriterion[];
+  target_date?: string;
+  is_expired: boolean;
+  is_unsupported: boolean;
+};
+
+/**
+ * Computes objective progress via graph traversal.
+ *
+ * - Supporting intent count: count(<-supports<-intent)
+ * - Expiration: query-time check against target_date
+ * - Unsupported: supporting_intent_count === 0
+ */
+export async function getObjectiveProgress(
+  surreal: Surreal,
+  objectiveId: string,
+): Promise<ObjectiveProgress | undefined> {
+  const objectiveRecord = new RecordId("objective", objectiveId);
+
+  // Single query: fetch objective + count supporting intents via graph traversal
+  const rows = (await surreal.query(
+    `SELECT
+       id,
+       title,
+       status,
+       success_criteria,
+       target_date,
+       count(<-supports<-intent) AS supporting_intent_count
+     FROM $objective;`,
+    { objective: objectiveRecord },
+  )) as Array<Array<{
+    id: RecordId<"objective">;
+    title: string;
+    status: ObjectiveStatus;
+    success_criteria: SuccessCriterion[];
+    target_date?: string;
+    supporting_intent_count: number;
+  }>>;
+
+  const row = rows[0]?.[0];
+  if (!row) return undefined;
+
+  const now = new Date();
+  const isExpired = row.target_date !== undefined
+    ? new Date(row.target_date).getTime() < now.getTime()
+    : false;
+
+  return {
+    objective_id: row.id.id as string,
+    title: row.title,
+    status: row.status,
+    supporting_intent_count: row.supporting_intent_count,
+    success_criteria: row.success_criteria,
+    target_date: row.target_date,
+    is_expired: isExpired,
+    is_unsupported: row.supporting_intent_count === 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Link to Project/Workspace
+// ---------------------------------------------------------------------------
+
 export async function linkObjectiveToOwner(
   surreal: Surreal,
   ownerTable: "project" | "workspace",

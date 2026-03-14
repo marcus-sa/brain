@@ -122,5 +122,31 @@ events:
   s: EXECUTED
   sid: 02-02
   t: '2026-03-14T03:56:28Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 02-02
+  t: '2026-03-14T03:56:54Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 03-01
+  t: '2026-03-14T03:59:30Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 03-01
+  t: '2026-03-14T03:59:30Z'
+- d: 'NOT_APPLICABLE: progress computation is query-time graph traversal, no complex
+    pure domain logic to unit test separately'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 03-01
+  t: '2026-03-14T03:59:35Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 03-01
+  t: '2026-03-14T04:00:48Z'
 project_id: objective-behavior
 schema_version: '3.0'

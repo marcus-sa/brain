@@ -10,6 +10,7 @@ import type { ServerDependencies } from "../runtime/types";
 import {
   createObjective,
   getObjective,
+  getObjectiveProgress,
   listObjectives,
   updateObjectiveStatus,
   type ObjectiveStatus,
@@ -49,6 +50,8 @@ export function createObjectiveRouteHandlers(deps: ServerDependencies) {
       handleGetObjective(deps, workspaceId, objectiveId),
     handleUpdate: (workspaceId: string, objectiveId: string, request: Request) =>
       handleUpdateObjective(deps, workspaceId, objectiveId, request),
+    handleProgress: (workspaceId: string, objectiveId: string) =>
+      handleGetObjectiveProgress(deps, workspaceId, objectiveId),
   };
 }
 
@@ -151,6 +154,44 @@ async function handleGetObjective(
   } catch (error) {
     logError("objective.get.failed", "Failed to get objective", error, { workspaceId, objectiveId });
     return jsonError("failed to get objective", 500);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PUT /api/workspaces/:workspaceId/objectives/:objectiveId
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// GET /api/workspaces/:workspaceId/objectives/:objectiveId/progress
+// ---------------------------------------------------------------------------
+
+async function handleGetObjectiveProgress(
+  deps: ServerDependencies,
+  workspaceId: string,
+  objectiveId: string,
+): Promise<Response> {
+  try {
+    // Verify objective exists and is workspace-scoped
+    const existing = await getObjective(deps.surreal, objectiveId);
+    if (!existing) {
+      return jsonError("objective not found", 404);
+    }
+    if ((existing.workspace.id as string) !== workspaceId) {
+      return jsonError("objective not found", 404);
+    }
+
+    const progress = await getObjectiveProgress(deps.surreal, objectiveId);
+    if (!progress) {
+      return jsonError("objective not found", 404);
+    }
+
+    return jsonResponse({ progress }, 200);
+  } catch (error) {
+    logError("objective.progress.failed", "Failed to get objective progress", error, {
+      workspaceId,
+      objectiveId,
+    });
+    return jsonError("failed to get objective progress", 500);
   }
 }
 
