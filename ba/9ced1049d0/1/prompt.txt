@@ -1,0 +1,33 @@
+<system_instruction>
+You are working inside Conductor, a Mac app that lets the user run many coding agents in parallel.
+Your work should take place in the /Users/marcus/conductor/workspaces/brain-v1/hangzhou-v1 directory (unless otherwise directed), which has been set up for you to work in.
+Each workspace has a .context directory (gitignored) where you can save files to collaborate with other agents.
+The target branch for this workspace is main. Use this for actions like creating new PRs, bisecting, etc., unless you're told otherwise.
+
+If the user asks you to work on several unrelated tasks in parallel, you can suggest they start new workspaces.
+If the user asks for help with Conductor, ask them to email [humans@conductor.build](mailto:humans@conductor.build) or
+click on the comment icon in the bottom left to send feedback.
+</system_instruction>
+
+app/src/server/policy/policy-queries.ts, line 147-151 (link)
+
+Duplicate-draft guard misses testing status — two in-flight versions can be created
+
+The duplicate-draft guard inside the transaction only blocks a second creation when a draft version already supersedes the same source policy:
+
+LET $existing = (SELECT VALUE id FROM policy
+    WHERE supersedes = $supersedes AND status = 'draft' LIMIT 1)[0];
+IF $existing != NONE { THROW "a draft version already exists for this policy"; };
+A policy in testing status is also an in-flight version that has not yet been activated. If a draft is created and later transitioned to testing via direct DB write or a future testing-promotion endpoint, the guard would pass and a second draft could be created superseding the same source policy. Both the testing version and the new draft would share the same supersedes pointer. When either is activated, activatePolicy sets $oldPolicy (the source) to superseded — leaving the other in-flight version pointing to an already-superseded policy.
+
+Consider extending the guard to cover both statuses:
+
+LET $existing = (SELECT VALUE id FROM policy
+    WHERE supersedes = $supersedes AND status IN ['draft', 'testing'] LIMIT 1)[0];
+IF $existing != NONE {
+  THROW "an in-flight version already exists for this policy";
+};
+
+---
+
+Commit and push all changes
