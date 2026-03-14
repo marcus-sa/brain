@@ -25,6 +25,8 @@ export type BehaviorRow = {
   metric_type: string;
   score: number;
   source_telemetry: Record<string, unknown>;
+  definition: RecordId<"behavior_definition">;
+  definition_version: number;
   workspace: RecordId<"workspace">;
   session?: RecordId<"agent_session">;
   created_at: string;

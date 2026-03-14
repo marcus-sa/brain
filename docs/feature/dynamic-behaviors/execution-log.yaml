@@ -1,0 +1,24 @@
+events:
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-03-14T07:47:42Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-03-14T07:47:53Z'
+- d: 'NOT_APPLICABLE: schema migration and type definitions only, no domain logic
+    to property-test'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 01-01
+  t: '2026-03-14T07:47:58Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-03-14T07:53:52Z'
+project_id: dynamic-behaviors
+schema_version: '3.0'
