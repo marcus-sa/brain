@@ -180,6 +180,7 @@ async function classifyWithLlm(
       model: model as any,
       schema: classificationSchema,
       temperature: 0.1,
+      abortSignal: AbortSignal.timeout(30_000),
       prompt: [
         `Given learning A: "${learningText}"`,
         `And target B: "${targetText}"`,

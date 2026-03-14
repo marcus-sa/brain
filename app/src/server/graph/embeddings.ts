@@ -13,6 +13,7 @@ export async function createEmbeddingVector(
   const result = await embed({
     model: embeddingModel,
     value: normalized,
+    abortSignal: AbortSignal.timeout(30_000),
   });
 
   if (result.embedding.length !== expectedDimension) {
