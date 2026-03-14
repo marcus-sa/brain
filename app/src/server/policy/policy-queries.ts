@@ -145,9 +145,9 @@ export async function createPolicy(
       `
       BEGIN TRANSACTION;
         LET $existing = (SELECT VALUE id FROM policy
-            WHERE supersedes = $supersedes AND status = 'draft' LIMIT 1)[0];
+            WHERE supersedes = $supersedes AND status IN ['draft', 'testing'] LIMIT 1)[0];
         IF $existing != NONE {
-          THROW "a draft version already exists for this policy";
+          THROW "an in-flight version already exists for this policy";
         };
         LET $maxVer = (SELECT VALUE version FROM policy
             WHERE workspace = $ws AND (id = $supersedes OR supersedes = $supersedes)
