@@ -569,6 +569,13 @@ export function createBrainServer(deps: ServerDependencies): ReturnType<typeof B
   });
 }
 
+function detectTransport(url: string): string {
+  if (url.startsWith("wss://")) return "wss";
+  if (url.startsWith("ws://")) return "ws";
+  if (url.startsWith("https://")) return "https";
+  return "http";
+}
+
 export async function startServer(): Promise<void> {
   const config = loadServerConfig();
   const runtime = await createRuntimeDependencies(config);
@@ -615,13 +622,7 @@ export async function startServer(): Promise<void> {
     embeddingDimension: config.embeddingDimension,
     extractionStoreThreshold: config.extractionStoreThreshold,
     extractionDisplayThreshold: config.extractionDisplayThreshold,
-    surrealTransport: config.surrealUrl.startsWith("wss://")
-      ? "wss"
-      : config.surrealUrl.startsWith("ws://")
-        ? "ws"
-        : config.surrealUrl.startsWith("https://")
-          ? "https"
-          : "http",
+    surrealTransport: detectTransport(config.surrealUrl),
     surrealNamespace: config.surrealNamespace,
     surrealDatabase: config.surrealDatabase,
     openRouterReasoningEnabled: config.openRouterReasoning !== undefined,

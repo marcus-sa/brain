@@ -549,8 +549,8 @@ export async function runGraphScan(
       observationType: "contradiction",
       now,
       relatedRecords: [
-        decision.id as RecordId<"project" | "feature" | "task" | "decision" | "question", string>,
-        task.id as RecordId<"project" | "feature" | "task" | "decision" | "question", string>,
+        decision.id as ObserveTargetRecord,
+        task.id as ObserveTargetRecord,
       ],
     });
 
@@ -618,37 +618,36 @@ export async function runGraphScan(
     dedupContext?: Record<string, unknown>;
   };
 
-  const anomalyObservations: AnomalyObservation[] = [];
-
-  for (const task of staleBlocked) {
-    const llmReasoning = evaluationMap.get(`task:${task.id.id as string}`)?.reasoning;
-    anomalyObservations.push({
-      entityRef: `task:${task.id.id as string}`,
-      taskRecord: task.id,
-      anomalyType: "stale-blocked",
-      observationText: llmReasoning
-        ? `Task blocked for ${task.daysBlocked} days: "${task.title}". ${llmReasoning}`
-        : `Task blocked for ${task.daysBlocked} days: "${task.title}". ` +
-          `This task has been blocked since ${new Date(task.updated_at).toISOString().slice(0, 10)} ` +
-          `(exceeds the ${STALE_BLOCKED_THRESHOLD_DAYS}-day threshold).`,
-      dedupContext: { taskId: task.id.id },
-    });
-  }
-
-  for (const drift of driftTasks) {
-    const llmReasoning = evaluationMap.get(`task:${drift.id.id as string}`)?.reasoning;
-    anomalyObservations.push({
-      entityRef: `task:${drift.id.id as string}`,
-      taskRecord: drift.id,
-      anomalyType: "status-drift",
-      observationText: llmReasoning
-        ? `Status drift: Task "${drift.title}" is ${drift.status} but dependency "${drift.dependency.title}" is ${drift.dependency.status}. ${llmReasoning}`
-        : `Status drift detected: Task "${drift.title}" is marked as ${drift.status}, ` +
-          `but its dependency "${drift.dependency.title}" is still ${drift.dependency.status}. ` +
-          `A task should not be completed before its dependencies.`,
-      dedupContext: { taskId: drift.id.id, depTaskId: drift.dependency.id.id },
-    });
-  }
+  const anomalyObservations: AnomalyObservation[] = [
+    ...staleBlocked.map((task): AnomalyObservation => {
+      const llmReasoning = evaluationMap.get(`task:${task.id.id as string}`)?.reasoning;
+      return {
+        entityRef: `task:${task.id.id as string}`,
+        taskRecord: task.id,
+        anomalyType: "stale-blocked",
+        observationText: llmReasoning
+          ? `Task blocked for ${task.daysBlocked} days: "${task.title}". ${llmReasoning}`
+          : `Task blocked for ${task.daysBlocked} days: "${task.title}". ` +
+            `This task has been blocked since ${new Date(task.updated_at).toISOString().slice(0, 10)} ` +
+            `(exceeds the ${STALE_BLOCKED_THRESHOLD_DAYS}-day threshold).`,
+        dedupContext: { taskId: task.id.id },
+      };
+    }),
+    ...driftTasks.map((drift): AnomalyObservation => {
+      const llmReasoning = evaluationMap.get(`task:${drift.id.id as string}`)?.reasoning;
+      return {
+        entityRef: `task:${drift.id.id as string}`,
+        taskRecord: drift.id,
+        anomalyType: "status-drift",
+        observationText: llmReasoning
+          ? `Status drift: Task "${drift.title}" is ${drift.status} but dependency "${drift.dependency.title}" is ${drift.dependency.status}. ${llmReasoning}`
+          : `Status drift detected: Task "${drift.title}" is marked as ${drift.status}, ` +
+            `but its dependency "${drift.dependency.title}" is still ${drift.dependency.status}. ` +
+            `A task should not be completed before its dependencies.`,
+        dedupContext: { taskId: drift.id.id, depTaskId: drift.dependency.id.id },
+      };
+    }),
+  ];
 
   for (const anomaly of anomalyObservations) {
     const evaluation = evaluationMap.get(anomaly.entityRef);
@@ -682,7 +681,7 @@ export async function runGraphScan(
       sourceAgent: "observer_agent",
       observationType: "anomaly",
       now,
-      relatedRecords: [anomaly.taskRecord as RecordId<"project" | "feature" | "task" | "decision" | "question", string>],
+      relatedRecords: [anomaly.taskRecord as ObserveTargetRecord],
     });
 
     result.observations_created += 1;

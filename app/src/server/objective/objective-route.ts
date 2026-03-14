@@ -66,9 +66,9 @@ async function handleListObjectives(
 ): Promise<Response> {
   try {
     const url = new URL(request.url);
-    const statusParam = url.searchParams.get("status") as ObjectiveStatus | undefined ?? undefined;
+    const statusParam = url.searchParams.get("status") as ObjectiveStatus | undefined;
 
-    const objectives = await listObjectives(deps.surreal, workspaceId, statusParam ?? undefined);
+    const objectives = await listObjectives(deps.surreal, workspaceId, statusParam);
 
     return jsonResponse({
       objectives: objectives.map(serializeObjective),
@@ -131,6 +131,24 @@ async function handleCreateObjective(
 }
 
 // ---------------------------------------------------------------------------
+// Workspace scope verification (pure)
+// ---------------------------------------------------------------------------
+
+function isWorkspaceScoped(record: ObjectiveRecord, workspaceId: string): boolean {
+  return (record.workspace.id as string) === workspaceId;
+}
+
+async function fetchWorkspaceScopedObjective(
+  deps: ServerDependencies,
+  workspaceId: string,
+  objectiveId: string,
+): Promise<ObjectiveRecord | undefined> {
+  const objective = await getObjective(deps.surreal, objectiveId);
+  if (!objective || !isWorkspaceScoped(objective, workspaceId)) return undefined;
+  return objective;
+}
+
+// ---------------------------------------------------------------------------
 // GET /api/workspaces/:workspaceId/objectives/:objectiveId
 // ---------------------------------------------------------------------------
 
@@ -140,13 +158,8 @@ async function handleGetObjective(
   objectiveId: string,
 ): Promise<Response> {
   try {
-    const objective = await getObjective(deps.surreal, objectiveId);
+    const objective = await fetchWorkspaceScopedObjective(deps, workspaceId, objectiveId);
     if (!objective) {
-      return jsonError("objective not found", 404);
-    }
-
-    // Verify workspace scope
-    if ((objective.workspace.id as string) !== workspaceId) {
       return jsonError("objective not found", 404);
     }
 
@@ -158,10 +171,6 @@ async function handleGetObjective(
 }
 
 // ---------------------------------------------------------------------------
-// PUT /api/workspaces/:workspaceId/objectives/:objectiveId
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
 // GET /api/workspaces/:workspaceId/objectives/:objectiveId/progress
 // ---------------------------------------------------------------------------
 
@@ -171,12 +180,8 @@ async function handleGetObjectiveProgress(
   objectiveId: string,
 ): Promise<Response> {
   try {
-    // Verify objective exists and is workspace-scoped
-    const existing = await getObjective(deps.surreal, objectiveId);
+    const existing = await fetchWorkspaceScopedObjective(deps, workspaceId, objectiveId);
     if (!existing) {
-      return jsonError("objective not found", 404);
-    }
-    if ((existing.workspace.id as string) !== workspaceId) {
       return jsonError("objective not found", 404);
     }
 
@@ -217,12 +222,8 @@ async function handleUpdateObjective(
   }
 
   try {
-    // Verify objective exists and is in the right workspace
-    const existing = await getObjective(deps.surreal, objectiveId);
+    const existing = await fetchWorkspaceScopedObjective(deps, workspaceId, objectiveId);
     if (!existing) {
-      return jsonError("objective not found", 404);
-    }
-    if ((existing.workspace.id as string) !== workspaceId) {
       return jsonError("objective not found", 404);
     }
 

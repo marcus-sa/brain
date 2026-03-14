@@ -59,6 +59,10 @@ export type MetricType = (typeof KNOWN_METRIC_TYPES)[number];
 // Scorer Functions
 // ---------------------------------------------------------------------------
 
+function clampScore(value: number): number {
+  return Math.min(1.0, Math.max(0.0, value));
+}
+
 /**
  * Scores TDD adherence as the ratio of test files changed to total files changed.
  * Score is clamped to [0.0, 1.0].
@@ -70,10 +74,7 @@ export function scoreTddAdherence(telemetry: TddTelemetry): ScorerResult {
     return { success: true, score: 0.0 };
   }
 
-  const ratio = test_files_changed / files_changed;
-  const score = Math.min(1.0, Math.max(0.0, ratio));
-
-  return { success: true, score };
+  return { success: true, score: clampScore(test_files_changed / files_changed) };
 }
 
 /**
@@ -87,10 +88,7 @@ export function scoreSecurityFirst(telemetry: SecurityTelemetry): ScorerResult {
     return { success: true, score: 1.0 };
   }
 
-  const ratio = cve_advisories_addressed / cve_advisories_in_context;
-  const score = Math.min(1.0, Math.max(0.0, ratio));
-
-  return { success: true, score };
+  return { success: true, score: clampScore(cve_advisories_addressed / cve_advisories_in_context) };
 }
 
 // ---------------------------------------------------------------------------

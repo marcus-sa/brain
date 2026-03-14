@@ -109,23 +109,23 @@ export async function resolveObservation(input: {
   });
 }
 
+type OpenObservationRow = {
+  id: ObservationRecord;
+  text: string;
+  severity: ObservationSeverity;
+  status: ObservationStatus;
+  category?: EntityCategory;
+  source_agent: string;
+  created_at: string | Date;
+};
+
 export async function listWorkspaceOpenObservations(input: {
   surreal: Surreal;
   workspaceRecord: RecordId<"workspace", string>;
   limit: number;
 }): Promise<ObservationSummary[]> {
   const [rows] = await input.surreal
-    .query<[
-      Array<{
-        id: ObservationRecord;
-        text: string;
-        severity: ObservationSeverity;
-        status: ObservationStatus;
-        category?: EntityCategory;
-        source_agent: string;
-        created_at: string | Date;
-      }>,
-    ]>(
+    .query<[OpenObservationRow[]]>(
       [
         "SELECT id, text, severity, status, category, source_agent, created_at",
         "FROM observation",
@@ -139,17 +139,7 @@ export async function listWorkspaceOpenObservations(input: {
         limit: input.limit,
       },
     )
-    .collect<[
-      Array<{
-        id: ObservationRecord;
-        text: string;
-        severity: ObservationSeverity;
-        status: ObservationStatus;
-        category?: EntityCategory;
-        source_agent: string;
-        created_at: string | Date;
-      }>,
-    ]>();
+    .collect<[OpenObservationRow[]]>();
 
   return rows
     .slice()

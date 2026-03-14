@@ -105,18 +105,10 @@ export async function listBehaviors(
   const behaviorIds = edgeRows[0]?.[0]?.behaviors ?? [];
   if (behaviorIds.length === 0) return [];
 
-  if (metricType) {
-    const rows = (await surreal.query(
-      `SELECT * FROM behavior WHERE id IN $ids AND metric_type = $mt ORDER BY created_at DESC;`,
-      { ids: behaviorIds, mt: metricType },
-    )) as Array<BehaviorRow[]>;
-    return rows[0] ?? [];
-  }
-
-  const rows = (await surreal.query(
-    `SELECT * FROM behavior WHERE id IN $ids ORDER BY created_at DESC;`,
-    { ids: behaviorIds },
-  )) as Array<BehaviorRow[]>;
+  const query = metricType
+    ? `SELECT * FROM behavior WHERE id IN $ids AND metric_type = $mt ORDER BY created_at DESC;`
+    : `SELECT * FROM behavior WHERE id IN $ids ORDER BY created_at DESC;`;
+  const rows = (await surreal.query(query, { ids: behaviorIds, mt: metricType })) as Array<BehaviorRow[]>;
   return rows[0] ?? [];
 }
 
@@ -180,17 +172,9 @@ export async function listWorkspaceBehaviors(
 ): Promise<BehaviorRow[]> {
   const workspaceRecord = new RecordId("workspace", workspaceId);
 
-  if (metricType) {
-    const rows = (await surreal.query(
-      `SELECT * FROM behavior WHERE workspace = $ws AND metric_type = $mt ORDER BY created_at DESC LIMIT $limit;`,
-      { ws: workspaceRecord, mt: metricType, limit },
-    )) as Array<BehaviorRow[]>;
-    return rows[0] ?? [];
-  }
-
-  const rows = (await surreal.query(
-    `SELECT * FROM behavior WHERE workspace = $ws ORDER BY created_at DESC LIMIT $limit;`,
-    { ws: workspaceRecord, limit },
-  )) as Array<BehaviorRow[]>;
+  const query = metricType
+    ? `SELECT * FROM behavior WHERE workspace = $ws AND metric_type = $mt ORDER BY created_at DESC LIMIT $limit;`
+    : `SELECT * FROM behavior WHERE workspace = $ws ORDER BY created_at DESC LIMIT $limit;`;
+  const rows = (await surreal.query(query, { ws: workspaceRecord, mt: metricType, limit })) as Array<BehaviorRow[]>;
   return rows[0] ?? [];
 }

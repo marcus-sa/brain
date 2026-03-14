@@ -111,18 +111,10 @@ export async function listObjectives(
 ): Promise<ObjectiveRecord[]> {
   const workspaceRecord = new RecordId("workspace", workspaceId);
 
-  if (status) {
-    const rows = (await surreal.query(
-      `SELECT * FROM objective WHERE workspace = $ws AND status = $status ORDER BY created_at DESC;`,
-      { ws: workspaceRecord, status },
-    )) as Array<ObjectiveRecord[]>;
-    return rows[0] ?? [];
-  }
-
-  const rows = (await surreal.query(
-    `SELECT * FROM objective WHERE workspace = $ws ORDER BY created_at DESC;`,
-    { ws: workspaceRecord },
-  )) as Array<ObjectiveRecord[]>;
+  const query = status
+    ? `SELECT * FROM objective WHERE workspace = $ws AND status = $status ORDER BY created_at DESC;`
+    : `SELECT * FROM objective WHERE workspace = $ws ORDER BY created_at DESC;`;
+  const rows = (await surreal.query(query, { ws: workspaceRecord, status })) as Array<ObjectiveRecord[]>;
   return rows[0] ?? [];
 }
 
@@ -157,10 +149,6 @@ export async function updateSuccessCriteria(
     { objective: objectiveRecord, criteria: successCriteria },
   );
 }
-
-// ---------------------------------------------------------------------------
-// Link to Project/Workspace
-// ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
 // Progress
