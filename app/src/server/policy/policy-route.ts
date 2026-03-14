@@ -293,7 +293,7 @@ async function handleActivatePolicy(
 
     await activatePolicy(
       deps.surreal,
-      policyId,
+      policy,
       guardResult.identityRecord,
       workspaceRecord,
     );

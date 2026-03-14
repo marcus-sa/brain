@@ -145,22 +145,23 @@ export async function createPolicy(
 
 export async function activatePolicy(
   surreal: Surreal,
-  policyId: string,
+  policy: PolicyRecord,
   creatorId: RecordId<"identity">,
   workspaceId: RecordId<"workspace">,
 ): Promise<void> {
-  const policyRecord = new RecordId("policy", policyId);
-
-  // Check if this policy supersedes another — if so, atomically supersede the old one
-  const policy = await surreal.select<PolicyRecord>(policyRecord);
-  const supersededRecord = policy?.supersedes;
+  const policyRecord = policy.id;
+  const supersededRecord = policy.supersedes;
 
   if (supersededRecord) {
-    // D5: Validate version chain monotonicity
-    const oldPolicy = await surreal.select<PolicyRecord>(supersededRecord);
-    if (oldPolicy && policy.version <= oldPolicy.version) {
+    // D5: Validate version chain monotonicity — single query to get old version number
+    const [oldVersionRows] = await surreal.query<[Array<{ version: number }>]>(
+      "SELECT version FROM $ref;",
+      { ref: supersededRecord },
+    );
+    const oldVersion = oldVersionRows?.[0]?.version;
+    if (oldVersion !== undefined && policy.version <= oldVersion) {
       throw new Error(
-        `version ${policy.version} must be greater than superseded version ${oldPolicy.version}`,
+        `version ${policy.version} must be greater than superseded version ${oldVersion}`,
       );
     }
 
@@ -276,21 +277,21 @@ export function buildVersionChainSingle(policy: PolicyRecord): PolicyVersionChai
   }];
 }
 
+const MAX_VERSION_CHAIN_DEPTH = 50;
+
 /** Traverse the supersedes chain to build a full version history. */
 export async function buildVersionChain(
   surreal: Surreal,
   policy: PolicyRecord,
 ): Promise<PolicyVersionChainItem[]> {
-  const chain: PolicyVersionChainItem[] = [];
   const seen = new Set<string>();
-
-  // Walk backward via supersedes references to find the root
   const allVersions: PolicyRecord[] = [policy];
   seen.add(policy.id.id as string);
 
-  // Walk backward: follow the supersedes field from the given policy
+  // Walk backward: follow supersedes references (bounded)
   let current: PolicyRecord | undefined = policy;
-  while (current?.supersedes) {
+  let depth = 0;
+  while (current?.supersedes && depth < MAX_VERSION_CHAIN_DEPTH) {
     const parentId = current.supersedes.id as string;
     if (seen.has(parentId)) break;
     seen.add(parentId);
@@ -299,12 +300,13 @@ export async function buildVersionChain(
     if (!parent) break;
     allVersions.unshift(parent);
     current = parent;
+    depth++;
   }
 
-  // Walk forward: find policies that supersede the given policy (newer versions)
+  // Walk forward: find policies that supersede the given policy (bounded)
   let latestId = policy.id.id as string;
-  let searching = true;
-  while (searching) {
+  depth = 0;
+  while (depth < MAX_VERSION_CHAIN_DEPTH) {
     const [rows] = await surreal.query<[PolicyRecord[]]>(
       "SELECT * FROM policy WHERE supersedes = $ref LIMIT 1;",
       { ref: new RecordId("policy", latestId) },
@@ -314,26 +316,23 @@ export async function buildVersionChain(
       seen.add(child.id.id as string);
       allVersions.push(child);
       latestId = child.id.id as string;
+      depth++;
     } else {
-      searching = false;
+      break;
     }
   }
 
   // Sort by version number and format
   allVersions.sort((a, b) => a.version - b.version);
-  for (const v of allVersions) {
-    chain.push({
-      id: v.id.id as string,
-      version: v.version,
-      status: v.status,
-      created_at: formatTimestamp(v.created_at),
-    });
-  }
-
-  return chain;
+  return allVersions.map((v) => ({
+    id: v.id.id as string,
+    version: v.version,
+    status: v.status,
+    created_at: formatTimestamp(v.created_at),
+  }));
 }
 
-/** Get version chain for the version history endpoint (includes title + rules_count). */
+/** Traverse the supersedes chain and return enriched version history (title + rules_count). */
 export async function getVersionChain(
   surreal: Surreal,
   policyId: string,
@@ -342,21 +341,58 @@ export async function getVersionChain(
   const policy = await getPolicyById(surreal, policyId, workspace);
   if (!policy) return undefined;
 
-  const chain = await buildVersionChain(surreal, policy);
+  return buildVersionChainEnriched(surreal, policy);
+}
 
-  // Enrich with title and rules_count from the original records
-  const enriched: Array<PolicyVersionChainItem & { title: string; rules_count: number }> = [];
-  for (const item of chain) {
-    const record = new RecordId("policy", item.id);
-    const policyRecord = await surreal.select<PolicyRecord>(record);
-    enriched.push({
-      ...item,
-      title: policyRecord?.title ?? "",
-      rules_count: policyRecord?.rules?.length ?? 0,
-    });
+/** Like buildVersionChain but includes title + rules_count from already-fetched records. */
+async function buildVersionChainEnriched(
+  surreal: Surreal,
+  policy: PolicyRecord,
+): Promise<Array<PolicyVersionChainItem & { title: string; rules_count: number }>> {
+  const seen = new Set<string>();
+  const allVersions: PolicyRecord[] = [policy];
+  seen.add(policy.id.id as string);
+
+  let current: PolicyRecord | undefined = policy;
+  let depth = 0;
+  while (current?.supersedes && depth < MAX_VERSION_CHAIN_DEPTH) {
+    const parentId = current.supersedes.id as string;
+    if (seen.has(parentId)) break;
+    seen.add(parentId);
+    const parent = await surreal.select<PolicyRecord>(new RecordId("policy", parentId));
+    if (!parent) break;
+    allVersions.unshift(parent);
+    current = parent;
+    depth++;
   }
 
-  return enriched;
+  let latestId = policy.id.id as string;
+  depth = 0;
+  while (depth < MAX_VERSION_CHAIN_DEPTH) {
+    const [rows] = await surreal.query<[PolicyRecord[]]>(
+      "SELECT * FROM policy WHERE supersedes = $ref LIMIT 1;",
+      { ref: new RecordId("policy", latestId) },
+    );
+    const child = rows?.[0];
+    if (child && !seen.has(child.id.id as string)) {
+      seen.add(child.id.id as string);
+      allVersions.push(child);
+      latestId = child.id.id as string;
+      depth++;
+    } else {
+      break;
+    }
+  }
+
+  allVersions.sort((a, b) => a.version - b.version);
+  return allVersions.map((v) => ({
+    id: v.id.id as string,
+    version: v.version,
+    status: v.status,
+    created_at: formatTimestamp(v.created_at),
+    title: v.title,
+    rules_count: v.rules?.length ?? 0,
+  }));
 }
 
 export async function createPolicyAuditEvent(
