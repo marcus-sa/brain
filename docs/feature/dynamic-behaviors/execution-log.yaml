@@ -71,5 +71,30 @@ events:
   s: EXECUTED
   sid: 01-03
   t: '2026-03-14T08:01:29Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 01-03
+  t: '2026-03-14T08:02:13Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-03-14T08:55:29Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-03-14T08:55:51Z'
+- d: PASS
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-03-14T08:58:18Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-03-14T08:58:50Z'
 project_id: dynamic-behaviors
 schema_version: '3.0'
