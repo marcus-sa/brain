@@ -111,6 +111,8 @@ export async function listBehaviors(
   surreal: Surreal,
   identityId: string,
   metricType?: string,
+  workspaceId?: string,
+  limit = 50,
 ): Promise<BehaviorRow[]> {
   const identityRecord = new RecordId("identity", identityId);
 
@@ -123,10 +125,20 @@ export async function listBehaviors(
   const behaviorIds = edgeRows[0]?.[0]?.behaviors ?? [];
   if (behaviorIds.length === 0) return [];
 
-  const query = metricType
-    ? `SELECT * FROM behavior WHERE id IN $ids AND metric_type = $mt ORDER BY created_at DESC;`
-    : `SELECT * FROM behavior WHERE id IN $ids ORDER BY created_at DESC;`;
-  const rows = (await surreal.query(query, { ids: behaviorIds, mt: metricType })) as Array<BehaviorRow[]>;
+  const conditions = ["id IN $ids"];
+  const params: Record<string, unknown> = { ids: behaviorIds, limit };
+
+  if (metricType) {
+    conditions.push("metric_type = $mt");
+    params.mt = metricType;
+  }
+  if (workspaceId) {
+    conditions.push("workspace = $ws");
+    params.ws = new RecordId("workspace", workspaceId);
+  }
+
+  const query = `SELECT * FROM behavior WHERE ${conditions.join(" AND ")} ORDER BY created_at DESC LIMIT $limit;`;
+  const rows = (await surreal.query(query, params)) as Array<BehaviorRow[]>;
   return rows[0] ?? [];
 }
 

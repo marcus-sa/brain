@@ -113,7 +113,12 @@ export async function evaluateIntent(
   const humanVetoRequired = gateResult.human_veto_required;
   const policyTrace = gateResult.policy_trace;
 
+  const timeoutMs = input.timeoutMs ?? DEFAULT_EVAL_TIMEOUT_MS;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
   // --- Alignment step (warning mode: never blocks authorization) ---
+  // Runs inside the timeout block so KNN + edge writes share the abort budget.
   let alignmentResult: AlignmentResult | undefined;
   if (input.intentEmbedding && input.findAlignedObjectives) {
     try {
@@ -151,15 +156,12 @@ export async function evaluateIntent(
           alignmentResult.score,
         );
       }
-    } catch {
-      // Alignment failure never blocks intent authorization (warning mode)
+    } catch (error) {
+      if (isAbortError(error)) throw error;
+      // Non-timeout alignment failure never blocks intent authorization
       alignmentResult = { classification: "none", score: 0 };
     }
   }
-
-  const timeoutMs = input.timeoutMs ?? DEFAULT_EVAL_TIMEOUT_MS;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const llmResult = await input.llmEvaluator(input.intent, controller.signal);

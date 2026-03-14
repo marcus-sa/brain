@@ -99,10 +99,8 @@ async function handleListBehaviors(
     let records: BehaviorRow[];
 
     if (identityId) {
-      // Query by identity traversing exhibits edges
-      records = await listBehaviors(deps.surreal, identityId, metricType);
-      // Filter to workspace scope
-      records = records.filter((r) => (r.workspace.id as string) === workspaceId);
+      // Query by identity traversing exhibits edges, scoped to workspace
+      records = await listBehaviors(deps.surreal, identityId, metricType, workspaceId);
     } else {
       // Query by workspace directly
       records = await listWorkspaceBehaviors(deps.surreal, workspaceId, metricType);

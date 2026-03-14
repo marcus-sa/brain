@@ -38,6 +38,12 @@ export function computeCosineSimilarity(
   vectorA: number[],
   vectorB: number[],
 ): number {
+  if (vectorA.length !== vectorB.length) {
+    throw new Error(
+      `Vector length mismatch: vectorA has ${vectorA.length} dimensions, vectorB has ${vectorB.length}`,
+    );
+  }
+
   let dotProduct = 0;
   let magnitudeA = 0;
   let magnitudeB = 0;

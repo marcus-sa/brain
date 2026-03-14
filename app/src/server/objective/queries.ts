@@ -108,13 +108,14 @@ export async function listObjectives(
   surreal: Surreal,
   workspaceId: string,
   status?: ObjectiveStatus,
+  limit = 100,
 ): Promise<ObjectiveRecord[]> {
   const workspaceRecord = new RecordId("workspace", workspaceId);
 
   const query = status
-    ? `SELECT * FROM objective WHERE workspace = $ws AND status = $status ORDER BY created_at DESC;`
-    : `SELECT * FROM objective WHERE workspace = $ws ORDER BY created_at DESC;`;
-  const rows = (await surreal.query(query, { ws: workspaceRecord, status })) as Array<ObjectiveRecord[]>;
+    ? `SELECT * FROM objective WHERE workspace = $ws AND status = $status ORDER BY created_at DESC LIMIT $limit;`
+    : `SELECT * FROM objective WHERE workspace = $ws ORDER BY created_at DESC LIMIT $limit;`;
+  const rows = (await surreal.query(query, { ws: workspaceRecord, status, limit })) as Array<ObjectiveRecord[]>;
   return rows[0] ?? [];
 }
 
