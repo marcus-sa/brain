@@ -79,22 +79,26 @@ describe("Worktree Manager: createWorktree", () => {
     }
   });
 
-  test("invokes git worktree add with correct arguments", async () => {
+  test("prunes stale worktrees then invokes git worktree add", async () => {
     const { exec, calls } = createShellStub();
 
     await createWorktree(exec, "/repo", "fix-login-bug");
 
-    expect(calls.length).toBe(1);
-    const call = calls[0];
-    expect(call.command).toBe("git");
-    expect(call.args).toEqual([
+    expect(calls.length).toBe(2);
+    // First call: prune stale worktree entries
+    expect(calls[0].command).toBe("git");
+    expect(calls[0].args).toEqual(["worktree", "prune"]);
+    expect(calls[0].cwd).toBe("/repo");
+    // Second call: create the worktree
+    expect(calls[1].command).toBe("git");
+    expect(calls[1].args).toEqual([
       "worktree",
       "add",
       "-b",
       "agent/fix-login-bug",
       ".brain/worktrees/agent-fix-login-bug",
     ]);
-    expect(call.cwd).toBe("/repo");
+    expect(calls[1].cwd).toBe("/repo");
   });
 
   test("returns error when worktree already exists", async () => {

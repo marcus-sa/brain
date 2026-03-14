@@ -105,6 +105,10 @@ export async function createWorktree(
   const branchName = buildBranchName(taskSlug);
   const relativePath = worktreeRelativePath(taskSlug);
 
+  // Prune stale worktree entries to prevent failures when .git/worktrees/
+  // contains references to worktrees that no longer exist on disk.
+  await exec("git", ["worktree", "prune"], repoRoot);
+
   const result = await exec(
     "git",
     ["worktree", "add", "-b", branchName, relativePath],
