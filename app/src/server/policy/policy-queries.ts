@@ -153,21 +153,19 @@ export async function activatePolicy(
   const supersededRecord = policy.supersedes;
 
   if (supersededRecord) {
-    // D5: Validate version chain monotonicity — single query to get old version number
-    const [oldVersionRows] = await surreal.query<[Array<{ version: number }>]>(
-      "SELECT version FROM $ref;",
-      { ref: supersededRecord },
-    );
-    const oldVersion = oldVersionRows?.[0]?.version;
-    if (oldVersion !== undefined && policy.version <= oldVersion) {
-      throw new Error(
-        `version ${policy.version} must be greater than superseded version ${oldVersion}`,
-      );
-    }
-
+    // D5: Version monotonicity check inside transaction to prevent TOCTOU race.
+    // Two concurrent activations of drafts superseding the same policy would both
+    // read the old version outside the transaction, both pass, and both commit —
+    // violating the single-active-version invariant. Moving the guard into the
+    // transaction makes the check-and-update atomic.
     await surreal.query(
       `
       BEGIN TRANSACTION;
+        LET $oldVer = (SELECT VALUE version FROM $oldPolicy)[0];
+        IF $oldVer != NONE AND $policyVersion <= $oldVer {
+          THROW string::concat("version ", <string> $policyVersion,
+            " must be greater than superseded version ", <string> $oldVer);
+        };
         UPDATE $policy SET status = 'active', updated_at = time::now();
         RELATE $creator->governing->$policy SET created_at = time::now();
         RELATE $policy->protects->$workspace SET created_at = time::now();
@@ -181,6 +179,7 @@ export async function activatePolicy(
         creator: creatorId,
         workspace: workspaceId,
         oldPolicy: supersededRecord,
+        policyVersion: policy.version,
       },
     );
   } else {
