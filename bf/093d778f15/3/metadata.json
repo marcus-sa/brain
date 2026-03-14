@@ -1,0 +1,35 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "bf093d778f15",
+  "session_id": "e4bd7e6a-1ce2-45b0-8a2f-bfd19cca80ca",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-14T08:02:08.969699Z",
+  "branch": "marcus-sa/objective-behavior-nodes",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "docs/feature/dynamic-behaviors/execution-log.yaml",
+    "app/src/server/behavior/behavior-route.ts",
+    "app/src/server/behavior/queries.ts",
+    "app/src/server/runtime/start-server.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "2c019affc098",
+  "checkpoint_transcript_start": 2,
+  "transcript_lines_at_start": 2,
+  "token_usage": {
+    "input_tokens": 0,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 0,
+    "output_tokens": 0,
+    "api_call_count": 0
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-14T08:02:08.968245Z",
+    "agent_lines": 5,
+    "human_added": 233,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 238,
+    "agent_percentage": 2.100840336134454
+  }
+}
