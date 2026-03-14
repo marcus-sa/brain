@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "373333914842",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/policy-crud-ui",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "tests/unit/coding-agent-orchestrator/worktree-manager.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/37/3333914842/0/metadata.json",
+      "transcript": "/37/3333914842/0/full.jsonl",
+      "context": "/37/3333914842/0/context.md",
+      "content_hash": "/37/3333914842/0/content_hash.txt",
+      "prompt": "/37/3333914842/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 0,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 0,
+    "output_tokens": 0,
+    "api_call_count": 0
+  }
+}
