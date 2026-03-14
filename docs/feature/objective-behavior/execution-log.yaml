@@ -225,5 +225,31 @@ events:
   s: EXECUTED
   sid: 04-01
   t: '2026-03-14T04:20:07Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 04-01
+  t: '2026-03-14T04:20:33Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 04-02
+  t: '2026-03-14T04:23:01Z'
+- d: 'NOT_APPLICABLE: Graph rendering is UI-only; no acceptance test infrastructure
+    for visual graph components exists'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 04-02
+  t: '2026-03-14T04:23:05Z'
+- d: PASS
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 04-02
+  t: '2026-03-14T04:23:55Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 04-02
+  t: '2026-03-14T04:25:12Z'
 project_id: objective-behavior
 schema_version: '3.0'

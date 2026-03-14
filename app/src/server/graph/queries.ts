@@ -223,6 +223,16 @@ export async function readEntityName(
     return row?.agent;
   }
 
+  if (table === "objective") {
+    const row = await surreal.select<{ title: string }>(record as RecordId<"objective", string>);
+    return row?.title;
+  }
+
+  if (table === "behavior") {
+    const row = await surreal.select<{ metric_type: string; score: number }>(record as RecordId<"behavior", string>);
+    return row ? `${row.metric_type} (${row.score.toFixed(2)})` : undefined;
+  }
+
   const row = await surreal.select<{ text: string }>(record as RecordId<"question", string>);
   return row?.text;
 }
