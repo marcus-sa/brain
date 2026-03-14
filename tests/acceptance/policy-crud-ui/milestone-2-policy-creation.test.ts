@@ -185,7 +185,7 @@ describe("Milestone 2: Policy Creation Validation (US-PCUI-02)", () => {
   // Missing title is rejected
   // AC: POST without title returns 400
   // ---------------------------------------------------------------------------
-  it.skip("policy creation is rejected without a title", async () => {
+  it("policy creation is rejected without a title", async () => {
     const { baseUrl } = getRuntime();
 
     // Given an admin in a workspace
@@ -213,7 +213,7 @@ describe("Milestone 2: Policy Creation Validation (US-PCUI-02)", () => {
   // Missing rules is rejected
   // AC: POST without rules returns 400
   // ---------------------------------------------------------------------------
-  it.skip("policy creation is rejected without any rules", async () => {
+  it("policy creation is rejected without any rules", async () => {
     const { baseUrl } = getRuntime();
 
     // Given an admin in a workspace
@@ -241,7 +241,7 @@ describe("Milestone 2: Policy Creation Validation (US-PCUI-02)", () => {
   // Invalid predicate structure is rejected
   // AC: POST with malformed rule condition returns 400
   // ---------------------------------------------------------------------------
-  it.skip("policy creation is rejected with invalid predicate structure", async () => {
+  it("policy creation is rejected with invalid predicate structure", async () => {
     const { baseUrl } = getRuntime();
 
     // Given an admin in a workspace
@@ -272,7 +272,7 @@ describe("Milestone 2: Policy Creation Validation (US-PCUI-02)", () => {
   // Invalid effect value is rejected
   // AC: POST with effect other than allow/deny returns 400
   // ---------------------------------------------------------------------------
-  it.skip("policy creation is rejected with invalid rule effect", async () => {
+  it("policy creation is rejected with invalid rule effect", async () => {
     const { baseUrl } = getRuntime();
 
     // Given an admin in a workspace

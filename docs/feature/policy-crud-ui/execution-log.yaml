@@ -46,5 +46,30 @@ events:
   s: EXECUTED
   sid: 01-02
   t: '2026-03-14T04:00:04Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-03-14T04:00:31Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 01-03
+  t: '2026-03-14T04:04:45Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 01-03
+  t: '2026-03-14T04:05:18Z'
+- d: PASS
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 01-03
+  t: '2026-03-14T04:05:52Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 01-03
+  t: '2026-03-14T04:06:58Z'
 project_id: policy-crud-ui
 schema_version: '3.0'

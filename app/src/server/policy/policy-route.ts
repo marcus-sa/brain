@@ -5,6 +5,7 @@ import { jsonError, jsonResponse } from "../http/response";
 import type { ServerDependencies } from "../runtime/types";
 import { resolveWorkspaceRecord } from "../workspace/workspace-scope";
 import { listWorkspacePolicies } from "./policy-queries";
+import { validatePolicyCreateBody } from "./policy-validation";
 import type { PolicyRecord, PolicyStatus } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -227,6 +228,18 @@ async function handleCreatePolicy(
 ): Promise<Response> {
   const guardResult = await requireHumanIdentity(deps, request);
   if (isResponse(guardResult)) return guardResult;
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonError("invalid JSON body", 400);
+  }
+
+  const validation = validatePolicyCreateBody(body as { title: unknown; rules: unknown });
+  if (!validation.valid) {
+    return jsonError(validation.errors[0], 400);
+  }
 
   return jsonError("not implemented", 501);
 }
