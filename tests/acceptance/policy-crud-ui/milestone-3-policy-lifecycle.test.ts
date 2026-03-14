@@ -14,6 +14,7 @@
  *   GET   /api/workspaces/:wsId/policies/:id
  */
 import { describe, expect, it } from "bun:test";
+import { RecordId } from "surrealdb";
 import {
   setupAcceptanceSuite,
   createTestUser,
@@ -44,7 +45,7 @@ describe("Milestone 3: Policy Activation (US-PCUI-04)", () => {
   // Walking Skeleton: Admin activates a draft policy
   // AC: Draft -> active, governing and protects edges created
   // ---------------------------------------------------------------------------
-  it.skip("admin activates a draft policy and governance edges are created", async () => {
+  it("admin activates a draft policy and governance edges are created", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a draft policy with one deny rule
@@ -94,7 +95,7 @@ describe("Milestone 3: Policy Activation (US-PCUI-04)", () => {
   // Cannot activate an already-active policy
   // AC: PATCH /activate on active policy returns 409
   // ---------------------------------------------------------------------------
-  it.skip("cannot activate an already-active policy", async () => {
+  it("cannot activate an already-active policy", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given an active policy
@@ -123,7 +124,7 @@ describe("Milestone 3: Policy Activation (US-PCUI-04)", () => {
   // Cannot activate a deprecated policy
   // AC: PATCH /activate on deprecated policy returns 409
   // ---------------------------------------------------------------------------
-  it.skip("cannot activate a deprecated policy", async () => {
+  it("cannot activate a deprecated policy", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a deprecated policy
@@ -151,7 +152,7 @@ describe("Milestone 3: Policy Activation (US-PCUI-04)", () => {
   // Cannot activate a superseded policy
   // AC: PATCH /activate on superseded policy returns 409
   // ---------------------------------------------------------------------------
-  it.skip("cannot activate a superseded policy", async () => {
+  it("cannot activate a superseded policy", async () => {
     const { baseUrl, surreal } = getRuntime();
 
     // Given a superseded policy (v1 superseded by v2)
@@ -167,9 +168,10 @@ describe("Milestone 3: Policy Activation (US-PCUI-04)", () => {
 
     // Supersede v1 by creating and activating v2
     // (simulate via direct DB update to put v1 in superseded state)
+    const v1Record = new RecordId("policy", v1Id);
     await surreal.query(
-      `UPDATE type::thing("policy", $id) SET status = 'superseded', updated_at = time::now();`,
-      { id: v1Id },
+      `UPDATE $policy SET status = 'superseded', updated_at = time::now();`,
+      { policy: v1Record },
     );
 
     // When admin attempts to activate the superseded v1

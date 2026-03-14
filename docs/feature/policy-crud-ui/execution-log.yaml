@@ -97,5 +97,31 @@ events:
   s: EXECUTED
   sid: 02-01
   t: '2026-03-14T04:28:00Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-03-14T04:28:34Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 02-02
+  t: '2026-03-14T04:35:33Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 02-02
+  t: '2026-03-14T04:36:04Z'
+- d: 'NOT_APPLICABLE: status guard is a simple conditional fully covered by 4 acceptance
+    scenarios'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 02-02
+  t: '2026-03-14T04:36:12Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 02-02
+  t: '2026-03-14T04:36:54Z'
 project_id: policy-crud-ui
 schema_version: '3.0'

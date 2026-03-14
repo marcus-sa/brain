@@ -4,7 +4,7 @@ import { logError } from "../http/observability";
 import { jsonError, jsonResponse } from "../http/response";
 import type { ServerDependencies } from "../runtime/types";
 import { resolveWorkspaceRecord } from "../workspace/workspace-scope";
-import { createPolicy, listWorkspacePolicies } from "./policy-queries";
+import { activatePolicy, createPolicy, listWorkspacePolicies } from "./policy-queries";
 import { validatePolicyCreateBody } from "./policy-validation";
 import type { PolicyRecord, PolicyRule, PolicySelector, PolicyStatus } from "./types";
 
@@ -270,16 +270,49 @@ async function handleCreatePolicy(
 // PATCH /api/workspaces/:workspaceId/policies/:policyId/activate (stub - guarded)
 // ---------------------------------------------------------------------------
 
+/** Statuses from which activation is allowed. */
+const ACTIVATABLE_STATUSES: ReadonlySet<PolicyStatus> = new Set<PolicyStatus>(["draft", "testing"]);
+
 async function handleActivatePolicy(
   deps: ServerDependencies,
-  _workspaceId: string,
-  _policyId: string,
+  workspaceId: string,
+  policyId: string,
   request: Request,
 ): Promise<Response> {
   const guardResult = await requireHumanIdentity(deps, request);
   if (isResponse(guardResult)) return guardResult;
 
-  return jsonError("not implemented", 501);
+  const workspaceOrError = await resolveWorkspace(deps, workspaceId, "policy.activate.workspace_resolve.failed");
+  if (isResponse(workspaceOrError)) return workspaceOrError;
+  const workspaceRecord = workspaceOrError;
+
+  try {
+    const policyRecord = new RecordId("policy", policyId);
+    const policy = await deps.surreal.select<PolicyRecord>(policyRecord);
+
+    if (!policy || (policy.workspace.id as string) !== (workspaceRecord.id as string)) {
+      return jsonError("policy not found", 404);
+    }
+
+    if (!ACTIVATABLE_STATUSES.has(policy.status)) {
+      return jsonError(
+        `policy must be in draft or testing status to activate (current: ${policy.status})`,
+        409,
+      );
+    }
+
+    await activatePolicy(
+      deps.surreal,
+      policyId,
+      guardResult.identityRecord,
+      workspaceRecord,
+    );
+
+    return jsonResponse({ status: "active" }, 200);
+  } catch (error) {
+    logError("policy.activate.failed", "Failed to activate policy", error, { workspaceId, policyId });
+    return jsonError("failed to activate policy", 500);
+  }
 }
 
 // ---------------------------------------------------------------------------
