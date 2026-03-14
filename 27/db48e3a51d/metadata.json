@@ -3,7 +3,7 @@
   "checkpoint_id": "27db48e3a51d",
   "strategy": "manual-commit",
   "branch": "marcus-sa/objective-behavior-nodes",
-  "checkpoints_count": 0,
+  "checkpoints_count": 1,
   "files_touched": [
     "tests/acceptance/objective-behavior/objective-behavior-test-kit.ts"
   ],
@@ -35,13 +35,20 @@
       "context": "/27/db48e3a51d/3/context.md",
       "content_hash": "/27/db48e3a51d/3/content_hash.txt",
       "prompt": "/27/db48e3a51d/3/prompt.txt"
+    },
+    {
+      "metadata": "/27/db48e3a51d/4/metadata.json",
+      "transcript": "/27/db48e3a51d/4/full.jsonl",
+      "context": "/27/db48e3a51d/4/context.md",
+      "content_hash": "/27/db48e3a51d/4/content_hash.txt",
+      "prompt": "/27/db48e3a51d/4/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 34,
-    "cache_creation_tokens": 94094,
-    "cache_read_tokens": 1040358,
-    "output_tokens": 5296,
-    "api_call_count": 14
+    "input_tokens": 55,
+    "cache_creation_tokens": 147139,
+    "cache_read_tokens": 1806075,
+    "output_tokens": 8851,
+    "api_call_count": 27
   }
 }
