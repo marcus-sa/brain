@@ -1,0 +1,28 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "e8d8d961798c",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/policy-crud-ui",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "app/src/server/policy/policy-queries.ts",
+    "app/src/server/policy/policy-route.ts",
+    "schema/surreal-schema.surql"
+  ],
+  "sessions": [
+    {
+      "metadata": "/e8/d8d961798c/0/metadata.json",
+      "transcript": "/e8/d8d961798c/0/full.jsonl",
+      "context": "/e8/d8d961798c/0/context.md",
+      "content_hash": "/e8/d8d961798c/0/content_hash.txt",
+      "prompt": "/e8/d8d961798c/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 64,
+    "cache_creation_tokens": 86046,
+    "cache_read_tokens": 2381771,
+    "output_tokens": 9189,
+    "api_call_count": 36
+  }
+}

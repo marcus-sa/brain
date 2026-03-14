@@ -1,0 +1,34 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "e8d8d961798c",
+  "session_id": "98a6a01b-b747-432b-a1cb-dab9e370977f",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-14T07:36:40.746791Z",
+  "branch": "marcus-sa/policy-crud-ui",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "app/src/server/policy/policy-queries.ts",
+    "app/src/server/policy/policy-route.ts",
+    "schema/surreal-schema.surql"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "fcff36699b5c",
+  "checkpoint_transcript_start": 27,
+  "transcript_lines_at_start": 27,
+  "token_usage": {
+    "input_tokens": 64,
+    "cache_creation_tokens": 86046,
+    "cache_read_tokens": 2381771,
+    "output_tokens": 9189,
+    "api_call_count": 36
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-14T07:36:40.570331Z",
+    "agent_lines": 59,
+    "human_added": 5,
+    "human_modified": 1,
+    "human_removed": 0,
+    "total_committed": 65,
+    "agent_percentage": 90.76923076923077
+  }
+}
