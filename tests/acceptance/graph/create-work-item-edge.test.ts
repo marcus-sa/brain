@@ -97,10 +97,22 @@ afterAll(async () => {
 
 // ── Helpers ──
 
-function makeTool() {
+/** Fake embedding model that returns a zero vector without hitting any API. */
+const stubEmbeddingModel = {
+  modelId: "stub-embedding",
+  provider: "stub",
+  specificationVersion: "v1",
+  maxEmbeddingsPerCall: 1,
+  supportsParallelCalls: false,
+  doEmbed: async ({ values }: { values: string[] }) => ({
+    embeddings: values.map(() => new Array(testAI.embeddingDimension).fill(0)),
+  }),
+};
+
+function makeTool(opts?: { stubEmbedding?: boolean }) {
   return createCreateWorkItemTool({
     surreal,
-    embeddingModel: testAI.embeddingModel as any,
+    embeddingModel: (opts?.stubEmbedding ? stubEmbeddingModel : testAI.embeddingModel) as any,
     embeddingDimension: testAI.embeddingDimension,
     extractionModelId: testAI.extractionModelId,
     extractionModel: testAI.extractionModel,
@@ -220,7 +232,10 @@ describe("create_work_item has_feature edge regression", () => {
   });
 
   it("race condition: parallel create project + feature fails without sequential dispatch", async () => {
-    const tool = makeTool();
+    // Use stub embedding to avoid concurrent OpenRouter API calls that can
+    // hang under rate-limiting, causing CI timeouts. This test validates DB
+    // race conditions, not embedding functionality.
+    const tool = makeTool({ stubEmbedding: true });
     const options = makeOptions();
 
     // Simulate parallel execution (what happens when LLM batches both calls)
