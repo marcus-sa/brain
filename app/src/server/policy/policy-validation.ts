@@ -78,6 +78,11 @@ function validateRule(rule: unknown, index: number): string[] {
 
   const errors: string[] = [];
 
+  // ID
+  if (typeof rule.id !== "string" || (rule.id as string).trim() === "") {
+    errors.push(`rule[${index}]: id must be a non-empty string`);
+  }
+
   // Effect
   if (!VALID_EFFECTS.has(rule.effect as string)) {
     errors.push(`rule[${index}]: effect must be "allow" or "deny"`);

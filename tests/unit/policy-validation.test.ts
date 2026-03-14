@@ -131,6 +131,37 @@ describe("validatePolicyCreateBody", () => {
   });
 
   // -------------------------------------------------------------------------
+  // Rule ID validation
+  // -------------------------------------------------------------------------
+
+  it("rejects rule with missing id", () => {
+    const { id: _, ...ruleWithoutId } = validRule;
+    const result = validatePolicyCreateBody({
+      title: "Valid Title",
+      description: "Valid description",
+      rules: [ruleWithoutId],
+    });
+
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.errors.some((e) => e.includes("id must be a non-empty string"))).toBe(true);
+    }
+  });
+
+  it("rejects rule with empty id", () => {
+    const result = validatePolicyCreateBody({
+      title: "Valid Title",
+      description: "Valid description",
+      rules: [{ ...validRule, id: "" }],
+    });
+
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.errors.some((e) => e.includes("id must be a non-empty string"))).toBe(true);
+    }
+  });
+
+  // -------------------------------------------------------------------------
   // Effect validation
   // -------------------------------------------------------------------------
 
