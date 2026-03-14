@@ -380,7 +380,7 @@ footer .right a:hover { color: var(--text-dim); }
 <div class="diagram-wrap reveal">
   <div class="diagram">
     <div class="diagram-label">Architecture</div>
-    <div class="d-row"><div class="d-tag">Human</div><div class="d-boxes"><div class="d-box h">Web Chat</div><div class="d-box h">Feed</div><div class="d-box h">Graph View</div><div class="d-box h">Learning Library</div><div class="d-box h">Terminal</div></div></div>
+    <div class="d-row"><div class="d-tag">Human</div><div class="d-boxes"><div class="d-box h">Web Chat</div><div class="d-box h">Feed</div><div class="d-box h">Graph View</div><div class="d-box h">Learning Library</div><div class="d-box h">Policy Management</div><div class="d-box h">Terminal</div></div></div>
     <div class="d-arrow">↕</div>
     <div class="d-row"><div class="d-tag">Agents</div><div class="d-boxes"><div class="d-box a">Architect</div><div class="d-box a">Strategist</div><div class="d-box a">Management</div><div class="d-box a">Coding · MCP</div><div class="d-box a">Observer</div></div></div>
     <div class="d-arrow">↕</div>
@@ -619,7 +619,7 @@ footer .right a:hover { color: var(--text-dim); }
     </div>
     <div class="concept">
       <h3>⛊ Policies</h3>
-      <p>Deterministic governance rules stored as graph nodes, not prompt text. Agents evaluate intents against policy constraints before acting. Update one node to change what every agent is allowed to do — no prompt rewriting.</p>
+      <p>Deterministic governance rules stored as graph nodes, not prompt text. Policies follow a lifecycle — draft, activate, deprecate — with version chains and atomic supersede. The Policy Management UI lets you create, version, diff, and trace policies. Agents evaluate intents against policy constraints before acting.</p>
     </div>
   </div>
 </section>
@@ -714,7 +714,7 @@ footer .right a:hover { color: var(--text-dim); }
     </div>
     <div class="concept">
       <h3>Policy-as-graph</h3>
-      <p>Governance rules are structured nodes, not prompt instructions. Each policy carries typed rules, scopes, and approval requirements. The Authorizer evaluates intents against the policy graph before minting tokens — deterministic, auditable, and updateable without touching a single prompt.</p>
+      <p>Governance rules are versioned graph nodes, not prompt instructions. Each policy carries typed rules, scopes, and approval requirements with a full version chain. Create, activate, deprecate, and diff policies through a dedicated management UI. The Authorizer evaluates intents against the policy graph before minting tokens — deterministic, auditable, and updateable without touching a single prompt.</p>
     </div>
     <div class="concept">
       <h3>Eval-ready metrics</h3>
