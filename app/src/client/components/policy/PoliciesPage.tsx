@@ -1,6 +1,7 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { type PolicyListItem, type PolicyStatus, usePolicies } from "../../hooks/use-policies";
+import { CreatePolicyDialog } from "./CreatePolicyDialog";
 
 const ALL_STATUSES: PolicyStatus[] = ["draft", "testing", "active", "deprecated", "superseded"];
 
@@ -107,6 +108,7 @@ function StatusFilter({
 
 export function PoliciesPage() {
   const { policies, isLoading, error, filters, setFilters } = usePolicies();
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const handleStatusChange = useCallback(
     (status?: PolicyStatus) => {
@@ -115,14 +117,23 @@ export function PoliciesPage() {
     [filters, setFilters],
   );
 
+  const handleOpenDialog = useCallback(() => setDialogOpen(true), []);
+  const handleCloseDialog = useCallback(() => setDialogOpen(false), []);
+
   return (
     <section className="policies-page">
       <div className="policies-page__header">
         <h1>Policies</h1>
-        <button type="button" className="policies-page__create-btn" disabled>
+        <button
+          type="button"
+          className="policies-page__create-btn"
+          onClick={handleOpenDialog}
+        >
           Create Policy
         </button>
       </div>
+
+      <CreatePolicyDialog open={dialogOpen} onClose={handleCloseDialog} />
 
       <StatusFilter
         selectedStatus={filters.status}
