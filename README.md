@@ -26,7 +26,7 @@ Why a graph, not a message bus. Most platforms try "agent swarms" — agents mes
 
 ```text
 Human Layer
-  → Web Chat / Feed / Graph View / Learning Library / Terminal
+  → Web Chat / Feed / Graph View / Learning Library / Policy Management / Terminal
 
 Agent Layer
   → Architect / Strategist / Management / Coding (MCP) / Design Partner / Observer
@@ -91,7 +91,7 @@ No agent messages another agent. They write structured signals to the knowledge 
 - **Identity** — One person across all tools. Your Slack, GitHub, and terminal sessions all resolve to the same identity.
 - **Agent Sessions** — Every session is remembered. The next agent knows what the last one did.
 - **Traces** — Every agent execution is a graph-native call tree. Subagent spawns, tool calls, and decisions form a hierarchical trace you can traverse, query, and audit. Forensic debugging is a graph query, not grep.
-- **Policies** — Deterministic governance rules stored as graph nodes, not prompt text. Each policy carries typed rules, scopes, and approval requirements. The Authorizer evaluates intents against the policy graph before minting tokens — no prompt rewriting needed.
+- **Policies** — Deterministic governance rules stored as graph nodes, not prompt text. Each policy carries typed rules, scopes, and approval requirements. Policies follow a lifecycle (`draft` → `active` → `deprecated`) with version chains — create a new version and the previous one is superseded atomically. The Policy Management UI lets you create, activate, deprecate, version, diff, and trace policies. The Authorizer evaluates intents against the policy graph before minting tokens — no prompt rewriting needed.
 
 ## Reliability: Solving the Three Drifts
 
@@ -108,7 +108,7 @@ Most autonomous platforms are black boxes. Brain is a signed logic trace. Every 
 - **Governance telemetry** — Every decision is a node with a UUID, author, timestamp, and reasoning. Auditors can query the graph directly.
 - **Signed intent chains** — When an agent spends money or merges code, the graph records which intent authorized it, which authority scope permitted it, and which human approved it.
 - **Hierarchical traces** — Agent executions are graph-native call trees. A subagent spawn becomes a root trace; each tool call, message, and decision is a child node. Traverse the full execution path with a graph query — from intent to final action.
-- **Policy-as-graph** — Governance rules are structured nodes with typed rules, scopes, and approval requirements. The Authorizer evaluates intents against the policy graph before minting tokens — deterministic, auditable, and updateable without touching a single prompt.
+- **Policy-as-graph** — Governance rules are versioned graph nodes with typed rules, scopes, and approval requirements. Policies follow a lifecycle with version chains — create, activate, deprecate, and diff through a dedicated management UI. The Authorizer evaluates intents against the policy graph before minting tokens — deterministic, auditable, and updateable without touching a single prompt.
 - **The "Judge" pattern** — High-stakes actions go through an Authorizer Agent that validates intents against policy constraints before minting scoped tokens. The worker never sees master keys.
 
 ## Open Source
@@ -250,6 +250,13 @@ Open `http://localhost:3000`.
 - `POST /api/workspaces/:workspaceId/learnings/:id/approve` approve a proposed learning
 - `POST /api/workspaces/:workspaceId/learnings/:id/dismiss` dismiss a proposed learning
 - `POST /api/workspaces/:workspaceId/learnings/:id/deactivate` deactivate an active learning
+- `GET /api/workspaces/:workspaceId/policies` list policies (filterable by status)
+- `POST /api/workspaces/:workspaceId/policies` create a draft policy
+- `GET /api/workspaces/:workspaceId/policies/:id` policy detail with edges and version chain
+- `POST /api/workspaces/:workspaceId/policies/:id/activate` activate a draft policy
+- `POST /api/workspaces/:workspaceId/policies/:id/deprecate` deprecate an active policy
+- `POST /api/workspaces/:workspaceId/policies/:id/versions` create a new version (supersede chain)
+- `GET /api/workspaces/:workspaceId/policies/:id/versions` version history
 - `POST /api/workspaces/:workspaceId/objectives` create an objective
 - `GET /api/workspaces/:workspaceId/objectives` list objectives
 - `GET /api/workspaces/:workspaceId/objectives/:id` get objective detail
@@ -316,9 +323,10 @@ app/
   server.ts                     # Bun entrypoint
   src/client/                   # chat/feed/graph/learning-library UI
   src/server/
-    observer/                   # graph scanning, LLM verification, peer review, synthesis
+    observer/                   # graph scanning, LLM verification, peer review, learning diagnosis
     agents/observer/            # observer agent orchestration + prompt
     learning/                   # learning CRUD, collision detection, pattern detection
+    policy/                     # policy CRUD, validation, versioning, lifecycle
     objective/                  # objective CRUD, alignment evaluator, progress tracking
     behavior/                   # behavior telemetry, scorer, definitions, trend analysis
     chat/                       # chat agent, tools, context

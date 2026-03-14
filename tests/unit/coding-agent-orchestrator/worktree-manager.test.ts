@@ -79,22 +79,49 @@ describe("Worktree Manager: createWorktree", () => {
     }
   });
 
-  test("invokes git worktree add with correct arguments", async () => {
+  test("invokes git worktree add without unconditional prune", async () => {
     const { exec, calls } = createShellStub();
 
     await createWorktree(exec, "/repo", "fix-login-bug");
 
+    // On success, only the add command is issued — no upfront prune.
     expect(calls.length).toBe(1);
-    const call = calls[0];
-    expect(call.command).toBe("git");
-    expect(call.args).toEqual([
+    expect(calls[0].command).toBe("git");
+    expect(calls[0].args).toEqual([
       "worktree",
       "add",
       "-b",
       "agent/fix-login-bug",
       ".brain/worktrees/agent-fix-login-bug",
     ]);
-    expect(call.cwd).toBe("/repo");
+    expect(calls[0].cwd).toBe("/repo");
+  });
+
+  test("prunes and retries when initial add fails for non-exists reason", async () => {
+    let addCallCount = 0;
+    const calls: ShellCall[] = [];
+    const exec: ShellExec = async (command, args, cwd) => {
+      calls.push({ command, args, cwd });
+      // Fail the first worktree add, succeed the retry after prune
+      if (args[0] === "worktree" && args[1] === "add") {
+        addCallCount++;
+        if (addCallCount === 1) {
+          return { exitCode: 128, stdout: "", stderr: "fatal: stale worktree entry" };
+        }
+      }
+      return { exitCode: 0, stdout: "", stderr: "" };
+    };
+
+    const result = await createWorktree(exec, "/repo", "fix-login-bug");
+
+    expect(result.ok).toBe(true);
+    // 3 calls: failed add, prune, successful retry add
+    expect(calls.length).toBe(3);
+    expect(calls[0].args[0]).toBe("worktree");
+    expect(calls[0].args[1]).toBe("add");
+    expect(calls[1].args).toEqual(["worktree", "prune"]);
+    expect(calls[2].args[0]).toBe("worktree");
+    expect(calls[2].args[1]).toBe("add");
   });
 
   test("returns error when worktree already exists", async () => {

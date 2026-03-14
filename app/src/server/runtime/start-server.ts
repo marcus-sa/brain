@@ -36,6 +36,7 @@ import { createBridgeExchangeHandler } from "../oauth/bridge";
 import { RecordId } from "surrealdb";
 import { createObserverRouteHandler, createGraphScanRouteHandler } from "../observer/observer-route";
 import { createLearningRouteHandlers } from "../learning/learning-route";
+import { createPolicyRouteHandlers } from "../policy/policy-route";
 import { createObjectiveRouteHandlers } from "../objective/objective-route";
 import { createBehaviorRouteHandlers } from "../behavior/behavior-route";
 
@@ -72,6 +73,7 @@ export function createBrainServer(deps: ServerDependencies): ReturnType<typeof B
   const observerHandler = createObserverRouteHandler(deps);
   const graphScanHandler = createGraphScanRouteHandler(deps);
   const learningHandlers = createLearningRouteHandlers(deps);
+  const policyHandlers = createPolicyRouteHandlers(deps);
   const objectiveHandlers = createObjectiveRouteHandlers(deps);
   const behaviorHandlers = createBehaviorRouteHandlers(deps);
 
@@ -205,6 +207,71 @@ export function createBrainServer(deps: ServerDependencies): ReturnType<typeof B
           (request) => learningHandlers.handleAction(
             request.params.workspaceId,
             request.params.learningId,
+            request,
+          ),
+        ),
+      },
+      "/api/workspaces/:workspaceId/policies": {
+        GET: withRequestLogging(
+          "GET /api/workspaces/:workspaceId/policies",
+          "GET",
+          (request) => policyHandlers.handleList(request.params.workspaceId, request),
+        ),
+        POST: withRequestLogging(
+          "POST /api/workspaces/:workspaceId/policies",
+          "POST",
+          (request) => policyHandlers.handleCreate(request.params.workspaceId, request),
+        ),
+      },
+      "/api/workspaces/:workspaceId/policies/:policyId": {
+        GET: withRequestLogging(
+          "GET /api/workspaces/:workspaceId/policies/:policyId",
+          "GET",
+          (request) => policyHandlers.handleDetail(
+            request.params.workspaceId,
+            request.params.policyId,
+            request,
+          ),
+        ),
+      },
+      "/api/workspaces/:workspaceId/policies/:policyId/activate": {
+        PATCH: withRequestLogging(
+          "PATCH /api/workspaces/:workspaceId/policies/:policyId/activate",
+          "PATCH",
+          (request) => policyHandlers.handleActivate(
+            request.params.workspaceId,
+            request.params.policyId,
+            request,
+          ),
+        ),
+      },
+      "/api/workspaces/:workspaceId/policies/:policyId/deprecate": {
+        PATCH: withRequestLogging(
+          "PATCH /api/workspaces/:workspaceId/policies/:policyId/deprecate",
+          "PATCH",
+          (request) => policyHandlers.handleDeprecate(
+            request.params.workspaceId,
+            request.params.policyId,
+            request,
+          ),
+        ),
+      },
+      "/api/workspaces/:workspaceId/policies/:policyId/versions": {
+        GET: withRequestLogging(
+          "GET /api/workspaces/:workspaceId/policies/:policyId/versions",
+          "GET",
+          (request) => policyHandlers.handleVersionHistory(
+            request.params.workspaceId,
+            request.params.policyId,
+            request,
+          ),
+        ),
+        POST: withRequestLogging(
+          "POST /api/workspaces/:workspaceId/policies/:policyId/versions",
+          "POST",
+          (request) => policyHandlers.handleCreateVersion(
+            request.params.workspaceId,
+            request.params.policyId,
             request,
           ),
         ),
