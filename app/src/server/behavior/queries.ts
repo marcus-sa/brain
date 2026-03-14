@@ -24,6 +24,8 @@ export type BehaviorInput = {
   sourceTelemetry: Record<string, unknown>;
   workspaceId: string;
   sessionId?: string;
+  definitionId?: string;
+  definitionVersion?: number;
 };
 
 export type BehaviorRow = {
@@ -73,6 +75,14 @@ export async function createBehavior(
 
   if (input.sessionId) {
     content.session = new RecordId("agent_session", input.sessionId);
+  }
+
+  if (input.definitionId) {
+    content.definition = new RecordId("behavior_definition", input.definitionId);
+  }
+
+  if (input.definitionVersion !== undefined) {
+    content.definition_version = input.definitionVersion;
   }
 
   await surreal.query(`CREATE $behavior CONTENT $content;`, {

@@ -46,5 +46,30 @@ events:
   s: EXECUTED
   sid: 01-02
   t: '2026-03-14T07:57:16Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-03-14T07:57:58Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 01-03
+  t: '2026-03-14T08:01:23Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 01-03
+  t: '2026-03-14T08:01:24Z'
+- d: 'NOT_APPLICABLE: pure HTTP wiring with no domain logic to unit test'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 01-03
+  t: '2026-03-14T08:01:28Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 01-03
+  t: '2026-03-14T08:01:29Z'
 project_id: dynamic-behaviors
 schema_version: '3.0'

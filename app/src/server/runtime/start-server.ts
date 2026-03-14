@@ -247,6 +247,30 @@ export function createBrainServer(deps: ServerDependencies): ReturnType<typeof B
           (request) => behaviorHandlers.handleList(request.params.workspaceId, request),
         ),
       },
+      "/api/workspaces/:workspaceId/behavior-definitions": {
+        POST: withRequestLogging(
+          "POST /api/workspaces/:workspaceId/behavior-definitions",
+          "POST",
+          (request) => behaviorHandlers.handleCreateDefinition(request.params.workspaceId, request),
+        ),
+        GET: withRequestLogging(
+          "GET /api/workspaces/:workspaceId/behavior-definitions",
+          "GET",
+          (request) => behaviorHandlers.handleListDefinitions(request.params.workspaceId, request),
+        ),
+      },
+      "/api/workspaces/:workspaceId/behavior-definitions/:definitionId": {
+        GET: withRequestLogging(
+          "GET /api/workspaces/:workspaceId/behavior-definitions/:definitionId",
+          "GET",
+          (request) => behaviorHandlers.handleGetDefinition(request.params.workspaceId, request.params.definitionId),
+        ),
+        PUT: withRequestLogging(
+          "PUT /api/workspaces/:workspaceId/behavior-definitions/:definitionId",
+          "PUT",
+          (request) => behaviorHandlers.handleUpdateDefinition(request.params.workspaceId, request.params.definitionId, request),
+        ),
+      },
       "/api/workspaces/:workspaceId/feed": {
         GET: withRequestLogging(
           "GET /api/workspaces/:workspaceId/feed",
