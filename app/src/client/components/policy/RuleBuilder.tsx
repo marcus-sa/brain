@@ -3,7 +3,56 @@
  *
  * Each rule has a condition (field/operator/value), effect (allow/deny), and priority.
  * Pure state transformations are extracted as standalone functions.
+ * Field autocomplete is sourced from IntentEvaluationContext shape.
  */
+
+import { useState, useRef, useEffect, useCallback } from "react";
+
+// ---------------------------------------------------------------------------
+// Known fields from IntentEvaluationContext
+// ---------------------------------------------------------------------------
+
+export type FieldType = "string" | "number";
+
+export type FieldSuggestion = {
+  path: string;
+  type: FieldType;
+  description: string;
+};
+
+export const KNOWN_FIELDS: FieldSuggestion[] = [
+  { path: "goal", type: "string", description: "Intent goal statement" },
+  { path: "reasoning", type: "string", description: "Intent reasoning" },
+  { path: "priority", type: "number", description: "Intent priority level" },
+  { path: "action_spec.action", type: "string", description: "Action to perform" },
+  { path: "action_spec.provider", type: "string", description: "Service provider" },
+  { path: "action_spec.tool", type: "string", description: "Tool identifier" },
+  { path: "budget_limit.amount", type: "number", description: "Budget amount limit" },
+  { path: "budget_limit.currency", type: "string", description: "Budget currency code" },
+  { path: "authorization_details.type", type: "string", description: "Authorization type" },
+  { path: "requester_type", type: "string", description: "Type of requester" },
+  { path: "requester_role", type: "string", description: "Role of requester" },
+];
+
+// ---------------------------------------------------------------------------
+// Pure functions: autocomplete filtering
+// ---------------------------------------------------------------------------
+
+/** Pure: filter known fields by prefix match on path. */
+export function filterFields(query: string, knownFields: FieldSuggestion[]): FieldSuggestion[] {
+  if (query.length === 0) return knownFields;
+  const lower = query.toLowerCase();
+  return knownFields.filter((f) => f.path.toLowerCase().includes(lower));
+}
+
+/** Pure: look up the field type for a known field path. */
+export function lookupFieldType(fieldPath: string, knownFields: FieldSuggestion[]): FieldType | undefined {
+  return knownFields.find((f) => f.path === fieldPath)?.type;
+}
+
+// ---------------------------------------------------------------------------
+// Pure functions: operator filtering by field type
+// ---------------------------------------------------------------------------
 
 const OPERATORS = [
   { value: "eq", label: "equals" },
@@ -16,6 +65,42 @@ const OPERATORS = [
   { value: "not_in", label: "not in" },
   { value: "exists", label: "exists" },
 ] as const;
+
+const STRING_OPERATORS: ReadonlySet<string> = new Set(["eq", "neq", "in", "not_in", "exists"]);
+const NUMBER_OPERATORS: ReadonlySet<string> = new Set(["eq", "neq", "gt", "gte", "lt", "lte", "exists"]);
+
+/** Pure: return operators applicable to the given field type. */
+export function getOperatorsForType(fieldType?: FieldType) {
+  if (fieldType === "string") return OPERATORS.filter((op) => STRING_OPERATORS.has(op.value));
+  if (fieldType === "number") return OPERATORS.filter((op) => NUMBER_OPERATORS.has(op.value));
+  return [...OPERATORS];
+}
+
+// ---------------------------------------------------------------------------
+// Pure functions: human-readable rule preview
+// ---------------------------------------------------------------------------
+
+const OPERATOR_DISPLAY: Record<string, string> = {
+  eq: "equals",
+  neq: "does not equal",
+  gt: ">",
+  gte: ">=",
+  lt: "<",
+  lte: "<=",
+  in: "is in",
+  not_in: "is not in",
+  exists: "exists",
+};
+
+/** Pure: format a rule as a human-readable preview string. */
+export function formatRulePreview(field: string, operator: string, value: string, effect: string): string {
+  if (!field) return "";
+  const effectLabel = effect === "deny" ? "Deny" : "Allow";
+  const operatorLabel = OPERATOR_DISPLAY[operator] ?? operator;
+  if (operator === "exists") return `${effectLabel} when ${field} ${operatorLabel}`;
+  if (!value) return `${effectLabel} when ${field} ${operatorLabel} ...`;
+  return `${effectLabel} when ${field} ${operatorLabel} ${value}`;
+}
 
 const EFFECTS = [
   { value: "allow", label: "Allow" },
@@ -87,6 +172,68 @@ type RuleBuilderProps = {
   onRulesChange: (rules: RuleEntry[]) => void;
 };
 
+function FieldAutocomplete({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const suggestions = filterFields(value, KNOWN_FIELDS);
+
+  const handleClickOutside = useCallback((e: MouseEvent) => {
+    if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      setShowSuggestions(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [handleClickOutside]);
+
+  const handleSelect = (path: string) => {
+    onChange(path);
+    setShowSuggestions(false);
+  };
+
+  return (
+    <div className="rule-builder__autocomplete" ref={containerRef}>
+      <input
+        type="text"
+        className="rule-builder__input rule-builder__input--field"
+        placeholder="Field (e.g. goal)"
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setShowSuggestions(true);
+        }}
+        onFocus={() => setShowSuggestions(true)}
+      />
+      {showSuggestions && suggestions.length > 0 && (
+        <ul className="rule-builder__suggestions">
+          {suggestions.map((s) => (
+            <li key={s.path}>
+              <button
+                type="button"
+                className="rule-builder__suggestion-item"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => handleSelect(s.path)}
+              >
+                <span className="rule-builder__suggestion-path">{s.path}</span>
+                <span className="rule-builder__suggestion-type">{s.type}</span>
+                <span className="rule-builder__suggestion-desc">{s.description}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function RuleRow({
   rule,
   onUpdate,
@@ -98,65 +245,71 @@ function RuleRow({
   onRemove: () => void;
   canRemove: boolean;
 }) {
+  const fieldType = lookupFieldType(rule.field, KNOWN_FIELDS);
+  const availableOperators = getOperatorsForType(fieldType);
+  const preview = formatRulePreview(rule.field, rule.operator, rule.value, rule.effect);
+
   return (
-    <div className="rule-builder__row">
-      <input
-        type="text"
-        className="rule-builder__input rule-builder__input--field"
-        placeholder="Field (e.g. action)"
-        value={rule.field}
-        onChange={(e) => onUpdate("field", e.target.value)}
-      />
+    <div className="rule-builder__row-container">
+      <div className="rule-builder__row">
+        <FieldAutocomplete
+          value={rule.field}
+          onChange={(v) => onUpdate("field", v)}
+        />
 
-      <select
-        className="rule-builder__select rule-builder__select--operator"
-        value={rule.operator}
-        onChange={(e) => onUpdate("operator", e.target.value as RuleOperator)}
-      >
-        {OPERATORS.map((op) => (
-          <option key={op.value} value={op.value}>
-            {op.label}
-          </option>
-        ))}
-      </select>
+        <select
+          className="rule-builder__select rule-builder__select--operator"
+          value={rule.operator}
+          onChange={(e) => onUpdate("operator", e.target.value as RuleOperator)}
+        >
+          {availableOperators.map((op) => (
+            <option key={op.value} value={op.value}>
+              {op.label}
+            </option>
+          ))}
+        </select>
 
-      <input
-        type="text"
-        className="rule-builder__input rule-builder__input--value"
-        placeholder="Value"
-        value={rule.value}
-        onChange={(e) => onUpdate("value", e.target.value)}
-      />
+        <input
+          type={fieldType === "number" ? "number" : "text"}
+          className="rule-builder__input rule-builder__input--value"
+          placeholder="Value"
+          value={rule.value}
+          onChange={(e) => onUpdate("value", e.target.value)}
+        />
 
-      <select
-        className="rule-builder__select rule-builder__select--effect"
-        value={rule.effect}
-        onChange={(e) => onUpdate("effect", e.target.value as RuleEffect)}
-      >
-        {EFFECTS.map((eff) => (
-          <option key={eff.value} value={eff.value}>
-            {eff.label}
-          </option>
-        ))}
-      </select>
+        <select
+          className="rule-builder__select rule-builder__select--effect"
+          value={rule.effect}
+          onChange={(e) => onUpdate("effect", e.target.value as RuleEffect)}
+        >
+          {EFFECTS.map((eff) => (
+            <option key={eff.value} value={eff.value}>
+              {eff.label}
+            </option>
+          ))}
+        </select>
 
-      <input
-        type="number"
-        className="rule-builder__input rule-builder__input--priority"
-        placeholder="Priority"
-        value={rule.priority}
-        onChange={(e) => onUpdate("priority", Number.parseInt(e.target.value, 10) || 0)}
-      />
+        <input
+          type="number"
+          className="rule-builder__input rule-builder__input--priority"
+          placeholder="Priority"
+          value={rule.priority}
+          onChange={(e) => onUpdate("priority", Number.parseInt(e.target.value, 10) || 0)}
+        />
 
-      <button
-        type="button"
-        className="rule-builder__remove-btn"
-        onClick={onRemove}
-        disabled={!canRemove}
-        title="Remove rule"
-      >
-        Remove
-      </button>
+        <button
+          type="button"
+          className="rule-builder__remove-btn"
+          onClick={onRemove}
+          disabled={!canRemove}
+          title="Remove rule"
+        >
+          Remove
+        </button>
+      </div>
+      {preview && (
+        <div className="rule-builder__preview">{preview}</div>
+      )}
     </div>
   );
 }

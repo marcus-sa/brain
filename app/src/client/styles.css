@@ -3220,6 +3220,82 @@ body {
   cursor: not-allowed;
 }
 
+.rule-builder__row-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.rule-builder__autocomplete {
+  position: relative;
+  min-width: 0;
+}
+
+.rule-builder__suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  margin: 0.125rem 0 0;
+  padding: 0.25rem 0;
+  list-style: none;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.rule-builder__suggestion-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.375rem 0.5rem;
+  border: none;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 0.8125rem;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.rule-builder__suggestion-item:hover {
+  background: var(--hover);
+}
+
+.rule-builder__suggestion-path {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.rule-builder__suggestion-type {
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+  background: var(--hover);
+  padding: 0.0625rem 0.375rem;
+  border-radius: var(--radius-xs);
+  white-space: nowrap;
+}
+
+.rule-builder__suggestion-desc {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rule-builder__preview {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  font-style: italic;
+  padding: 0 0.25rem 0.25rem;
+}
+
 /* ------------------------------------------------------------------ */
 /* Policy detail page                                                  */
 /* ------------------------------------------------------------------ */
