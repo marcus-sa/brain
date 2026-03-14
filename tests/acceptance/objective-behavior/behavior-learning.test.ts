@@ -27,6 +27,11 @@ import {
   analyzeTrend,
   type ScorePoint,
 } from "../../../app/src/server/behavior/trends";
+import {
+  queryWorkspaceBehaviorTrends,
+  proposeBehaviorLearning,
+  checkBehaviorLearningRateLimit,
+} from "../../../app/src/server/observer/learning-diagnosis";
 
 const getRuntime = setupObjectiveBehaviorSuite("behavior_learning");
 
@@ -113,8 +118,8 @@ describe("Happy Path: Effective learning detected by Observer (US-OB-07)", () =>
   }, 60_000);
 });
 
-describe("Happy Path: Learning proposed with correct metadata (US-OB-07)", () => {
-  it("learning proposal record has expected fields for observer-sourced learning", async () => {
+describe("Happy Path: Learning proposed with correct metadata (US-OB-07 #3)", () => {
+  it("learning proposal contains correct observer metadata and behavior evidence links", async () => {
     const { surreal } = getRuntime();
 
     // Given behavior drift is detected for Coder-Beta
@@ -130,43 +135,53 @@ describe("Happy Path: Learning proposed with correct metadata (US-OB-07)", () =>
       "Coder-Beta",
     );
 
-    await createBehaviorTrend(surreal, workspaceId, agentId, "Security_First", [
+    const { behaviorIds } = await createBehaviorTrend(surreal, workspaceId, agentId, "Security_First", [
       0.55, 0.60, 0.58,
     ]);
 
-    // When the Observer proposes a learning (simulated via direct DB insert)
-    const learningId = `learning-${crypto.randomUUID()}`;
-    const learningRecord = new RecordId("learning", learningId);
     const workspaceRecord = new RecordId("workspace", workspaceId);
 
-    await surreal.query(`CREATE $learning CONTENT $content;`, {
-      learning: learningRecord,
-      content: {
-        text: "Always address CVE advisories present in your context window before proceeding with feature work",
-        learning_type: "instruction",
-        status: "pending_approval",
-        source: "agent",
-        suggested_by: "observer",
-        priority: "high",
-        target_agents: [agentId],
-        workspace: workspaceRecord,
-        created_at: new Date(),
-      },
+    // When the Observer proposes a learning from the behavior trend
+    const result = await proposeBehaviorLearning({
+      surreal,
+      workspaceRecord,
+      identityId: agentId,
+      metricType: "Security_First",
+      behaviorIds,
+      trendPattern: "drift",
+      now: new Date(),
     });
 
-    // Then the learning has correct observer metadata
+    // Then the learning was created
+    expect(result.created).toBe(true);
+
+    if (!result.created) return; // type narrowing
+
+    // And the learning has correct observer metadata
     const [rows] = (await surreal.query(
       `SELECT * FROM $learning;`,
-      { learning: learningRecord },
+      { learning: result.learningRecord },
     )) as [Array<Record<string, unknown>>];
 
     const learning = rows[0];
     expect(learning.source).toBe("agent");
     expect(learning.suggested_by).toBe("observer");
     expect(learning.status).toBe("pending_approval");
-    expect(learning.learning_type).toBe("instruction");
-    expect(learning.priority).toBe("high");
-    expect(learning.target_agents).toContain(agentId);
+    expect(learning.learning_type).toBe("constraint");
+
+    // And behavior records are linked as learning_evidence
+    const [evidenceRows] = (await surreal.query(
+      `SELECT * FROM learning_evidence WHERE in = $learning;`,
+      { learning: result.learningRecord },
+    )) as [Array<{ in: RecordId; out: RecordId }>];
+
+    expect(evidenceRows.length).toBeGreaterThanOrEqual(1);
+
+    // Verify at least one evidence link points to a behavior record
+    const behaviorEvidence = evidenceRows.filter(
+      (e) => e.out.table.name === "behavior",
+    );
+    expect(behaviorEvidence.length).toBeGreaterThanOrEqual(1);
   }, 60_000);
 });
 
@@ -209,11 +224,11 @@ describe("Error Path: Ineffective learning surfaced for review (US-OB-07)", () =
   }, 60_000);
 });
 
-describe("Boundary: Rate limit prevents excessive learning proposals (US-OB-07)", () => {
-  it("more than 5 learnings from observer for same agent within 7 days is detectable", async () => {
+describe("Boundary: Rate limit prevents excessive learning proposals (US-OB-07 #5)", () => {
+  it("rate limit blocks proposal when observer already proposed 5 learnings in 7 days", async () => {
     const { surreal } = getRuntime();
 
-    // Given the Observer has already proposed 5 learnings for Coder-Alpha this week
+    // Given the Observer has already proposed 5 learnings this week
     const { workspaceId } = await setupObjectiveWorkspace(
       getRuntime().baseUrl,
       surreal,
@@ -247,25 +262,35 @@ describe("Boundary: Rate limit prevents excessive learning proposals (US-OB-07)"
       });
     }
 
-    // When checking the count of recent observer proposals for this agent
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    const [countRows] = (await surreal.query(
-      `SELECT count() AS count FROM learning
-       WHERE workspace = $ws
-         AND source = "agent"
-         AND suggested_by = "observer"
-         AND created_at > $since
-       GROUP ALL;`,
-      { ws: workspaceRecord, since: sevenDaysAgo },
-    )) as [Array<{ count: number }>];
+    // When the rate limit guard is checked
+    const rateLimitResult = await checkBehaviorLearningRateLimit({
+      surreal,
+      workspaceRecord,
+    });
 
-    const recentCount = countRows?.[0]?.count ?? 0;
+    // Then the rate limit blocks the proposal
+    expect(rateLimitResult.blocked).toBe(true);
+    expect(rateLimitResult.count).toBeGreaterThanOrEqual(5);
 
-    // Then the rate limit threshold of 5 is reached
-    expect(recentCount).toBeGreaterThanOrEqual(5);
+    // And proposeBehaviorLearning also returns rate_limited
+    const { behaviorIds } = await createBehaviorTrend(surreal, workspaceId, agentId, "TDD_Adherence", [
+      0.30, 0.35, 0.32,
+    ]);
 
-    // Note: In production, the Observer would skip the proposal and create
-    // an observation noting the pattern for human review instead
+    const proposalResult = await proposeBehaviorLearning({
+      surreal,
+      workspaceRecord,
+      identityId: agentId,
+      metricType: "TDD_Adherence",
+      behaviorIds,
+      trendPattern: "drift",
+      now: new Date(),
+    });
+
+    expect(proposalResult.created).toBe(false);
+    if (!proposalResult.created) {
+      expect(proposalResult.reason).toBe("rate_limited");
+    }
   }, 60_000);
 });
 
@@ -303,6 +328,47 @@ describe("Boundary: Single below-threshold session does not trigger learning (US
     expect(trend.pattern).toBe("insufficient_data");
     // And no drift is reported despite the low score
     expect(trend.belowThreshold).toBe(false);
+  }, 60_000);
+});
+
+describe("Happy Path: Behavior trends queried per identity and metric (US-OB-07)", () => {
+  it("queryWorkspaceBehaviorTrends returns trends grouped by identity and metric type", async () => {
+    const { surreal } = getRuntime();
+
+    const { workspaceId } = await setupObjectiveWorkspace(
+      getRuntime().baseUrl,
+      surreal,
+      `ws-trends-${crypto.randomUUID()}`,
+    );
+
+    const { identityId: agent1 } = await createAgentIdentity(surreal, workspaceId, "Coder-Alpha");
+    const { identityId: agent2 } = await createAgentIdentity(surreal, workspaceId, "Coder-Beta");
+
+    // Agent 1: drift in Security_First
+    await createBehaviorTrend(surreal, workspaceId, agent1, "Security_First", [0.55, 0.50, 0.48]);
+
+    // Agent 2: stable in TDD_Adherence
+    await createBehaviorTrend(surreal, workspaceId, agent2, "TDD_Adherence", [0.85, 0.88, 0.90]);
+
+    const workspaceRecord = new RecordId("workspace", workspaceId);
+
+    // When querying workspace behavior trends
+    const trends = await queryWorkspaceBehaviorTrends(surreal, workspaceRecord);
+
+    // Then we get trends grouped per identity+metric
+    expect(trends.length).toBeGreaterThanOrEqual(2);
+
+    const driftTrend = trends.find(
+      (t) => t.identityId === agent1 && t.metricType === "Security_First",
+    );
+    expect(driftTrend).toBeDefined();
+    expect(driftTrend!.trend.pattern).toBe("drift");
+
+    const stableTrend = trends.find(
+      (t) => t.identityId === agent2 && t.metricType === "TDD_Adherence",
+    );
+    expect(stableTrend).toBeDefined();
+    expect(stableTrend!.trend.pattern).toBe("stable");
   }, 60_000);
 });
 

@@ -17,7 +17,7 @@ import { createObservation, listWorkspaceOpenObservations, type ObserveTargetRec
 import { logInfo } from "../http/observability";
 import { detectContradictions, evaluateAnomalies, synthesizePatterns, type Anomaly, type AnomalyCandidate } from "./llm-synthesis";
 import { parseEntityRef } from "./evidence-validator";
-import { runDiagnosticClustering } from "./learning-diagnosis";
+import { runDiagnosticClustering, queryWorkspaceBehaviorTrends, proposeBehaviorLearning, checkBehaviorLearningRateLimit } from "./learning-diagnosis";
 
 type EmbeddingModel = Parameters<typeof embed>[0]["model"];
 
@@ -85,6 +85,7 @@ export type GraphScanResult = {
   learning_proposals_created: number;
   clusters_found: number;
   coverage_skips: number;
+  behavior_learning_proposals: number;
 };
 
 // ---------------------------------------------------------------------------
@@ -477,6 +478,7 @@ export async function runGraphScan(
     learning_proposals_created: 0,
     clusters_found: 0,
     coverage_skips: 0,
+    behavior_learning_proposals: 0,
   };
 
   // Load existing observations for deduplication
@@ -793,6 +795,54 @@ export async function runGraphScan(
     });
   } catch (error) {
     logInfo("observer.scan.diagnostic_error", "Diagnostic clustering failed, continuing scan", {
+      workspaceId: workspaceRecord.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  // 7. Behavior trend learning proposals: detect drift/flat patterns, propose learnings
+  try {
+    const rateLimitCheck = await checkBehaviorLearningRateLimit({
+      surreal,
+      workspaceRecord,
+    });
+
+    if (rateLimitCheck.blocked) {
+      logInfo("observer.scan.behavior_rate_limited", "Behavior learning proposals rate-limited", {
+        workspaceId: workspaceRecord.id,
+        recentProposalCount: rateLimitCheck.count,
+      });
+    } else {
+      const behaviorTrends = await queryWorkspaceBehaviorTrends(surreal, workspaceRecord);
+      const actionableTrends = behaviorTrends.filter(
+        (t) => t.trend.pattern === "drift" || (t.trend.pattern === "flat" && t.trend.belowThreshold),
+      );
+
+      for (const trend of actionableTrends) {
+        const proposalResult = await proposeBehaviorLearning({
+          surreal,
+          workspaceRecord,
+          identityId: trend.identityId,
+          metricType: trend.metricType,
+          behaviorIds: trend.behaviorIds,
+          trendPattern: trend.trend.pattern,
+          now: new Date(),
+        });
+
+        if (proposalResult.created) {
+          result.behavior_learning_proposals += 1;
+        }
+      }
+
+      logInfo("observer.scan.behavior_trends", "Behavior trend analysis completed", {
+        workspaceId: workspaceRecord.id,
+        totalTrends: behaviorTrends.length,
+        actionableTrends: actionableTrends.length,
+        proposalsCreated: result.behavior_learning_proposals,
+      });
+    }
+  } catch (error) {
+    logInfo("observer.scan.behavior_error", "Behavior trend analysis failed, continuing scan", {
       workspaceId: workspaceRecord.id,
       error: error instanceof Error ? error.message : String(error),
     });
